@@ -1,0 +1,170 @@
+import { Link, useRouter, useLocation } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { LayoutDashboard, Sparkles, Wallet, Receipt, Shield, LogOut, Bell, Plus, LifeBuoy, Wrench } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { getMyProfile } from "@/lib/wallet.functions";
+import { getUserCurrency } from "@/lib/geo.functions";
+import { cn } from "@/lib/utils";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { BrandMark } from "@/components/BrandMark";
+import type { ReactNode } from "react";
+
+export function AppLayout({ children }: { children: ReactNode }) {
+  const fetchProfile = useServerFn(getMyProfile);
+  const { data: profile } = useQuery({
+    queryKey: ["profile"],
+    queryFn: () => fetchProfile(),
+  });
+  const fetchCurrency = useServerFn(getUserCurrency);
+  const { data: ccy } = useQuery({
+    queryKey: ["user-currency"],
+    queryFn: () => fetchCurrency(),
+    staleTime: 30 * 60 * 1000,
+  });
+  const symbol = ccy?.symbol ?? "$";
+  const fx = ccy?.rate ?? 1;
+  const fmtBal = (usd: number) => `${symbol}${(usd * fx).toFixed(2)}`;
+  const router = useRouter();
+  const qc = useQueryClient();
+  const location = useLocation();
+
+  const handleSignOut = async () => {
+    await qc.cancelQueries();
+    qc.clear();
+    await supabase.auth.signOut();
+    router.navigate({ to: "/auth", replace: true });
+  };
+
+  const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/new-order", label: "New Order", icon: Sparkles },
+    { to: "/orders", label: "Orders", icon: Receipt },
+    { to: "/tools/store", label: "Tools Store", icon: Wrench },
+    { to: "/wallet", label: "Wallet", icon: Wallet },
+    { to: "/support", label: "Cases", icon: LifeBuoy },
+  ];
+  if (profile?.isAdmin) nav.push({ to: "/admin", label: "Admin", icon: Shield });
+
+  const initial = (profile?.full_name || profile?.username || "U").trim().charAt(0).toUpperCase();
+  const pageTitle =
+    nav.find((n) => location.pathname.startsWith(n.to))?.label ??
+    (location.pathname.startsWith("/admin") ? "Admin" : "Dashboard");
+
+  return (
+    <div className="min-h-screen bg-background">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/60 bg-sidebar lg:flex lg:flex-col">
+        <div className="flex h-16 items-center gap-2 border-b border-border/60 px-6">
+          <BrandMark size={36} />
+          <span className="text-lg font-bold tracking-tight">iGroBrand</span>
+        </div>
+        <nav className="flex-1 space-y-1 p-4">
+          {nav.map((item) => {
+            const Icon = item.icon;
+            const active = location.pathname.startsWith(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                  active
+                    ? "bg-primary/10 text-primary shadow-soft"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+                {item.label === "Admin" && (
+                  <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Admin</span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="border-t border-border/60 p-4">
+          <div className="mb-3 rounded-xl border border-border/60 p-3 shadow-soft" style={{ background: "var(--gradient-card)" }}>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Balance</p>
+            <p className="mt-1 text-xl font-bold tabular-nums text-gradient">
+              {fmtBal(Number(profile?.balance ?? 0))}
+            </p>
+            <Link to="/wallet" className="mt-2 inline-block text-xs font-semibold text-primary hover:underline">
+              + Top up
+            </Link>
+          </div>
+          <div className="mb-3 text-sm">
+            <p className="font-medium truncate">{profile?.full_name || profile?.username || "Member"}</p>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        </div>
+      </aside>
+      <div className="lg:pl-64">
+        {/* Top header — desktop & mobile */}
+        <header className="sticky top-0 z-30 grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/60 bg-background/80 px-3 backdrop-blur-xl sm:px-4 lg:flex lg:px-8">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 lg:hidden">
+              <BrandMark size={32} />
+              <span className="truncate text-sm font-semibold sm:text-base">{pageTitle}</span>
+            </div>
+            <div className="hidden min-w-0 lg:block">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">iGroBrand</p>
+              <h2 className="truncate text-lg font-semibold tracking-tight">{pageTitle}</h2>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <LanguageSwitcher />
+            <Link
+              to="/new-order"
+              className="hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 md:inline-flex"
+              style={{ background: "var(--gradient-accent)" }}
+            >
+              <Plus className="h-3.5 w-3.5" /> New order
+            </Link>
+            <Link
+              to="/wallet"
+              className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card px-2.5 py-1.5 text-[11px] font-semibold tabular-nums text-foreground shadow-soft transition hover:border-primary/40 sm:gap-1.5 sm:px-3 sm:text-xs"
+              title="Wallet balance"
+            >
+              <Wallet className="h-3.5 w-3.5 text-primary" />
+              {fmtBal(Number(profile?.balance ?? 0))}
+            </Link>
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="hidden h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground transition hover:text-foreground md:inline-flex"
+            >
+              <Bell className="h-4 w-4" />
+            </button>
+            <Link
+              to="/wallet"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-primary-foreground shadow-glow"
+              style={{ background: "var(--gradient-accent)" }}
+              aria-label="Account"
+            >
+              {initial}
+            </Link>
+          </div>
+        </header>
+        <nav className="flex gap-1 overflow-x-auto border-b border-border/60 bg-card px-3 py-2 sm:px-4 lg:hidden">
+          {nav.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="shrink-0 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent"
+              activeProps={{ className: "bg-accent text-accent-foreground" }}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <main className="px-4 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</main>
+      </div>
+    </div>
+  );
+}

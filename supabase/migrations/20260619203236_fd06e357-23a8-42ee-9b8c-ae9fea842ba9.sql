@@ -1,0 +1,6 @@
+
+ALTER TABLE public.services ALTER COLUMN provider_rate TYPE NUMERIC(18,4);
+ALTER TABLE public.services ALTER COLUMN rate TYPE NUMERIC(18,4);
+ALTER TABLE public.orders ALTER COLUMN charge TYPE NUMERIC(18,4);
+ALTER TABLE public.profiles ALTER COLUMN balance TYPE NUMERIC(18,4);
+ALTER TABLE public.transactions ALTER COLUMN amount TYPE NUMERIC(18,4);

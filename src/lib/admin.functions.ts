@@ -1,0 +1,123 @@
+import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+async function assertAdmin(context: { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string }) {
+  const { data, error } = await context.supabase.rpc("has_role", {
+    _user_id: context.userId,
+    _role: "admin",
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Forbidden");
+}
+
+export const adminListOrders = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context as never);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("orders")
+      .select("id, link, quantity, charge, status, provider_order_id, created_at, user_id, services(name, platform)")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    const userIds = Array.from(new Set(rows.map((r) => r.user_id)));
+    const { data: profiles } = await supabaseAdmin
+      .from("profiles")
+      .select("id, username, full_name")
+      .in("id", userIds);
+    const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+    return rows.map((r) => ({ ...r, profile: byId.get(r.user_id) ?? null }));
+  });
+
+export const adminStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context as never);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [users, services, orders, ordersFull] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
+      supabaseAdmin.from("services").select("id", { count: "exact", head: true }).eq("is_active", true),
+      supabaseAdmin.from("orders").select("id", { count: "exact", head: true }),
+      supabaseAdmin.from("orders").select("charge, quantity, services(provider_rate)"),
+    ]);
+    type OrderRow = { charge: number | string; quantity: number; services: { provider_rate: number | string } | null };
+    const rows = (ordersFull.data ?? []) as unknown as OrderRow[];
+    const totalEarned = rows.reduce((s, r) => s + Number(r.charge ?? 0), 0);
+    const totalSpent = rows.reduce((s, r) => {
+      const rate = Number(r.services?.provider_rate ?? 0);
+      return s + (Number(r.quantity) / 1000) * rate;
+    }, 0);
+    return {
+      users: users.count ?? 0,
+      services: services.count ?? 0,
+      orders: orders.count ?? 0,
+      revenue: +totalEarned.toFixed(2),
+      spent: +totalSpent.toFixed(2),
+      profit: +(totalEarned - totalSpent).toFixed(2),
+    };
+  });
+
+export const adminListUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context as never);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profiles, error } = await supabaseAdmin
+      .from("profiles")
+      .select("id, username, full_name, balance, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    const ids = (profiles ?? []).map((p) => p.id);
+    const { data: orderAgg } = await supabaseAdmin
+      .from("orders")
+      .select("user_id, charge")
+      .in("user_id", ids);
+    const agg = new Map<string, { count: number; spent: number }>();
+    for (const o of orderAgg ?? []) {
+      const cur = agg.get(o.user_id) ?? { count: 0, spent: 0 };
+      cur.count += 1;
+      cur.spent += Number(o.charge ?? 0);
+      agg.set(o.user_id, cur);
+    }
+    return (profiles ?? []).map((p) => ({
+      ...p,
+      orders: agg.get(p.id)?.count ?? 0,
+      spent: +(agg.get(p.id)?.spent ?? 0).toFixed(2),
+    }));
+  });
+
+export const adminUserOrders = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { userId: string }) => d)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context as never);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("orders")
+      .select("id, link, quantity, charge, status, created_at, services(name, platform)")
+      .eq("user_id", data.userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+// Bootstrap: lets the first signed-in user claim admin if no admin exists yet.
+export const claimFirstAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { count } = await supabaseAdmin
+      .from("user_roles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin");
+    if ((count ?? 0) > 0) throw new Error("Admin already exists. Ask an existing admin to grant access.");
+    const { error } = await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: context.userId, role: "admin" }, { onConflict: "user_id,role" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
