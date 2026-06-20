@@ -2,7 +2,6 @@ import { Link, useRouter, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { LayoutDashboard, Sparkles, Wallet, Receipt, Shield, LogOut, Bell, Plus, LifeBuoy, Wrench } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { getMyProfile } from "@/lib/wallet.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 import { cn } from "@/lib/utils";
@@ -32,7 +31,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const handleSignOut = async () => {
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
+    await fetch("/api/auth/logout", { method: "POST" });
     router.navigate({ to: "/auth", replace: true });
   };
 
