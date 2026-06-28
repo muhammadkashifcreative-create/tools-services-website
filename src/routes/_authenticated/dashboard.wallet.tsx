@@ -31,8 +31,12 @@ function WalletPage() {
   const { data: ccy } = useQuery({ queryKey: ["currency"], queryFn: () => fetchCcy() });
 
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const isHttps = typeof window === "undefined" || window.location.protocol === "https:" || window.location.hostname === "localhost";
+
   const fetchClientSecret = useCallback(async () => {
     setCheckoutError(null);
+    setCheckoutLoading(true);
     try {
       const res = await startCheckout({
         data: {
@@ -56,6 +60,8 @@ function WalletPage() {
       const msg = e instanceof Error ? e.message : "Payment session failed";
       setCheckoutError(msg);
       throw e;
+    } finally {
+      setCheckoutLoading(false);
     }
   }, [amount, startCheckout]);
 
@@ -132,7 +138,7 @@ function WalletPage() {
 
         {/* Inline Stripe checkout — renders below the form instead of in a popup */}
         {checkoutOpen && isStripeConfigured() && (
-          <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft">
+          <div className="mt-6 rounded-2xl border border-border/60 bg-card shadow-soft">
             <div className="border-b border-border/60 px-5 py-3 flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold">Complete payment</p>
@@ -142,12 +148,33 @@ function WalletPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="p-4">
-              {checkoutError ? (
+            <div className="p-4 min-h-75">
+              {!isHttps ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm">
+                  <p className="font-semibold text-amber-800">HTTPS required for payments</p>
+                  <p className="mt-1 text-xs text-amber-700">Stripe only works on secure connections. Please access this page over HTTPS.</p>
+                  <a
+                    href={`https://${window.location.host}${window.location.pathname}`}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                  >
+                    Switch to HTTPS →
+                  </a>
+                </div>
+              ) : checkoutError ? (
                 <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
                   <p className="font-semibold">Payment setup failed</p>
                   <p className="mt-1 text-xs">{checkoutError}</p>
-                  <button onClick={() => { setCheckoutError(null); setCheckoutOpen(false); }} className="mt-3 text-xs underline">Try again</button>
+                  <button
+                    onClick={() => { setCheckoutError(null); setCheckoutOpen(false); }}
+                    className="mt-3 text-xs underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : checkoutLoading ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <p className="text-sm">Setting up secure payment…</p>
                 </div>
               ) : (
               <EmbeddedCheckoutProvider
