@@ -18,6 +18,7 @@ import { getMyProfile } from "@/lib/wallet.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/tools/store")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Tools Store — Browse premium digital tools | Social Padu" },
