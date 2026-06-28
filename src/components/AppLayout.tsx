@@ -39,7 +39,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/new-order", label: "New Order", icon: Sparkles },
     { to: "/orders", label: "Orders", icon: Receipt },
-    { to: "/tools/store", label: "Tools Store", icon: Wrench },
     { to: "/wallet", label: "Wallet", icon: Wallet },
     { to: "/support", label: "Cases", icon: LifeBuoy },
   ];
