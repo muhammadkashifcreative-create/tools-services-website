@@ -35,19 +35,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
     router.navigate({ to: "/auth", replace: true });
   };
 
-  const mainNav: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  const subNav: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
     { to: "/new-order", label: "New Order", icon: Sparkles },
     { to: "/orders", label: "Orders", icon: Receipt },
     { to: "/wallet", label: "Wallet", icon: Wallet },
     { to: "/support", label: "Cases", icon: LifeBuoy },
   ];
 
+  const mainNav = [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }, ...subNav];
+
   const initial = (profile?.full_name || profile?.username || "U").trim().charAt(0).toUpperCase();
-  const allPaths = [...mainNav.map((n) => n.to), "/admin"];
   const pageTitle =
-    allPaths
-      .map((p) => ({ to: p, label: mainNav.find((n) => n.to === p)?.label ?? "Admin" }))
+    [...mainNav, { to: "/admin", label: "Admin" }]
       .find((n) => location.pathname.startsWith(n.to))?.label ?? "Dashboard";
 
   return (
@@ -57,28 +56,46 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <BrandMark size={36} />
           <span className="text-lg font-bold tracking-tight">Social Padu</span>
         </div>
-        <nav className="flex-1 space-y-1 p-4">
-          {mainNav.map((item) => {
-            const Icon = item.icon;
-            const active = location.pathname.startsWith(item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                  active
-                    ? "bg-primary/10 text-primary shadow-soft"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-0.5 p-4">
+          {/* Dashboard — top level */}
+          <Link
+            to="/dashboard"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all",
+              location.pathname === "/dashboard"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+            )}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Dashboard
+          </Link>
+
+          {/* Sub-pages indented under Dashboard */}
+          <div className="ml-3 mt-0.5 border-l-2 border-border/60 pl-3 space-y-0.5">
+            {subNav.map((item) => {
+              const Icon = item.icon;
+              const active = location.pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                    active
+                      ? "bg-primary/10 text-primary shadow-soft"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+
           {profile?.isAdmin && (
-            <div className="mt-1 pl-3 border-l-2 border-border/60">
+            <div className="mt-2 border-l-2 border-border/60 ml-3 pl-3">
               <Link
                 to="/admin"
                 className={cn(
@@ -165,7 +182,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
         <nav className="flex gap-1 overflow-x-auto border-b border-border/60 bg-card px-3 py-2 sm:px-4 lg:hidden">
-          {[...mainNav, ...(profile?.isAdmin ? [{ to: "/admin", label: "Admin", icon: Shield }] : [])].map((item) => (
+          {[{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }, ...subNav, ...(profile?.isAdmin ? [{ to: "/admin", label: "Admin", icon: Shield }] : [])].map((item) => (
             <Link
               key={item.to}
               to={item.to}
