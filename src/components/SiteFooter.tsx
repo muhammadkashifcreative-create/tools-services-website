@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { BrandMark } from "@/components/BrandMark";
 import { useI18n } from "@/lib/i18n";
-import { ArrowRight, Instagram, Twitter, MessageCircle, Youtube } from "lucide-react";
+import { ArrowRight, Facebook } from "lucide-react";
 import { useState } from "react";
 
 export function SiteFooter() {
@@ -27,10 +27,7 @@ export function SiteFooter() {
   ];
 
   const socialLinks = [
-    { icon: Instagram, href: "https://instagram.com", label: "Instagram" },
-    { icon: Twitter, href: "https://twitter.com", label: "Twitter" },
-    { icon: MessageCircle, href: "https://t.me", label: "Telegram" },
-    { icon: Youtube, href: "https://youtube.com", label: "YouTube" },
+    { icon: Facebook, href: "https://www.facebook.com/share/1Br9BxZdvj/?mibextid=wwXIfr", label: "Facebook" },
   ];
 
   return (
