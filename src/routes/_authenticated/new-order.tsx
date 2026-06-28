@@ -614,8 +614,8 @@ function ServicesPage() {
             </aside>
           </div>
         )}
-        </div> {/* end SMM wrapper */}
-        )} {/* end mode === "smm" */}
+        </div>
+        )}
 
       </div>
 
