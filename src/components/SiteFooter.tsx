@@ -41,7 +41,7 @@ export function SiteFooter() {
           {/* Brand column */}
           <div className="lg:col-span-4">
             <Link to="/" className="inline-block">
-              <BrandMark size={180} />
+              <BrandMark size={240} />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               {t("footer.tagline") ?? "Premium social growth solutions for creators, brands, and businesses worldwide."}

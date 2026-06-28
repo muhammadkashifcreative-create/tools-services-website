@@ -53,7 +53,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/60 bg-sidebar lg:flex lg:flex-col">
         <div className="flex h-16 items-center border-b border-border/60 px-4">
-          <BrandMark size={140} />
+          <BrandMark size={200} />
         </div>
         <nav className="flex-1 space-y-0.5 p-4">
           {/* Dashboard — top level */}
@@ -138,7 +138,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-30 grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/60 bg-background/80 px-3 backdrop-blur-xl sm:px-4 lg:flex lg:px-8">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-3 lg:hidden">
-              <BrandMark size={100} />
+              <BrandMark size={150} />
               <span className="truncate text-sm font-semibold sm:text-base">{pageTitle}</span>
             </div>
             <div className="hidden min-w-0 lg:block">
