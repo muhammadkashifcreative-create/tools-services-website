@@ -78,13 +78,7 @@ function ToolsStorePublicPage() {
                 <Chip icon={Star} label="Curated catalog" />
               </div>
             </div>
-            {authed ? (
-              <div className="rounded-xl border border-border/60 bg-card/80 px-4 py-2 text-sm shadow-soft backdrop-blur">
-                <span className="text-muted-foreground">Wallet:</span>{" "}
-                <span className="font-bold tabular-nums text-gradient">${Number(profile?.balance ?? 0).toFixed(2)}</span>{" "}
-                <Link to="/wallet" className="ml-2 text-xs font-semibold text-primary">Top up</Link>
-              </div>
-            ) : (
+            {!authed && (
               <Link to="/auth" className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow" style={{ background: "var(--gradient-accent)" }}>
                 <LogIn className="h-4 w-4" /> Sign in to buy
               </Link>
