@@ -16,7 +16,7 @@ export function SiteFooter() {
 
   const companyLinks = [
     { label: t("nav.about") ?? "About", to: "/about" },
-    { label: "Cases", to: "/support" },
+    { label: "Cases", to: "/dashboard/support" },
     { label: t("nav.contact") ?? "Contact", to: "mailto:support@socialpadu.my" },
   ];
 

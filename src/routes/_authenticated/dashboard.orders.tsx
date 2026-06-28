@@ -7,7 +7,7 @@ import { listMyOrders, refreshOrderStatus } from "@/lib/orders.functions";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
-export const Route = createFileRoute("/_authenticated/orders")({
+export const Route = createFileRoute("/_authenticated/dashboard/orders")({
   head: () => ({ meta: [{ title: "Orders — Social Padu" }] }),
   component: OrdersPage,
 });

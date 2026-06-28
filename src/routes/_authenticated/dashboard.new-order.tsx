@@ -38,7 +38,7 @@ function platformStyle(p?: string | null) {
   return PLATFORM_STYLE[p ?? "Other"] ?? PLATFORM_STYLE.Other;
 }
 
-export const Route = createFileRoute("/_authenticated/new-order")({
+export const Route = createFileRoute("/_authenticated/dashboard/new-order")({
   head: () => ({ meta: [{ title: "New order — Social Padu" }] }),
   component: ServicesPage,
 });
@@ -86,7 +86,7 @@ function ServicesPage() {
       toast.success("Order placed!");
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["profile"] });
-      router.navigate({ to: "/orders" });
+      router.navigate({ to: "/dashboard/orders" });
     },
     onError: (err: Error) => toast.error(err.message),
   });

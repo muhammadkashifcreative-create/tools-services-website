@@ -9,7 +9,7 @@ import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
-export const Route = createFileRoute("/_authenticated/support")({
+export const Route = createFileRoute("/_authenticated/dashboard/support")({
   head: () => ({ meta: [{ title: "Support — Social Padu" }] }),
   component: SupportPage,
 });

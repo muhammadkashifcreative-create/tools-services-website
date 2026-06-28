@@ -8,7 +8,7 @@ import { getCase, addCaseMessage, updateCaseStatus } from "@/lib/cases.functions
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
-export const Route = createFileRoute("/_authenticated/support/$caseId")({
+export const Route = createFileRoute("/_authenticated/dashboard/support/$caseId")({
   head: () => ({ meta: [{ title: "Case — Social Padu" }] }),
   component: CaseDetail,
 });
@@ -46,7 +46,7 @@ function CaseDetail() {
     <AppLayout>
       <Toaster />
       <div className="mx-auto max-w-3xl">
-        <Link to="/support" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to="/dashboard/support" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to cases
         </Link>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

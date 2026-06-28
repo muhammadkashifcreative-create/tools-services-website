@@ -36,10 +36,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   const subNav: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
-    { to: "/new-order", label: "New Order", icon: Sparkles },
-    { to: "/orders", label: "Orders", icon: Receipt },
-    { to: "/wallet", label: "Wallet", icon: Wallet },
-    { to: "/support", label: "Cases", icon: LifeBuoy },
+    { to: "/dashboard/new-order", label: "New Order", icon: Sparkles },
+    { to: "/dashboard/orders", label: "Orders", icon: Receipt },
+    { to: "/dashboard/wallet", label: "Wallet", icon: Wallet },
+    { to: "/dashboard/support", label: "Cases", icon: LifeBuoy },
   ];
 
   const mainNav = [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }, ...subNav];
@@ -117,7 +117,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <p className="mt-1 text-xl font-bold tabular-nums text-gradient">
               {fmtBal(Number(profile?.balance ?? 0))}
             </p>
-            <Link to="/wallet" className="mt-2 inline-block text-xs font-semibold text-primary hover:underline">
+            <Link to="/dashboard/wallet" className="mt-2 inline-block text-xs font-semibold text-primary hover:underline">
               + Top up
             </Link>
           </div>
@@ -151,14 +151,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <LanguageSwitcher />
             <Link
-              to="/new-order"
+              to="/dashboard/new-order"
               className="hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 md:inline-flex"
               style={{ background: "var(--gradient-accent)" }}
             >
               <Plus className="h-3.5 w-3.5" /> New order
             </Link>
             <Link
-              to="/wallet"
+              to="/dashboard/wallet"
               className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card px-2.5 py-1.5 text-[11px] font-semibold tabular-nums text-foreground shadow-soft transition hover:border-primary/40 sm:gap-1.5 sm:px-3 sm:text-xs"
               title="Wallet balance"
             >
@@ -173,7 +173,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Bell className="h-4 w-4" />
             </button>
             <Link
-              to="/wallet"
+              to="/dashboard/wallet"
               className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-primary-foreground shadow-glow"
               style={{ background: "var(--gradient-accent)" }}
               aria-label="Account"

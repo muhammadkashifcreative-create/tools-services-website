@@ -12,7 +12,7 @@ import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
-export const Route = createFileRoute("/_authenticated/wallet")({
+export const Route = createFileRoute("/_authenticated/dashboard/wallet")({
   head: () => ({ meta: [{ title: "Wallet — Social Padu" }] }),
   component: WalletPage,
 });

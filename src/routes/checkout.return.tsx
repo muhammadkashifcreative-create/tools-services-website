@@ -21,7 +21,7 @@ function CheckoutReturn() {
           : "No payment session was found."}
       </p>
       <Link
-        to="/wallet"
+        to="/dashboard/wallet"
         className="mt-6 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
       >
         Back to wallet
