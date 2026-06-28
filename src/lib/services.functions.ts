@@ -16,15 +16,21 @@ function publicClient() {
 
 export const listServices = createServerFn({ method: "GET" }).handler(async () => {
   const supabase = publicClient();
+
+  // Read current markup so price changes take effect immediately without re-sync
+  const [markupRow] = await Promise.all([
+    supabase.from("app_settings").select("value").eq("key", "markup_percent").maybeSingle(),
+  ]);
+  const markupPct = Number((markupRow.data?.value as unknown as number) ?? 25);
+  const markupFactor = 1 + markupPct / 100;
+
   const pageSize = 1000;
   let from = 0;
   const all: any[] = [];
-  // Paginate past PostgREST's default 1000-row cap.
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { data, error } = await supabase
       .from("services")
-      .select("id, provider_service_id, name, category, platform, type, rate, min_quantity, max_quantity, description")
+      .select("id, provider_service_id, name, category, platform, type, provider_rate, rate, min_quantity, max_quantity, description")
       .eq("is_active", true)
       .order("platform", { ascending: true })
       .order("name", { ascending: true })
@@ -40,6 +46,8 @@ export const listServices = createServerFn({ method: "GET" }).handler(async () =
     name: sanitizeText(s.name),
     description: s.description ? sanitizeText(s.description) : null,
     category: s.category ? sanitizeText(s.category) : null,
+    // Apply current markup live — price updates instantly when admin changes markup
+    rate: +((Number(s.provider_rate) || Number(s.rate)) * markupFactor).toFixed(4),
   }));
 });
 

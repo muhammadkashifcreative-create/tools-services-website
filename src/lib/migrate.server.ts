@@ -15,9 +15,8 @@ export const runDatabaseMigration = createServerFn({ method: "POST" })
       throw new Error("POSTGRES_URL_NON_POOLING not found. It should be set automatically by the Vercel Supabase integration.");
     }
 
-    // postgres is marked as Nitro external — loaded at runtime, not bundled
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const postgres = (await import("postgres" as any)).default ?? (await import("postgres" as any));
+    // postgres is a Nitro external — installed by Vercel, not bundled
+    const { default: postgres } = await import("postgres");
     const sql = postgres(connStr, { ssl: "require", max: 1, connect_timeout: 15 });
 
     try {
