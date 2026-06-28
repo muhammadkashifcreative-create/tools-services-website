@@ -199,11 +199,11 @@ function ProductCard({ product, authed, walletBalance, onPurchased }: { product:
         <div className="relative p-5">
           <div className="flex items-start gap-3">
             <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-soft"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-soft text-2xl"
               style={{ background: `linear-gradient(135deg, ${ps.from}, ${ps.to})` }}
               aria-hidden
             >
-              <Package className="h-5 w-5" />
+              {product.emoji ?? <Package className="h-5 w-5 text-white" />}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">

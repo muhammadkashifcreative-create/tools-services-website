@@ -91,8 +91,8 @@ export const getToolStoreStatus = createServerFn({ method: "GET" })
 
 // ---------- ToolProduct type (mapped from ggsoma catalog) ----------
 export type ToolProduct = {
-  id: string;        // numeric id converted to string
-  slug: string;      // used when placing orders
+  id: string;
+  slug: string;
   name_en: string;
   desc_en?: string;
   your_price: number;
@@ -100,6 +100,8 @@ export type ToolProduct = {
   delivery_type: "LINK" | "COUPON" | "READY_ACCOUNT";
   in_stock: boolean;
   duration_days?: number;
+  emoji?: string;        // Unicode emoji from provider/product
+  provider_name?: string;
 };
 
 type GgsomaProduct = {
@@ -112,6 +114,8 @@ type GgsomaProduct = {
   deliveryType: "LINK" | "COUPON" | "READY_ACCOUNT";
   durationDays?: number;
   flags?: { sensitiveDelivery?: boolean };
+  emoji?: { normal?: string; display?: string };
+  provider?: { name?: string; emoji?: { normal?: string } };
 };
 
 async function loadMarkupPercent(): Promise<number> {
@@ -132,6 +136,8 @@ function mapProducts(raw: GgsomaProduct[], markupPct: number): ToolProduct[] {
     your_price: +((Number(p.yourPrice) * factor) || 0).toFixed(4),
     stock: p.stock?.count ?? 0,
     in_stock: p.stock?.inStock ?? false,
+    emoji: p.emoji?.normal ?? p.provider?.emoji?.normal ?? undefined,
+    provider_name: p.provider?.name ?? undefined,
     delivery_type: p.deliveryType,
     duration_days: p.durationDays,
   }));
