@@ -1,9 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// /tools redirects to /new-order where users choose between SMM and Tools Store
+// /tools redirects to /tools/store (public catalog)
 export const Route = createFileRoute("/tools/")({
   beforeLoad: () => {
-    throw redirect({ to: "/new-order" });
+    throw redirect({ to: "/tools/store" });
   },
   component: () => null,
 });
