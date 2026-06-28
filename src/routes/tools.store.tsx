@@ -15,6 +15,7 @@ import {
   type ToolProduct,
 } from "@/lib/toolstore.functions";
 import { getMyProfile } from "@/lib/wallet.functions";
+import { getUserCurrency } from "@/lib/geo.functions";
 
 export const Route = createFileRoute("/tools/store")({
   ssr: false,
@@ -33,6 +34,7 @@ function ToolsStorePublicPage() {
   const fetchStatus = useServerFn(getToolStoreStatusPublic);
   const fetchProducts = useServerFn(listToolProductsPublic);
   const fetchProfile = useServerFn(getMyProfile);
+  const fetchCurrency = useServerFn(getUserCurrency);
 
   const [authed, setAuthed] = useState<boolean | null>(null);
   useEffect(() => {
@@ -53,6 +55,13 @@ function ToolsStorePublicPage() {
     queryFn: () => fetchProfile(),
     enabled: authed === true,
   });
+  const { data: ccy } = useQuery({
+    queryKey: ["user-currency"],
+    queryFn: () => fetchCurrency(),
+    staleTime: 30 * 60 * 1000,
+  });
+  const fxSymbol = ccy?.symbol ?? "RM";
+  const fxRate = ccy?.rate ?? 4.7;
 
   return (
     <div className="min-h-screen bg-background">
@@ -108,7 +117,7 @@ function ToolsStorePublicPage() {
               No products available right now.
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
               {(prod!.products as ToolProduct[]).map((p) => (
                 <ProductCard
                   key={p.id}
@@ -116,6 +125,8 @@ function ToolsStorePublicPage() {
                   authed={authed === true}
                   walletBalance={Number(profile?.balance ?? 0)}
                   onPurchased={() => refetch()}
+                  fxSymbol={fxSymbol}
+                  fxRate={fxRate}
                 />
               ))}
             </div>
@@ -153,7 +164,7 @@ function paletteFor(id: string) {
   return PALETTES[h % PALETTES.length];
 }
 
-function ProductCard({ product, authed, walletBalance, onPurchased }: { product: ToolProduct; authed: boolean; walletBalance: number; onPurchased: () => void }) {
+function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fxRate }: { product: ToolProduct; authed: boolean; walletBalance: number; onPurchased: () => void; fxSymbol: string; fxRate: number }) {
   const [qty, setQty] = useState(1);
   const purchase = useServerFn(purchaseToolProduct);
   const qc = useQueryClient();
@@ -169,9 +180,12 @@ function ProductCard({ product, authed, walletBalance, onPurchased }: { product:
     },
     onError: (e: Error) => toast.error(e.message),
   });
-  const total = +(Number(product.your_price) * qty).toFixed(2);
+  const totalUsd = +(Number(product.your_price) * qty).toFixed(2);
+  const totalLocal = +(totalUsd * fxRate).toFixed(2);
+  const priceLocal = +(Number(product.your_price) * fxRate).toFixed(2);
   const outOfStock = product.in_stock === false || product.stock === 0;
-  const canAfford = !authed || walletBalance >= total;
+  const canAfford = !authed || walletBalance >= totalUsd;
+  const fmt = (n: number) => `${fxSymbol}${n.toFixed(2)}`;
   const ps = paletteFor(product.id);
 
   return (
@@ -237,7 +251,7 @@ function ProductCard({ product, authed, walletBalance, onPurchased }: { product:
           <div className="mt-4 flex items-end justify-between border-t border-border/60 pt-3">
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Price</p>
-              <p className="text-xl font-bold tabular-nums text-gradient">${Number(product.your_price).toFixed(2)}</p>
+              <p className="text-xl font-bold tabular-nums text-gradient">{fmt(priceLocal)}</p>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-[10px] uppercase text-muted-foreground">Qty</label>
@@ -255,7 +269,7 @@ function ProductCard({ product, authed, walletBalance, onPurchased }: { product:
             className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90"
             style={{ background: "var(--gradient-accent)" }}
           >
-            <LogIn className="h-3.5 w-3.5" /> Sign in to purchase · ${total.toFixed(2)}
+            <LogIn className="h-3.5 w-3.5" /> Sign in to purchase · {fmt(totalLocal)}
           </Link>
         </div>
       </div>
