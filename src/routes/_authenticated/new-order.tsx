@@ -7,6 +7,7 @@ import {
   Instagram, Music2, Youtube, Facebook, Twitter, Linkedin,
   Send, MapPin, Twitch, Music, Globe2, ShieldCheck, MousePointerClick,
   Link2, ListChecks, Rocket, Check, Clock4, CreditCard, Wallet, X,
+  Wrench, ArrowRight,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { listServices } from "@/lib/services.functions";
@@ -43,10 +44,14 @@ export const Route = createFileRoute("/_authenticated/new-order")({
 });
 
 function ServicesPage() {
+  const [mode, setMode] = useState<"choose" | "smm">("choose");
+  const router = useRouter();
+
   const fetchServices = useServerFn(listServices);
   const { data: services, isLoading } = useQuery({
     queryKey: ["services"],
     queryFn: () => fetchServices(),
+    enabled: mode === "smm",
   });
   const fetchCurrency = useServerFn(getUserCurrency);
   const { data: ccy } = useQuery({
@@ -69,7 +74,6 @@ function ServicesPage() {
   const [couponApplied, setCouponApplied] = useState<{ code: string; percent: number } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [expandedDesc, setExpandedDesc] = useState<Set<string>>(new Set());
-  const router = useRouter();
   const qc = useQueryClient();
   const submitOrder = useServerFn(placeOrder);
   const startOrderCheckout = useServerFn(createOrderCheckout);
@@ -184,6 +188,61 @@ function ServicesPage() {
     <AppLayout>
       <Toaster />
       <div className="mx-auto max-w-6xl">
+
+        {/* ── Category chooser ── */}
+        {mode === "choose" && (
+          <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 py-10">
+            <div className="text-center">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+                <Sparkles className="h-3 w-3" /> New Order
+              </span>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">What would you like to order?</h1>
+              <p className="mt-2 text-sm text-muted-foreground">Choose a category to continue.</p>
+            </div>
+
+            <div className="grid w-full max-w-2xl gap-4 sm:grid-cols-2">
+              {/* Social Media Services */}
+              <button
+                onClick={() => setMode("smm")}
+                className="group flex flex-col items-center gap-4 rounded-2xl border border-border/60 bg-card p-8 text-center shadow-soft transition-all hover:border-primary/60 hover:shadow-glow hover:-translate-y-1"
+              >
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-soft transition group-hover:scale-110" style={{ background: "linear-gradient(135deg,#f09433,#bc1888)" }}>
+                  <Instagram className="h-8 w-8" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold">Social Media Services</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Instagram, TikTok, YouTube & more</p>
+                  <p className="mt-2 text-xs font-semibold text-primary">{(services ?? []).length > 0 ? `${(services ?? []).length.toLocaleString()} services available` : "5,786+ services"}</p>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                  Continue <ArrowRight className="h-3.5 w-3.5" />
+                </span>
+              </button>
+
+              {/* Tools Store */}
+              <button
+                onClick={() => router.navigate({ to: "/tools/store" })}
+                className="group flex flex-col items-center gap-4 rounded-2xl border border-border/60 bg-card p-8 text-center shadow-soft transition-all hover:border-primary/60 hover:shadow-glow hover:-translate-y-1"
+              >
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-soft transition group-hover:scale-110" style={{ background: "linear-gradient(135deg,#e07b2e,#f59e0b)" }}>
+                  <Wrench className="h-8 w-8" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold">Tools Store</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Premium accounts & subscriptions</p>
+                  <p className="mt-2 text-xs font-semibold text-primary">Instant code delivery</p>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                  Browse tools <ArrowRight className="h-3.5 w-3.5" />
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── SMM Services ── */}
+        {mode === "smm" && (
+        <div>
 
         {/* Hero header */}
         <div className="relative overflow-hidden rounded-2xl border border-border/60 p-5 shadow-elegant sm:rounded-3xl sm:p-7 lg:p-10" style={{ background: "var(--gradient-hero)" }}>
@@ -530,6 +589,9 @@ function ServicesPage() {
             </aside>
           </div>
         )}
+        </div>
+        )}
+
       </div>
 
       {checkoutOpen && (
