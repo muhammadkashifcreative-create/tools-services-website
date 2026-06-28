@@ -66,6 +66,11 @@ export const adminListUsers = createServerFn({ method: "GET" })
       .limit(200);
     if (error) throw new Error(error.message);
     const ids = (profiles ?? []).map((p) => p.id);
+
+    // Fetch emails from auth.users
+    const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const emailMap = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? ""]));
+
     const { data: orderAgg } = await supabaseAdmin
       .from("orders")
       .select("user_id, charge")
@@ -79,6 +84,7 @@ export const adminListUsers = createServerFn({ method: "GET" })
     }
     return (profiles ?? []).map((p) => ({
       ...p,
+      email: emailMap.get(p.id) ?? "",
       orders: agg.get(p.id)?.count ?? 0,
       spent: +(agg.get(p.id)?.spent ?? 0).toFixed(2),
     }));
