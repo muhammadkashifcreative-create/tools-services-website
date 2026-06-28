@@ -10,10 +10,8 @@ export function BrandMark({ size = 36, className }: Props) {
     <img
       src={logo}
       alt="Social Padu"
-      width={size}
-      height={size}
-      className={`rounded-xl object-contain ${className ?? ""}`}
-      style={{ width: size, height: size }}
+      className={`object-contain ${className ?? ""}`}
+      style={{ width: size, height: "auto" }}
     />
   );
 }
