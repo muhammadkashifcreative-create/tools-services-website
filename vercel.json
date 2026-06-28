@@ -1,3 +1,11 @@
 {
-  "buildCommand": "node node_modules/vite/bin/vite.js build"
+  "buildCommand": "node node_modules/vite/bin/vite.js build",
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://socialpadu.my/$1",
+      "permanent": true,
+      "has": [{ "type": "header", "key": "x-forwarded-proto", "value": "http" }]
+    }
+  ]
 }
