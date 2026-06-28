@@ -515,29 +515,35 @@ function AdminBody() {
         )}
 
         {tab === "cases" && (
-          <div className="mt-6 overflow-hidden rounded-xl border bg-card">
-            <div className="border-b px-6 py-4"><h2 className="font-semibold">Support cases ({cases?.length ?? 0})</h2></div>
+          <div className="mt-6 overflow-hidden rounded-xl border bg-card shadow-soft">
+            <div className="border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="font-semibold">Support Cases</h2>
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">{cases?.length ?? 0}</span>
+            </div>
             <div className="max-h-[600px] overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3 text-left">User</th>
                     <th className="px-5 py-3 text-left">Subject</th>
-                    <th className="px-5 py-3 text-left">Category</th>
                     <th className="px-5 py-3 text-left">Priority</th>
                     <th className="px-5 py-3 text-left">Status</th>
                     <th className="px-5 py-3 text-left">Updated</th>
+                    <th className="px-5 py-3 text-left">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {(cases ?? []).map((c) => (
-                    <tr key={c.id}>
-                      <td className="px-5 py-3">{c.profile?.username ?? c.profile?.full_name ?? c.user_id.slice(0, 8)}</td>
-                      <td className="px-5 py-3">
-                        <Link to="/dashboard/support/$caseId" params={{ caseId: c.id }} className="font-medium hover:underline">{c.subject}</Link>
+                    <tr key={c.id} className="hover:bg-accent/30 transition-colors">
+                      <td className="px-5 py-3 font-medium">{c.profile?.username ?? c.profile?.full_name ?? c.user_id.slice(0, 8)}</td>
+                      <td className="px-5 py-3 max-w-[200px]">
+                        <Link to="/dashboard/support/$caseId" params={{ caseId: c.id }} className="font-medium hover:text-primary hover:underline line-clamp-1">{c.subject}</Link>
                       </td>
-                      <td className="px-5 py-3 capitalize text-muted-foreground">{c.category.replace("_", " ")}</td>
-                      <td className="px-5 py-3 capitalize">{c.priority}</td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${c.priority === "urgent" ? "bg-red-100 text-red-700" : c.priority === "high" ? "bg-orange-100 text-orange-700" : "bg-muted text-muted-foreground"}`}>
+                          {c.priority}
+                        </span>
+                      </td>
                       <td className="px-5 py-3">
                         <select value={c.status}
                           onChange={(e) => setCaseStatus({ data: { caseId: c.id, status: e.target.value } }).then(() => qc.invalidateQueries({ queryKey: ["adminCases"] }))}
@@ -548,7 +554,16 @@ function AdminBody() {
                           <option value="closed">closed</option>
                         </select>
                       </td>
-                      <td className="px-5 py-3 text-muted-foreground">{new Date(c.last_activity_at).toLocaleString()}</td>
+                      <td className="px-5 py-3 text-xs text-muted-foreground">{new Date(c.last_activity_at).toLocaleString()}</td>
+                      <td className="px-5 py-3">
+                        <Link
+                          to="/dashboard/support/$caseId"
+                          params={{ caseId: c.id }}
+                          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-glow hover:opacity-90"
+                        >
+                          Open →
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                   {(cases ?? []).length === 0 && (
