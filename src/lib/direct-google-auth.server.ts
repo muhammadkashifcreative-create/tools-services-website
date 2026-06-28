@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-const SESSION_COOKIE = "igrobrand_session";
-const STATE_COOKIE = "igrobrand_oauth_state";
+const SESSION_COOKIE = "socialpadu_session";
+const STATE_COOKIE = "socialpadu_oauth_state";
 const MAX_AGE = 60 * 60 * 24 * 7;
 
 export type GoogleSessionUser = {

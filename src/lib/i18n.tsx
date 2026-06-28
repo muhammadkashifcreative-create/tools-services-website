@@ -209,7 +209,7 @@ type Ctx = {
 };
 
 const I18nCtx = createContext<Ctx | null>(null);
-const STORAGE_KEY = "igrobrand_lang";
+const STORAGE_KEY = "socialpadu_lang";
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<LangCode>("en");

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/checkout/return")({
-  head: () => ({ meta: [{ title: "Payment complete — iGroBrand" }] }),
+  head: () => ({ meta: [{ title: "Payment complete — Social Padu" }] }),
   validateSearch: (search: Record<string, unknown>): { session_id?: string } => ({
     session_id: typeof search.session_id === "string" ? search.session_id : undefined,
   }),

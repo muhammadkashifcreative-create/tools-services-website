@@ -7,9 +7,9 @@ import { BLOG_POSTS } from "@/lib/blog";
 export const Route = createFileRoute("/blog")({
   head: () => ({
     meta: [
-      { title: "Blog — Growth Playbooks for Every Platform | iGroBrand" },
+      { title: "Blog — Growth Playbooks for Every Platform | Social Padu" },
       { name: "description", content: "Honest, in-depth playbooks on growing Instagram, TikTok, YouTube, Spotify, LinkedIn, Telegram and more in 2026." },
-      { property: "og:title", content: "iGroBrand Blog — Growth Playbooks" },
+      { property: "og:title", content: "Social Padu Blog — Growth Playbooks" },
       { property: "og:description", content: "Honest, in-depth playbooks on growing on every major social platform in 2026." },
     ],
   }),
@@ -26,7 +26,7 @@ function BlogIndex() {
         <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24">
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary backdrop-blur">
-              <BookOpen className="h-3 w-3" /> The iGroBrand Blog
+              <BookOpen className="h-3 w-3" /> The Social Padu Blog
             </span>
             <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
               Growth playbooks <span className="text-gradient">that actually work</span>

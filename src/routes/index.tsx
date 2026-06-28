@@ -12,9 +12,9 @@ import { SiteFooter } from "@/components/SiteFooter";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "iGroBrand — Grow Your Social Presence" },
+      { title: "Social Padu — Grow Your Social Presence" },
       { name: "description", content: "Real, fast social media growth for Instagram, TikTok, YouTube, X, LinkedIn, Telegram, Spotify, Twitch and more. Transparent pricing, instant delivery." },
-      { property: "og:title", content: "iGroBrand — Grow Your Social Presence" },
+      { property: "og:title", content: "Social Padu — Grow Your Social Presence" },
       { property: "og:description", content: "Real, fast social media growth across every major platform. Transparent pricing, instant delivery." },
     ],
   }),
@@ -71,7 +71,7 @@ function Landing() {
 
         {/* Editorial vertical labels */}
         <div aria-hidden className="pointer-events-none absolute left-4 top-1/2 hidden -translate-y-1/2 -rotate-90 select-none text-[10px] font-medium uppercase tracking-[0.4em] text-muted-foreground/70 lg:block">
-          EST · 2024 — iGroBrand™ Growth Engine
+          EST · 2024 — Social Padu™ Growth Engine
         </div>
         <div aria-hidden className="pointer-events-none absolute right-6 top-1/2 hidden -translate-y-1/2 rotate-90 select-none text-[10px] font-medium uppercase tracking-[0.4em] text-muted-foreground/70 lg:block">
           v.2026 / Real Delivery / 15+ Networks
@@ -299,7 +299,7 @@ function Landing() {
       <section id="features" className="border-t border-border/60 bg-muted/30 py-16 sm:py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-10 text-center sm:mb-16">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Why iGroBrand</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Why Social Padu</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Built for serious creators.</h2>
           </div>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -451,7 +451,7 @@ function Landing() {
             Ready to <span className="text-gradient">grow?</span>
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Join thousands of creators and brands boosting their reach with iGroBrand.
+            Join thousands of creators and brands boosting their reach with Social Padu.
           </p>
           <Link
             to="/auth"

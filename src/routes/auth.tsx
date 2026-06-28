@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Sign in — iGroBrand" }] }),
+  head: () => ({ meta: [{ title: "Sign in — Social Padu" }] }),
   component: AuthPage,
 });
 
@@ -38,7 +38,7 @@ function AuthPage() {
       <div className="hidden lg:flex lg:flex-col lg:justify-between lg:p-12 brand-gradient">
         <Link to="/" className="flex items-center gap-2">
           <BrandMark size={32} />
-          <span className="font-semibold tracking-tight">iGroBrand</span>
+          <span className="font-semibold tracking-tight">Social Padu</span>
         </Link>
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Grow on every platform.</h2>
@@ -46,7 +46,7 @@ function AuthPage() {
             Fast, transparent social media growth. Pay as you go, track every order, scale with confidence.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} iGroBrand</p>
+        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Social Padu</p>
       </div>
 
       <div className="flex items-center justify-center px-6 py-12">
@@ -54,7 +54,7 @@ function AuthPage() {
           <div className="mb-8 lg:hidden">
             <Link to="/" className="flex items-center gap-2">
               <BrandMark size={32} />
-              <span className="font-semibold">iGroBrand</span>
+              <span className="font-semibold">Social Padu</span>
             </Link>
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
@@ -74,7 +74,7 @@ function AuthPage() {
           </button>
 
           <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
-            Google verifies your Gmail and iGroBrand stores only a secure login cookie.
+            Google verifies your Gmail and Social Padu stores only a secure login cookie.
           </p>
         </div>
       </div>

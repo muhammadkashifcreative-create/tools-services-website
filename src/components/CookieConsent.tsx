@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Cookie, X } from "lucide-react";
 
-const KEY = "igrobrand_cookie_consent_v1";
+const KEY = "socialpadu_cookie_consent_v1";
 
 export function CookieConsent() {
   const [open, setOpen] = useState(false);

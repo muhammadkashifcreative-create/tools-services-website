@@ -38,7 +38,7 @@ function platformStyle(p?: string | null) {
 }
 
 export const Route = createFileRoute("/_authenticated/new-order")({
-  head: () => ({ meta: [{ title: "New order — iGroBrand" }] }),
+  head: () => ({ meta: [{ title: "New order — Social Padu" }] }),
   component: ServicesPage,
 });
 

@@ -7,7 +7,7 @@ import { getMyProfile } from "@/lib/wallet.functions";
 import { listMyOrders } from "@/lib/orders.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — iGroBrand" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — Social Padu" }] }),
   component: Dashboard,
 });
 

@@ -8,14 +8,14 @@ type Props = {
 export function BrandMark({ size = 36, onDark = true, className }: Props) {
   const inner = (
     <span
-      aria-label="iGroBrand"
+      aria-label="Social Padu"
       className="font-display font-black leading-none tracking-tight"
       style={{
         color: onDark ? "currentColor" : "hsl(var(--primary))",
         fontSize: Math.max(12, Math.round(size * 0.42)),
       }}
     >
-      iG
+      SP
     </span>
   );
   if (!onDark) return <span className={className}>{inner}</span>;

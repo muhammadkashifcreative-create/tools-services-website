@@ -5,9 +5,9 @@ import { SiteFooter } from "@/components/SiteFooter";
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: "Terms of Service — iGroBrand" },
-      { name: "description", content: "The terms that govern your use of iGroBrand." },
-      { property: "og:title", content: "Terms — iGroBrand" },
+      { title: "Terms of Service — Social Padu" },
+      { name: "description", content: "The terms that govern your use of Social Padu." },
+      { property: "og:title", content: "Terms — Social Padu" },
     ],
   }),
   component: TermsPage,
@@ -22,7 +22,7 @@ function TermsPage() {
         <p className="mt-2 text-sm text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</p>
         <div className="mt-8 space-y-6 text-sm leading-relaxed text-muted-foreground">
           <section><h3 className="text-base font-semibold text-foreground">1. Accepting these terms</h3><p>By creating an account or placing an order, you agree to these terms.</p></section>
-          <section><h3 className="text-base font-semibold text-foreground">2. Service</h3><p>iGroBrand provides social growth services through partner networks. Delivery times and quality vary per service and platform.</p></section>
+          <section><h3 className="text-base font-semibold text-foreground">2. Service</h3><p>Social Padu provides social growth services through partner networks. Delivery times and quality vary per service and platform.</p></section>
           <section><h3 className="text-base font-semibold text-foreground">3. Acceptable use</h3><p>You will not use the service for illegal content, harassment, or material that violates target platform rules.</p></section>
           <section><h3 className="text-base font-semibold text-foreground">4. Payment & wallet</h3><p>Wallet top-ups are non-transferable. Orders are paid from your wallet and are non-cancellable once dispatched.</p></section>
           <section><h3 className="text-base font-semibold text-foreground">5. Liability</h3><p>We are not responsible for actions taken by third-party platforms. Maximum liability is limited to amounts paid in the last 30 days.</p></section>

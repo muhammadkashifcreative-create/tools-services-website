@@ -20,9 +20,9 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/tools/store")({
   head: () => ({
     meta: [
-      { title: "Tools Store — Browse premium digital tools | iGroBrand" },
+      { title: "Tools Store — Browse premium digital tools | Social Padu" },
       { name: "description", content: "Browse the live catalog of premium digital tools and accounts. Sign in to purchase with your wallet." },
-      { property: "og:title", content: "iGroBrand Tools Store" },
+      { property: "og:title", content: "Social Padu Tools Store" },
       { property: "og:description", content: "Live catalog of premium digital tools. Open to browse, sign in to buy." },
     ],
   }),

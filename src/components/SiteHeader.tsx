@@ -26,7 +26,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2">
           <BrandMark size={36} />
-          <span className="text-lg font-bold tracking-tight">iGroBrand</span>
+          <span className="text-lg font-bold tracking-tight">Social Padu</span>
         </Link>
 
         <nav className="hidden gap-6 text-sm text-muted-foreground lg:flex">

@@ -17,7 +17,7 @@ export function SiteFooter() {
   const companyLinks = [
     { label: t("nav.about") ?? "About", to: "/about" },
     { label: "Cases", to: "/support" },
-    { label: t("nav.contact") ?? "Contact", to: "mailto:support@igrobrand.com" },
+    { label: t("nav.contact") ?? "Contact", to: "mailto:support@socialpadu.my" },
   ];
 
   const legalLinks = [
@@ -45,7 +45,7 @@ export function SiteFooter() {
           <div className="lg:col-span-4">
             <Link to="/" className="flex items-center gap-2.5">
               <BrandMark size={36} />
-              <span className="text-lg font-semibold tracking-tight">iGroBrand</span>
+              <span className="text-lg font-semibold tracking-tight">Social Padu</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               {t("footer.tagline") ?? "Premium social growth solutions for creators, brands, and businesses worldwide."}
@@ -156,7 +156,7 @@ export function SiteFooter() {
         {/* Bottom bar */}
         <div className="flex flex-col items-center justify-between gap-4 border-t border-border/30 py-6 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} iGroBrand. All rights reserved.
+            © {new Date().getFullYear()} Social Padu. All rights reserved.
           </p>
           <div className="flex items-center gap-6 text-xs text-muted-foreground">
             <Link to="/terms" className="hover:text-foreground transition-colors">

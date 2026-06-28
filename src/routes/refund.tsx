@@ -5,9 +5,9 @@ import { SiteFooter } from "@/components/SiteFooter";
 export const Route = createFileRoute("/refund")({
   head: () => ({
     meta: [
-      { title: "Refund Policy — iGroBrand" },
-      { name: "description", content: "When and how iGroBrand issues refunds." },
-      { property: "og:title", content: "Refund Policy — iGroBrand" },
+      { title: "Refund Policy — Social Padu" },
+      { name: "description", content: "When and how Social Padu issues refunds." },
+      { property: "og:title", content: "Refund Policy — Social Padu" },
     ],
   }),
   component: RefundPage,

@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/_authenticated/support")({
-  head: () => ({ meta: [{ title: "Support — iGroBrand" }] }),
+  head: () => ({ meta: [{ title: "Support — Social Padu" }] }),
   component: SupportPage,
 });
 

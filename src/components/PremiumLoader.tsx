@@ -53,7 +53,7 @@ export function PremiumLoader() {
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary" />
         </div>
         <p className="mt-3 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-          iGroBrand
+          Social Padu
         </p>
       </div>
     </div>

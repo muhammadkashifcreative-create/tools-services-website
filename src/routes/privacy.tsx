@@ -5,9 +5,9 @@ import { SiteFooter } from "@/components/SiteFooter";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
-      { title: "Privacy Policy — iGroBrand" },
-      { name: "description", content: "How iGroBrand collects, uses, and protects your data." },
-      { property: "og:title", content: "Privacy — iGroBrand" },
+      { title: "Privacy Policy — Social Padu" },
+      { name: "description", content: "How Social Padu collects, uses, and protects your data." },
+      { property: "og:title", content: "Privacy — Social Padu" },
     ],
   }),
   component: PrivacyPage,

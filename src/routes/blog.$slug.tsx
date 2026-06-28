@@ -7,10 +7,10 @@ import { BLOG_POSTS, getPost, type BlogPost } from "@/lib/blog";
 export const Route = createFileRoute("/blog/$slug")({
   head: ({ params }) => {
     const post = getPost(params.slug);
-    if (!post) return { meta: [{ title: "Post not found — iGroBrand Blog" }] };
+    if (!post) return { meta: [{ title: "Post not found — Social Padu Blog" }] };
     return {
       meta: [
-        { title: `${post.title} — iGroBrand Blog` },
+        { title: `${post.title} — Social Padu Blog` },
         { name: "description", content: post.description },
         { property: "og:title", content: post.title },
         { property: "og:description", content: post.description },

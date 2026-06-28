@@ -55,7 +55,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/60 bg-sidebar lg:flex lg:flex-col">
         <div className="flex h-16 items-center gap-2 border-b border-border/60 px-6">
           <BrandMark size={36} />
-          <span className="text-lg font-bold tracking-tight">iGroBrand</span>
+          <span className="text-lg font-bold tracking-tight">Social Padu</span>
         </div>
         <nav className="flex-1 space-y-1 p-4">
           {nav.map((item) => {
@@ -112,7 +112,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <span className="truncate text-sm font-semibold sm:text-base">{pageTitle}</span>
             </div>
             <div className="hidden min-w-0 lg:block">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">iGroBrand</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Social Padu</p>
               <h2 className="truncate text-lg font-semibold tracking-tight">{pageTitle}</h2>
             </div>
           </div>

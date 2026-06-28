@@ -6,10 +6,10 @@ import { SiteFooter } from "@/components/SiteFooter";
 export const Route = createFileRoute("/tools/")({
   head: () => ({
     meta: [
-      { title: "Tools Store — Premium Digital Tools & Accounts | iGroBrand" },
-      { name: "description", content: "Buy premium digital tools, subscriptions, and accounts instantly. Hybrid storefront powered by the iGroBrand tools network." },
-      { property: "og:title", content: "iGroBrand Tools Store" },
-      { property: "og:description", content: "Premium digital tools, instant delivery, paid from your iGroBrand wallet." },
+      { title: "Tools Store — Premium Digital Tools & Accounts | Social Padu" },
+      { name: "description", content: "Buy premium digital tools, subscriptions, and accounts instantly. Hybrid storefront powered by the Social Padu tools network." },
+      { property: "og:title", content: "Social Padu Tools Store" },
+      { property: "og:description", content: "Premium digital tools, instant delivery, paid from your Social Padu wallet." },
     ],
   }),
   component: ToolsMarketing,
@@ -31,7 +31,7 @@ function ToolsMarketing() {
               Every premium tool you need. <span className="text-gradient">One wallet.</span>
             </h1>
             <p className="mt-4 max-w-xl text-base text-muted-foreground">
-              Streaming subscriptions, premium accounts, productivity codes — delivered instantly from a curated catalog. Browse the live store, pay from your iGroBrand balance, get codes immediately.
+              Streaming subscriptions, premium accounts, productivity codes — delivered instantly from a curated catalog. Browse the live store, pay from your Social Padu balance, get codes immediately.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/tools/store" className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow" style={{ background: "var(--gradient-accent)" }}>
@@ -78,12 +78,12 @@ function ToolsMarketing() {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <h2 className="text-3xl font-bold sm:text-4xl">How it works</h2>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-          A curated catalog of premium digital tools, paid from your iGroBrand wallet, delivered instantly to your account.
+          A curated catalog of premium digital tools, paid from your Social Padu wallet, delivered instantly to your account.
         </p>
         <div className="mt-10 grid gap-5 sm:grid-cols-3">
           {[
             { icon: ShoppingBag, title: "1. Pick a tool", body: "Browse the live catalog with real-time stock and wallet pricing." },
-            { icon: ShieldCheck, title: "2. Pay from wallet", body: "Checkout deducts your iGroBrand balance — no card per transaction." },
+            { icon: ShieldCheck, title: "2. Pay from wallet", body: "Checkout deducts your Social Padu balance — no card per transaction." },
             { icon: Zap, title: "3. Get codes instantly", body: "Codes appear in your order and your dashboard within seconds." },
           ].map((s) => (
             <div key={s.title} className="rounded-2xl border border-border/60 bg-card p-6 shadow-soft">
@@ -100,7 +100,7 @@ function ToolsMarketing() {
       <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8">
-            <h3 className="text-xl font-bold">Why iGroBrand?</h3>
+            <h3 className="text-xl font-bold">Why Social Padu?</h3>
             <ul className="mt-4 space-y-3 text-sm text-foreground/90">
               {[
                 "Live inventory with real-time stock — no surprises at checkout.",
@@ -115,7 +115,7 @@ function ToolsMarketing() {
           <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8">
             <h3 className="text-xl font-bold">Become a partner</h3>
             <p className="mt-3 text-sm text-muted-foreground">
-              Run a tools business and want a second sales channel? Get in touch and our team will onboard your catalog onto iGroBrand.
+              Run a tools business and want a second sales channel? Get in touch and our team will onboard your catalog onto Social Padu.
             </p>
             <Link to="/support" className="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-4 py-2 text-sm font-semibold hover:bg-accent">
               Contact support <ArrowRight className="h-4 w-4" />

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/_authenticated/orders")({
-  head: () => ({ meta: [{ title: "Orders — iGroBrand" }] }),
+  head: () => ({ meta: [{ title: "Orders — Social Padu" }] }),
   component: OrdersPage,
 });
 
