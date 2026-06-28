@@ -13,7 +13,7 @@ export function createStripeClient(env: StripeEnv): Stripe {
     ? (process.env.STRIPE_SANDBOX_API_KEY ?? getEnv("STRIPE_SECRET_KEY"))
     : (process.env.STRIPE_LIVE_API_KEY ?? getEnv("STRIPE_SECRET_KEY"));
 
-  return new Stripe(key, { apiVersion: "2025-05-28.basil" });
+  return new Stripe(key, { apiVersion: "2024-06-20" });
 }
 
 export function getStripeErrorMessage(error: unknown): string {

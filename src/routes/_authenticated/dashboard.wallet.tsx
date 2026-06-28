@@ -30,19 +30,33 @@ function WalletPage() {
   const { data: tx } = useQuery({ queryKey: ["transactions"], queryFn: () => fetchTx() });
   const { data: ccy } = useQuery({ queryKey: ["currency"], queryFn: () => fetchCcy() });
 
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const fetchClientSecret = useCallback(async () => {
-    const res = await startCheckout({
-      data: {
-        usdAmount: amount,
-        returnUrl: `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
-        environment: getStripeEnvironment(),
-      },
-    });
-    if ("error" in res) {
-      toast.error(res.error);
-      throw new Error(res.error);
+    setCheckoutError(null);
+    try {
+      const res = await startCheckout({
+        data: {
+          usdAmount: amount,
+          returnUrl: `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+          environment: getStripeEnvironment(),
+        },
+      });
+      if ("error" in res) {
+        setCheckoutError(res.error);
+        toast.error(res.error);
+        throw new Error(res.error);
+      }
+      if (!res.clientSecret) {
+        const msg = "Stripe did not return a payment session. Check your Stripe keys in Vercel.";
+        setCheckoutError(msg);
+        throw new Error(msg);
+      }
+      return res.clientSecret;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Payment session failed";
+      setCheckoutError(msg);
+      throw e;
     }
-    return res.clientSecret;
   }, [amount, startCheckout]);
 
   const closeCheckout = () => {
@@ -129,6 +143,13 @@ function WalletPage() {
               </button>
             </div>
             <div className="p-4">
+              {checkoutError ? (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                  <p className="font-semibold">Payment setup failed</p>
+                  <p className="mt-1 text-xs">{checkoutError}</p>
+                  <button onClick={() => { setCheckoutError(null); setCheckoutOpen(false); }} className="mt-3 text-xs underline">Try again</button>
+                </div>
+              ) : (
               <EmbeddedCheckoutProvider
                 stripe={getStripe()}
                 options={{
@@ -204,6 +225,7 @@ function WalletPage() {
               >
                 <EmbeddedCheckout />
               </EmbeddedCheckoutProvider>
+              )}
             </div>
           </div>
         )}
