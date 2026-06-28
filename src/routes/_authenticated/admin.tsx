@@ -2,13 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Loader2, RefreshCw, ShieldCheck, Users, MessageSquare, ShoppingBag, DollarSign, TrendingDown, TrendingUp, Plug, CheckCircle2 } from "lucide-react";
+import { Loader2, RefreshCw, ShieldCheck, Users, MessageSquare, ShoppingBag, DollarSign, TrendingDown, TrendingUp, Plug, CheckCircle2, Database } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile } from "@/lib/wallet.functions";
 import { syncServicesFromProvider, getMarkup, updateMarkup, saveServicesConnection, getServicesConnectionStatus } from "@/lib/services.functions";
 import { adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUserOrders } from "@/lib/admin.functions";
 import { adminListAllCases, updateCaseStatus } from "@/lib/cases.functions";
 import { saveToolStoreConnection, saveToolStoreConnectionDirect, getToolStoreStatus } from "@/lib/toolstore.functions";
+import { runDatabaseMigration } from "@/lib/migrate.server";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -79,6 +80,7 @@ function AdminBody() {
   const fetchToolStatus = useServerFn(getToolStoreStatus);
   const saveToolConn = useServerFn(saveToolStoreConnection);
   const saveToolConnDirect = useServerFn(saveToolStoreConnectionDirect);
+  const runMigration = useServerFn(runDatabaseMigration);
   const saveServicesConn = useServerFn(saveServicesConnection);
   const fetchServicesStatus = useServerFn(getServicesConnectionStatus);
 
@@ -102,6 +104,15 @@ function AdminBody() {
     queryKey: ["adminUserOrders", selectedUser],
     queryFn: () => fetchUserOrders({ data: { userId: selectedUser! } }),
     enabled: !!selectedUser,
+  });
+
+  const migrationMut = useMutation({
+    mutationFn: () => runMigration(),
+    onSuccess: (r: { ok: boolean; message: string }) => {
+      toast.success(r.message);
+      qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const syncMut = useMutation({
@@ -186,6 +197,21 @@ function AdminBody() {
             <StatIcon icon={ShoppingBag} tone="default" label="Total orders" value={stats?.orders ?? 0} />
             <StatIcon icon={MessageSquare} tone="default" label="Active services" value={stats?.services ?? 0} />
           </div>
+
+        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-amber-800 dark:text-amber-400">Database not set up?</p>
+            <p className="text-sm text-amber-700 dark:text-amber-500 mt-0.5">If you see table errors, click this once to create all required tables automatically.</p>
+          </div>
+          <button
+            onClick={() => migrationMut.mutate()}
+            disabled={migrationMut.isPending}
+            className="shrink-0 inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+          >
+            {migrationMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            Setup Database
+          </button>
+        </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border bg-card p-6">
