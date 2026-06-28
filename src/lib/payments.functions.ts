@@ -52,7 +52,7 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
           {
             price_data: {
               currency: ccy.currency.toLowerCase(),
-              product_data: { name: `Wallet top-up ($${data.usdAmount.toFixed(2)} USD)` },
+              product_data: { name: `Social Padu Wallet top-up` },
               unit_amount: minor,
             },
             quantity: 1,
@@ -61,8 +61,9 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
         mode: "payment",
         ui_mode: "embedded",
         return_url: data.returnUrl,
+        payment_method_types: ["card"],
         payment_intent_data: {
-          description: `Wallet deposit for user ${context.userId}`,
+          description: `Wallet top-up — Social Padu`,
           metadata: { userId: context.userId, usdAmount: data.usdAmount.toFixed(4) },
         },
         automatic_tax: { enabled: false },
@@ -128,7 +129,7 @@ export const createOrderCheckout = createServerFn({ method: "POST" })
               currency: ccy.currency.toLowerCase(),
               product_data: {
                 name: service.name,
-                description: `Order qty ${data.quantity.toLocaleString()} ($${usdAmount.toFixed(2)} USD)`,
+                description: `Social Padu — qty ${data.quantity.toLocaleString()}`,
               },
               unit_amount: minor,
             },
@@ -138,8 +139,9 @@ export const createOrderCheckout = createServerFn({ method: "POST" })
         mode: "payment",
         ui_mode: "embedded",
         return_url: data.returnUrl,
+        payment_method_types: ["card"],
         payment_intent_data: {
-          description: `${service.name} × ${data.quantity}`,
+          description: `Social Padu — ${service.name} × ${data.quantity}`,
           metadata: {
             userId: context.userId,
             kind: "order_payment",
