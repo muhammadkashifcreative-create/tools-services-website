@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Zap, ShieldCheck, BarChart3, Star } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -33,50 +33,103 @@ function AuthPage() {
 
   return (
     <>
-    <Toaster />
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden lg:flex lg:flex-col lg:justify-between lg:p-12 brand-gradient">
-        <Link to="/">
-          <BrandMark size={180} />
-        </Link>
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Grow on every platform.</h2>
-          <p className="mt-3 max-w-md text-muted-foreground">
-            Fast, transparent social media growth. Pay as you go, track every order, scale with confidence.
-          </p>
-        </div>
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Social Padu</p>
-      </div>
+      <Toaster />
 
-      <div className="flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 lg:hidden">
-            <Link to="/">
-              <BrandMark size={160} />
-            </Link>
+      {/* Full-page background */}
+      <div className="relative min-h-screen overflow-hidden bg-background flex items-center justify-center px-4 py-12">
+
+        {/* Background blobs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+          <div className="absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full opacity-30 blur-3xl" style={{ background: "oklch(0.78 0.20 50)" }} />
+          <div className="absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full opacity-20 blur-3xl" style={{ background: "oklch(0.72 0.22 35)" }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[400px] rounded-full opacity-10 blur-3xl" style={{ background: "oklch(0.76 0.19 55)" }} />
+        </div>
+
+        {/* Card */}
+        <div className="relative w-full max-w-md">
+
+          {/* Glow ring */}
+          <div className="absolute -inset-1 rounded-3xl opacity-30 blur-xl" style={{ background: "var(--gradient-accent)" }} aria-hidden />
+
+          <div className="relative rounded-3xl border border-border/60 bg-card shadow-2xl overflow-hidden">
+
+            {/* Top accent bar */}
+            <div className="h-1 w-full" style={{ background: "var(--gradient-accent)" }} />
+
+            <div className="px-8 py-10">
+
+              {/* Logo */}
+              <div className="flex justify-center">
+                <Link to="/">
+                  <BrandMark size={160} />
+                </Link>
+              </div>
+
+              {/* Heading */}
+              <div className="mt-8 text-center">
+                <h1 className="text-3xl font-bold tracking-tight">
+                  Welcome back
+                </h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Sign in to grow your social media presence
+                </p>
+              </div>
+
+              {/* Google button */}
+              <button
+                onClick={handleGoogle}
+                disabled={loading}
+                className="mt-8 flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-semibold transition-all hover:bg-accent hover:border-primary/30 hover:shadow-md disabled:opacity-60 active:scale-[0.98]"
+              >
+                {loading
+                  ? <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  : <GoogleIcon />
+                }
+                {loading ? "Signing in…" : "Continue with Google"}
+              </button>
+
+              {/* Divider */}
+              <div className="mt-8 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Why Social Padu</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              {/* Features */}
+              <div className="mt-5 space-y-3">
+                {[
+                  { icon: Zap, text: "Orders start in under 60 seconds" },
+                  { icon: ShieldCheck, text: "No password required, ever" },
+                  { icon: BarChart3, text: "Real-time order tracking" },
+                  { icon: Star, text: "5,786+ services across 16 platforms" },
+                ].map(({ icon: Icon, text }) => (
+                  <div key={text} className="flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-2.5">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: "var(--gradient-accent)" }}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <p className="text-xs font-medium text-foreground">{text}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer note */}
+              <p className="mt-7 text-center text-[11px] leading-relaxed text-muted-foreground">
+                By continuing, you agree to our{" "}
+                <Link to="/terms" className="underline underline-offset-2 hover:text-foreground">Terms</Link>
+                {" "}and{" "}
+                <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground">Privacy Policy</Link>.
+                {" "}We only store a secure login cookie.
+              </p>
+
+            </div>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Welcome back
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Sign in with your Gmail to continue boosting.
-          </p>
 
-          <button
-            onClick={handleGoogle}
-            disabled={loading}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-md border bg-card px-4 py-2.5 text-sm font-medium transition hover:bg-accent disabled:opacity-60"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-            Continue with Google
-          </button>
-
-          <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
-            Google verifies your Gmail and Social Padu stores only a secure login cookie.
+          {/* Bottom link */}
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            <Link to="/" className="hover:text-foreground transition">← Back to Social Padu</Link>
           </p>
         </div>
       </div>
-    </div>
     </>
   );
 }
