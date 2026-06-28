@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
 import {
@@ -28,7 +27,6 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
     z
       .object({
         usdAmount: z.number().positive().min(1).max(2000),
-        returnUrl: z.string().url(),
         environment: z.enum(["sandbox", "live"]),
       })
       .parse(data),
@@ -44,29 +42,12 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
       }
 
       const stripe = createStripeClient(data.environment as StripeEnv);
-      const req = getRequest();
-      const email = req.headers.get("x-user-email") ?? undefined;
 
-      const session = await stripe.checkout.sessions.create({
-        line_items: [
-          {
-            price_data: {
-              currency: ccy.currency.toLowerCase(),
-              product_data: { name: `Social Padu Wallet top-up` },
-              unit_amount: minor,
-            },
-            quantity: 1,
-          },
-        ],
-        mode: "payment",
-        ui_mode: "embedded",
-        return_url: data.returnUrl,
+      const pi = await stripe.paymentIntents.create({
+        amount: minor,
+        currency: ccy.currency.toLowerCase(),
         payment_method_types: ["card"],
-        payment_intent_data: {
-          description: `Wallet top-up — Social Padu`,
-          metadata: { userId: context.userId, usdAmount: data.usdAmount.toFixed(4) },
-        },
-        automatic_tax: { enabled: false },
+        description: "Social Padu wallet top-up",
         metadata: {
           userId: context.userId,
           usdAmount: data.usdAmount.toFixed(4),
@@ -74,10 +55,9 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
           localAmount: localAmount.toFixed(2),
           kind: "wallet_deposit",
         },
-        ...(email && { customer_email: email }),
-      } as any);
+      });
 
-      return { clientSecret: session.client_secret ?? "" };
+      return { clientSecret: pi.client_secret ?? "" };
     } catch (error) {
       console.error("createDepositCheckout error", error);
       return { error: getStripeErrorMessage(error) };

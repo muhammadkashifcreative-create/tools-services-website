@@ -1,14 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Loader2, CreditCard, X } from "lucide-react";
+import { Loader2, CreditCard, Lock, ShieldCheck, X, CheckCircle2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile, listMyTransactions } from "@/lib/wallet.functions";
 import { createDepositCheckout } from "@/lib/payments.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 import { getStripe, getStripeEnvironment, isStripeConfigured } from "@/lib/stripe";
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
+import {
+  Elements,
+  CardNumberElement,
+  CardExpiryElement,
+  CardCvcElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -16,6 +23,162 @@ export const Route = createFileRoute("/_authenticated/dashboard/wallet")({
   head: () => ({ meta: [{ title: "Wallet — Social Padu" }] }),
   component: WalletPage,
 });
+
+const ELEMENT_STYLE = {
+  base: {
+    color: "#0f172a",
+    fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif",
+    fontSize: "14px",
+    fontSmoothing: "antialiased",
+    "::placeholder": { color: "#94a3b8" },
+  },
+  invalid: { color: "#ef4444" },
+  complete: { color: "#16a34a" },
+};
+
+function CardPaymentForm({
+  clientSecret,
+  localAmount,
+  symbol,
+  currency,
+  onSuccess,
+  onCancel,
+}: {
+  clientSecret: string;
+  localAmount: string;
+  symbol: string;
+  currency: string;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setLoading(true);
+    setError(null);
+
+    const cardNumber = elements.getElement(CardNumberElement);
+    if (!cardNumber) { setLoading(false); return; }
+
+    const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: {
+        card: cardNumber,
+        billing_details: { name: name.trim() || undefined },
+      },
+      return_url: window.location.href,
+    });
+
+    setLoading(false);
+
+    if (confirmError) {
+      setError(confirmError.message ?? "Payment failed. Please try again.");
+    } else if (paymentIntent?.status === "succeeded") {
+      setDone(true);
+      setTimeout(onSuccess, 1800);
+    }
+  };
+
+  if (done) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+          <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+        </div>
+        <p className="font-bold text-lg">Payment successful!</p>
+        <p className="text-sm text-muted-foreground">Your wallet will be credited in a few moments.</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Card number */}
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+          Card number
+        </label>
+        <div className="rounded-xl border border-border bg-background px-4 py-3 transition focus-within:ring-2 focus-within:ring-primary/30">
+          <CardNumberElement options={{ style: ELEMENT_STYLE, showIcon: true }} />
+        </div>
+      </div>
+
+      {/* Expiry + CVC */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+            Expiry date
+          </label>
+          <div className="rounded-xl border border-border bg-background px-4 py-3 transition focus-within:ring-2 focus-within:ring-primary/30">
+            <CardExpiryElement options={{ style: ELEMENT_STYLE }} />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+            CVC
+          </label>
+          <div className="rounded-xl border border-border bg-background px-4 py-3 transition focus-within:ring-2 focus-within:ring-primary/30">
+            <CardCvcElement options={{ style: ELEMENT_STYLE }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Name */}
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+          Name on card
+        </label>
+        <input
+          type="text"
+          placeholder="Full name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 ring-primary/30 transition"
+        />
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {/* Pay button */}
+      <button
+        type="submit"
+        disabled={!stripe || loading}
+        className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90 disabled:opacity-60"
+        style={{ background: "var(--gradient-accent)" }}
+      >
+        {loading
+          ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+          : <><Lock className="h-4 w-4" /> Pay {symbol}{localAmount} {currency}</>
+        }
+      </button>
+
+      {/* Footer row */}
+      <div className="flex items-center justify-between pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs text-muted-foreground hover:text-foreground transition"
+        >
+          Cancel
+        </button>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Lock className="h-3 w-3" /> Secured by Stripe
+        </span>
+      </div>
+    </form>
+  );
+}
 
 function WalletPage() {
   const fetchProfile = useServerFn(getMyProfile);
@@ -25,14 +188,17 @@ function WalletPage() {
   const qc = useQueryClient();
   const [amount, setAmount] = useState(20);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   const { data: profile } = useQuery({ queryKey: ["profile"], queryFn: () => fetchProfile() });
   const { data: tx } = useQuery({ queryKey: ["transactions"], queryFn: () => fetchTx() });
   const { data: ccy } = useQuery({ queryKey: ["currency"], queryFn: () => fetchCcy() });
 
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const symbol = ccy?.symbol ?? "$";
+  const rate = ccy?.rate ?? 1;
+  const localPreview = (amount * rate).toFixed(2);
 
   const openCheckout = async () => {
     setCheckoutError(null);
@@ -40,21 +206,10 @@ function WalletPage() {
     setCheckoutLoading(true);
     try {
       const res = await startCheckout({
-        data: {
-          usdAmount: amount,
-          returnUrl: `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
-          environment: getStripeEnvironment(),
-        },
+        data: { usdAmount: amount, environment: getStripeEnvironment() },
       });
-      if ("error" in res) {
-        setCheckoutError(res.error);
-        toast.error(res.error);
-        return;
-      }
-      if (!res.clientSecret) {
-        setCheckoutError("Stripe did not return a payment session. Check your Stripe keys in Vercel.");
-        return;
-      }
+      if ("error" in res) { setCheckoutError(res.error); toast.error(res.error); return; }
+      if (!res.clientSecret) { setCheckoutError("Payment setup failed. Try again."); return; }
       setClientSecret(res.clientSecret);
       setCheckoutOpen(true);
     } catch (e: unknown) {
@@ -74,10 +229,6 @@ function WalletPage() {
     qc.invalidateQueries({ queryKey: ["transactions"] });
   };
 
-  const symbol = ccy?.symbol ?? "$";
-  const rate = ccy?.rate ?? 1;
-  const localPreview = (amount * rate).toFixed(2);
-
   return (
     <AppLayout>
       <Toaster />
@@ -86,6 +237,7 @@ function WalletPage() {
         <p className="mt-1 text-sm text-muted-foreground sm:text-base">Top up to place orders. Pay only for what you use.</p>
 
         <div className="mt-8 grid gap-6 md:grid-cols-2">
+          {/* Balance card */}
           <div className="rounded-xl border bg-card p-6">
             <p className="text-sm text-muted-foreground">Current balance</p>
             <p className="mt-2 text-4xl font-bold tabular-nums">${Number(profile?.balance ?? 0).toFixed(2)}</p>
@@ -96,18 +248,16 @@ function WalletPage() {
             )}
           </div>
 
+          {/* Add funds card */}
           <div className="rounded-xl border bg-card p-6">
             <h3 className="font-semibold">Add funds</h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Pay securely by card. Charged in {ccy?.currency ?? "your local currency"} at today's rate.
             </p>
             <input
-              type="number"
-              min={1}
-              max={2000}
-              value={amount}
-              onChange={(e) => { setAmount(Number(e.target.value)); if (checkoutOpen) setCheckoutOpen(false); }}
-              className="mt-4 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
+              type="number" min={1} max={2000} value={amount}
+              onChange={(e) => { setAmount(Number(e.target.value)); if (checkoutOpen) closeCheckout(); }}
+              className="mt-4 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 ring-primary/30"
             />
             {ccy && ccy.currency !== "USD" && amount > 0 && (
               <p className="mt-2 text-xs text-muted-foreground">
@@ -122,7 +272,7 @@ function WalletPage() {
                   className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
                 >
                   {checkoutLoading
-                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Setting up payment…</>
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Setting up…</>
                     : <><CreditCard className="h-4 w-4" /> Pay ${amount} with card</>
                   }
                 </button>
@@ -147,27 +297,43 @@ function WalletPage() {
           </div>
         </div>
 
-        {/* Inline Stripe checkout — renders below the form instead of in a popup */}
-        {checkoutOpen && isStripeConfigured() && (
-          <div className="mt-6 rounded-2xl border border-border/60 bg-card shadow-soft">
-            <div className="border-b border-border/60 px-5 py-3 flex items-center justify-between">
+        {/* Custom card payment form */}
+        {checkoutOpen && clientSecret && (
+          <div className="mt-6 rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4" style={{ background: "var(--gradient-hero)" }}>
               <div>
-                <p className="text-sm font-semibold">Complete payment</p>
-                <p className="text-xs text-muted-foreground">Topping up ${amount} USD · {ccy?.currency !== "USD" && `≈ ${symbol}${localPreview} ${ccy?.currency}`}</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg text-white" style={{ background: "var(--gradient-accent)" }}>
+                    <CreditCard className="h-3.5 w-3.5" />
+                  </div>
+                  <p className="font-bold">Card payment</p>
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Topping up <span className="font-semibold text-foreground">${amount} USD</span>
+                  {ccy?.currency !== "USD" && <> · <span className="font-semibold text-foreground">{symbol}{localPreview} {ccy?.currency}</span></>}
+                </p>
               </div>
-              <button onClick={closeCheckout} className="rounded-full p-1.5 text-muted-foreground hover:bg-accent">
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <ShieldCheck className="h-3.5 w-3.5" /> SSL Encrypted
+              </div>
             </div>
-            <div className="p-4">
-              {clientSecret && (
-              <EmbeddedCheckoutProvider
-                stripe={getStripe()}
-                options={{ clientSecret }}
-              >
-                <EmbeddedCheckout />
-              </EmbeddedCheckoutProvider>
-              )}
+
+            {/* Form */}
+            <div className="p-6">
+              <Elements stripe={getStripe()}>
+                <CardPaymentForm
+                  clientSecret={clientSecret}
+                  localAmount={localPreview}
+                  symbol={symbol}
+                  currency={ccy?.currency ?? "USD"}
+                  onSuccess={() => {
+                    toast.success("Payment successful! Your wallet will be credited shortly.");
+                    closeCheckout();
+                  }}
+                  onCancel={closeCheckout}
+                />
+              </Elements>
             </div>
           </div>
         )}
@@ -217,8 +383,11 @@ function WalletPage() {
           </div>
         </div>
 
+        {/* Transactions */}
         <div className="mt-8 overflow-hidden rounded-xl border bg-card">
-          <div className="border-b border-border/60 px-4 py-3 sm:px-6 sm:py-4"><h2 className="font-semibold">Transactions</h2></div>
+          <div className="border-b border-border/60 px-4 py-3 sm:px-6 sm:py-4">
+            <h2 className="font-semibold">Transactions</h2>
+          </div>
           {(tx ?? []).length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">No transactions yet.</div>
           ) : (
@@ -238,7 +407,6 @@ function WalletPage() {
           )}
         </div>
       </div>
-
     </AppLayout>
   );
 }
