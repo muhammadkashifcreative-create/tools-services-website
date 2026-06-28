@@ -50,12 +50,12 @@ export const runDatabaseMigration = createServerFn({ method: "POST" })
           category text,
           platform text,
           type text,
-          rate numeric(10,4) default 0 not null,
+          rate numeric(14,6) default 0 not null,
           min_quantity integer default 1 not null,
           max_quantity integer default 100000 not null,
           description text,
           is_active boolean default true not null,
-          provider_rate numeric(10,6) default 0 not null,
+          provider_rate numeric(14,8) default 0 not null,
           created_at timestamptz default now() not null
         );
 
@@ -115,6 +115,11 @@ export const runDatabaseMigration = createServerFn({ method: "POST" })
           is_staff boolean default false not null,
           created_at timestamptz default now() not null
         );
+
+        -- Widen numeric columns if they were created with smaller precision
+        alter table if exists services
+          alter column rate type numeric(14,6) using rate::numeric(14,6),
+          alter column provider_rate type numeric(14,8) using provider_rate::numeric(14,8);
 
         create or replace function handle_new_user()
         returns trigger as $$

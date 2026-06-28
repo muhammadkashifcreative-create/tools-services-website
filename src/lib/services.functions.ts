@@ -65,12 +65,14 @@ export const syncServicesFromProvider = createServerFn({ method: "POST" })
     const rows = services.map((s) => {
       const rawRate = Number(s.rate);
       // Provider rate in USD — use directly, no currency conversion needed
+      // Cap at 9999 to fit numeric(10,6) column — max 4 digits before decimal
       const providerRate = Number.isFinite(rawRate) && rawRate >= 0
-        ? +Math.min(rawRate, 9_999_999).toFixed(6)
+        ? +Math.min(rawRate, 9999).toFixed(6)
         : 0;
       // Selling price = provider cost × (1 + markup%) — always above cost
+      // Cap at 99999 to fit numeric(10,4) column — max 6 digits before decimal
       const computed = providerRate * (1 + markupPct / 100);
-      const rate = +(Number.isFinite(computed) ? Math.min(computed, 9_999_999) : 0).toFixed(4);
+      const rate = +(Number.isFinite(computed) ? Math.min(computed, 99999) : 0).toFixed(4);
       const min = Math.max(1, Math.min(Number(s.min) || 1, 2_000_000_000));
       const max = Math.max(min, Math.min(Number(s.max) || 100000, 2_000_000_000));
       const name = sanitizeText(String(s.name ?? ""));
