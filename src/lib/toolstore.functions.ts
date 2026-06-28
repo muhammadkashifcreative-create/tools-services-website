@@ -58,7 +58,8 @@ export const saveToolStoreConnectionDirect = createServerFn({ method: "POST" })
     // Verify connection by calling /balance
     await callStore<{ ok?: boolean; balance?: string }>(conn, "/balance");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("app_settings").upsert({ key: CONN_KEY, value: conn });
+    const { error } = await supabaseAdmin.from("app_settings").upsert({ key: CONN_KEY, value: conn });
+    if (error) throw new Error(`DB save failed: ${error.message}. Set TOOLS_STORE_API_KEY as a Vercel env var instead.`);
     return { ok: true, api_url: conn.api_url };
   });
 

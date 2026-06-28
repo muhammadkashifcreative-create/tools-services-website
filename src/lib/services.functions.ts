@@ -9,11 +9,9 @@ function isAdmin(ctx: { email?: string }) {
 }
 
 function publicClient() {
-  return createClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_PUBLISHABLE_KEY!,
-    { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
-  );
+  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? "";
+  return createClient<Database>(url, key, { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } });
 }
 
 export const listServices = createServerFn({ method: "GET" }).handler(async () => {
@@ -177,10 +175,11 @@ export const saveServicesConnection = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     if (!isAdmin(context)) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("app_settings").upsert({
+    const { error } = await supabaseAdmin.from("app_settings").upsert({
       key: SERVICES_CONN_KEY,
       value: { api_url: data.api_url.replace(/\/$/, ""), api_key: data.api_key } as unknown as never,
     });
+    if (error) throw new Error(`DB save failed: ${error.message}. Set SMM_API_URL and SMM_API_KEY as Vercel env vars instead.`);
     return { ok: true };
   });
 
