@@ -1,23 +1,37 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
 
 export const getMyProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
-      .from("profiles")
-      .select("id, username, full_name, balance")
-      .eq("id", context.userId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
+    // Admin email always has full admin access — no DB check needed
+    const isAdminByEmail = (context as { email?: string }).email === ADMIN_EMAIL;
 
-    const { data: roles } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId);
-    const isAdmin = (roles ?? []).some((r) => r.role === "admin");
-    return { ...(data ?? { id: context.userId, username: null, full_name: null, balance: 0 }), isAdmin };
+    let profile: { id: string; username: string | null; full_name: string | null; balance: number } | null = null;
+    let isAdminByRole = false;
+
+    try {
+      const { data } = await context.supabase
+        .from("profiles")
+        .select("id, username, full_name, balance")
+        .eq("id", context.userId)
+        .maybeSingle();
+      profile = data ?? null;
+
+      if (!isAdminByEmail) {
+        const { data: roles } = await context.supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", context.userId);
+        isAdminByRole = (roles ?? []).some((r) => r.role === "admin");
+      }
+    } catch { /* DB not ready yet — proceed with defaults */ }
+
+    return {
+      ...(profile ?? { id: context.userId, username: null, full_name: null, balance: 0 }),
+      isAdmin: isAdminByEmail || isAdminByRole,
+    };
   });
 
 export const listMyTransactions = createServerFn({ method: "GET" })
