@@ -35,7 +35,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     router.navigate({ to: "/auth", replace: true });
   };
 
-  const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
+  const mainNav: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/new-order", label: "New Order", icon: Sparkles },
     { to: "/orders", label: "Orders", icon: Receipt },
@@ -43,12 +43,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
     { to: "/wallet", label: "Wallet", icon: Wallet },
     { to: "/support", label: "Cases", icon: LifeBuoy },
   ];
-  if (profile?.isAdmin) nav.push({ to: "/admin", label: "Admin", icon: Shield });
 
   const initial = (profile?.full_name || profile?.username || "U").trim().charAt(0).toUpperCase();
+  const allPaths = [...mainNav.map((n) => n.to), "/admin"];
   const pageTitle =
-    nav.find((n) => location.pathname.startsWith(n.to))?.label ??
-    (location.pathname.startsWith("/admin") ? "Admin" : "Dashboard");
+    allPaths
+      .map((p) => ({ to: p, label: mainNav.find((n) => n.to === p)?.label ?? "Admin" }))
+      .find((n) => location.pathname.startsWith(n.to))?.label ?? "Dashboard";
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,7 +59,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <span className="text-lg font-bold tracking-tight">Social Padu</span>
         </div>
         <nav className="flex-1 space-y-1 p-4">
-          {nav.map((item) => {
+          {mainNav.map((item) => {
             const Icon = item.icon;
             const active = location.pathname.startsWith(item.to);
             return (
@@ -74,12 +75,26 @@ export function AppLayout({ children }: { children: ReactNode }) {
               >
                 <Icon className="h-4 w-4" />
                 {item.label}
-                {item.label === "Admin" && (
-                  <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Admin</span>
-                )}
               </Link>
             );
           })}
+          {profile?.isAdmin && (
+            <div className="mt-1 pl-3 border-l-2 border-border/60">
+              <Link
+                to="/admin"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                  location.pathname.startsWith("/admin")
+                    ? "bg-primary/10 text-primary shadow-soft"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                )}
+              >
+                <Shield className="h-4 w-4" />
+                Admin Panel
+                <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Admin</span>
+              </Link>
+            </div>
+          )}
         </nav>
         <div className="border-t border-border/60 p-4">
           <div className="mb-3 rounded-xl border border-border/60 p-3 shadow-soft" style={{ background: "var(--gradient-card)" }}>
@@ -151,7 +166,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
         <nav className="flex gap-1 overflow-x-auto border-b border-border/60 bg-card px-3 py-2 sm:px-4 lg:hidden">
-          {nav.map((item) => (
+          {[...mainNav, ...(profile?.isAdmin ? [{ to: "/admin", label: "Admin", icon: Shield }] : [])].map((item) => (
             <Link
               key={item.to}
               to={item.to}
