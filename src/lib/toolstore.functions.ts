@@ -18,8 +18,12 @@ async function loadConn(): Promise<Conn | null> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", CONN_KEY).maybeSingle();
   const v = (data?.value ?? null) as Conn | null;
-  if (!v?.api_url || !v?.api_key) return null;
-  return v;
+  if (v?.api_url && v?.api_key) return v;
+  // Fall back to env vars
+  const envUrl = process.env.TOOLS_STORE_API_URL;
+  const envKey = process.env.TOOLS_STORE_API_KEY;
+  if (envUrl && envKey) return { api_url: envUrl.replace(/\/$/, ""), api_key: envKey };
+  return null;
 }
 
 async function callStore<T>(conn: Conn, path: string, init?: RequestInit): Promise<T> {
@@ -46,7 +50,7 @@ async function assertAdmin(ctx: { supabase: import("@supabase/supabase-js").Supa
   if (!data) throw new Error("Admins only");
 }
 
-// ---------- Admin: save connection ----------
+// ---------- Admin: save connection (via connection code) ----------
 export const saveToolStoreConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { code: string }) => z.object({ code: z.string().min(8) }).parse(d))
@@ -54,6 +58,21 @@ export const saveToolStoreConnection = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const conn = decodeConnCode(data.code);
     // Sanity check
+    await callStore<{ success?: boolean; balance?: number }>(conn, "/balance");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("app_settings").upsert({ key: CONN_KEY, value: conn });
+    return { ok: true, api_url: conn.api_url };
+  });
+
+// ---------- Admin: save connection (direct API URL + key) ----------
+export const saveToolStoreConnectionDirect = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { api_url: string; api_key: string }) =>
+    z.object({ api_url: z.string().url().min(5), api_key: z.string().min(4) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const conn: Conn = { api_url: data.api_url.replace(/\/$/, ""), api_key: data.api_key };
     await callStore<{ success?: boolean; balance?: number }>(conn, "/balance");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("app_settings").upsert({ key: CONN_KEY, value: conn });

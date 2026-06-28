@@ -1,20 +1,34 @@
-// Famous Provider (SMM panel) API client — server only.
+// SMM panel API client — server only.
 // Standard SMM panel API: POST form-urlencoded to /api/v2 with `key` + `action`.
 
-const API_URL = "https://famousprovider.com/api/v2";
+const SERVICES_CONN_KEY = "services_api_connection";
 
-function getKey(): string {
-  const key = process.env.FAMOUSPROVIDER_API_KEY;
-  if (!key) throw new Error("FAMOUSPROVIDER_API_KEY is not configured");
-  return key;
+type ServicesConn = { api_url: string; api_key: string };
+
+async function getConnection(): Promise<ServicesConn> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("app_settings")
+      .select("value")
+      .eq("key", SERVICES_CONN_KEY)
+      .maybeSingle();
+    const v = (data?.value ?? null) as ServicesConn | null;
+    if (v?.api_url && v?.api_key) return v;
+  } catch { /* fall through to env var */ }
+  const key = process.env.SMM_API_KEY ?? process.env.FAMOUSPROVIDER_API_KEY;
+  const url = process.env.SMM_API_URL ?? "https://justanotherpanel.com/api/v2";
+  if (!key) throw new Error("Services API key is not configured. Set it in the Admin panel.");
+  return { api_url: url, api_key: key };
 }
 
 async function call(params: Record<string, string | number>): Promise<unknown> {
+  const { api_url, api_key } = await getConnection();
   const body = new URLSearchParams();
-  body.set("key", getKey());
+  body.set("key", api_key);
   for (const [k, v] of Object.entries(params)) body.set(k, String(v));
 
-  const res = await fetch(API_URL, {
+  const res = await fetch(api_url, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),

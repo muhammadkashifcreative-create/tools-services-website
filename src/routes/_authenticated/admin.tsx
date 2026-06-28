@@ -5,10 +5,10 @@ import { useState } from "react";
 import { Loader2, RefreshCw, ShieldCheck, Users, MessageSquare, ShoppingBag, DollarSign, TrendingDown, TrendingUp, Plug, CheckCircle2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile } from "@/lib/wallet.functions";
-import { syncServicesFromProvider, getMarkup, updateMarkup } from "@/lib/services.functions";
+import { syncServicesFromProvider, getMarkup, updateMarkup, saveServicesConnection, getServicesConnectionStatus } from "@/lib/services.functions";
 import { adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUserOrders } from "@/lib/admin.functions";
 import { adminListAllCases, updateCaseStatus } from "@/lib/cases.functions";
-import { saveToolStoreConnection, getToolStoreStatus } from "@/lib/toolstore.functions";
+import { saveToolStoreConnection, saveToolStoreConnectionDirect, getToolStoreStatus } from "@/lib/toolstore.functions";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -74,6 +74,9 @@ function AdminBody() {
   const fetchUserOrders = useServerFn(adminUserOrders);
   const fetchToolStatus = useServerFn(getToolStoreStatus);
   const saveToolConn = useServerFn(saveToolStoreConnection);
+  const saveToolConnDirect = useServerFn(saveToolStoreConnectionDirect);
+  const saveServicesConn = useServerFn(saveServicesConnection);
+  const fetchServicesStatus = useServerFn(getServicesConnectionStatus);
 
   const { data: stats } = useQuery({ queryKey: ["adminStats"], queryFn: () => fetchStats() });
   const { data: orders } = useQuery({ queryKey: ["adminOrders"], queryFn: () => fetchOrders() });
@@ -81,8 +84,13 @@ function AdminBody() {
   const { data: cases } = useQuery({ queryKey: ["adminCases"], queryFn: () => fetchCases() });
   const { data: markup } = useQuery({ queryKey: ["markup"], queryFn: () => fetchMarkup() });
   const { data: toolStatus } = useQuery({ queryKey: ["toolStoreStatus"], queryFn: () => fetchToolStatus() });
+  const { data: servicesStatus } = useQuery({ queryKey: ["servicesConnStatus"], queryFn: () => fetchServicesStatus() });
   const [markupVal, setMarkupVal] = useState<number | null>(null);
   const [toolConnCode, setToolConnCode] = useState("");
+  const [toolApiUrl, setToolApiUrl] = useState("");
+  const [toolApiKey, setToolApiKey] = useState("");
+  const [smmApiUrl, setSmmApiUrl] = useState("");
+  const [smmApiKey, setSmmApiKey] = useState("");
   const [tab, setTab] = useState<"overview" | "orders" | "users" | "cases">("overview");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
@@ -121,6 +129,26 @@ function AdminBody() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+  const toolDirectMut = useMutation({
+    mutationFn: ({ api_url, api_key }: { api_url: string; api_key: string }) =>
+      saveToolConnDirect({ data: { api_url, api_key } }),
+    onSuccess: () => {
+      toast.success("Tools store connected successfully.");
+      setToolApiUrl(""); setToolApiKey("");
+      qc.invalidateQueries({ queryKey: ["toolStoreStatus"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const servicesConnMut = useMutation({
+    mutationFn: ({ api_url, api_key }: { api_url: string; api_key: string }) =>
+      saveServicesConn({ data: { api_url, api_key } }),
+    onSuccess: () => {
+      toast.success("Social Media Services API connected successfully. Re-sync to apply.");
+      setSmmApiUrl(""); setSmmApiKey("");
+      qc.invalidateQueries({ queryKey: ["servicesConnStatus"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const currentMarkup = markupVal ?? markup?.markup ?? 25;
 
@@ -155,7 +183,7 @@ function AdminBody() {
             <StatIcon icon={MessageSquare} tone="default" label="Active services" value={stats?.services ?? 0} />
           </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border bg-card p-6">
             <h3 className="font-semibold">Sync provider catalog</h3>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -194,35 +222,83 @@ function AdminBody() {
 
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Tools store connection</h3>
+              <h3 className="font-semibold">Tools store API</h3>
               {toolStatus?.connected && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {toolStatus?.connected
                 ? `Connected · ${toolStatus?.apiUrl ?? ""}`
-                : "Paste your connection code to link the tools catalog."}
+                : "Enter your Tools Store API URL and key."}
             </p>
             {!toolStatus?.connected && (
-              <div className="mt-4 flex items-center gap-2">
+              <div className="mt-4 space-y-2">
                 <input
                   type="text"
-                  value={toolConnCode}
-                  onChange={(e) => setToolConnCode(e.target.value)}
-                  placeholder="conn_..."
-                  className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
+                  value={toolApiUrl}
+                  onChange={(e) => setToolApiUrl(e.target.value)}
+                  placeholder="https://your-tools-store.com"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
                 />
-                <button
-                  onClick={() => toolConnMut.mutate(toolConnCode)}
-                  disabled={toolConnMut.isPending || !toolConnCode.trim()}
-                  className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-                >
-                  {toolConnMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    value={toolApiKey}
+                    onChange={(e) => setToolApiKey(e.target.value)}
+                    placeholder="API key"
+                    className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
+                  />
+                  <button
+                    onClick={() => toolDirectMut.mutate({ api_url: toolApiUrl, api_key: toolApiKey })}
+                    disabled={toolDirectMut.isPending || !toolApiUrl.trim() || !toolApiKey.trim()}
+                    className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {toolDirectMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             )}
             {toolStatus?.connected && toolStatus?.adminBalance !== null && (
               <p className="mt-3 text-sm">Upstream balance: <span className="font-semibold">${toolStatus.adminBalance?.toFixed(2) ?? "—"}</span></p>
             )}
+          </div>
+
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Social Media Services API</h3>
+              {servicesStatus?.connected && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {servicesStatus?.configuredInDb
+                ? `Connected · ${servicesStatus?.apiUrl ?? ""}`
+                : servicesStatus?.connected
+                ? "Using env var fallback. Configure in DB to override."
+                : "Enter your SMM panel API URL and key."}
+            </p>
+            <div className="mt-4 space-y-2">
+              <input
+                type="text"
+                value={smmApiUrl}
+                onChange={(e) => setSmmApiUrl(e.target.value)}
+                placeholder="https://justanotherpanel.com/api/v2"
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="password"
+                  value={smmApiKey}
+                  onChange={(e) => setSmmApiKey(e.target.value)}
+                  placeholder="API key"
+                  className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
+                />
+                <button
+                  onClick={() => servicesConnMut.mutate({ api_url: smmApiUrl, api_key: smmApiKey })}
+                  disabled={servicesConnMut.isPending || !smmApiUrl.trim() || !smmApiKey.trim()}
+                  className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {servicesConnMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         </>)}

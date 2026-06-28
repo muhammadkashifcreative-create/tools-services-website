@@ -33,9 +33,9 @@ function pStyle(p?: string | null) {
 export const Route = createFileRoute("/services")({
   head: () => ({
     meta: [
-      { title: "All Services & Prices — iGroBrand" },
+      { title: "Social Media Services & Prices — iGroBrand" },
       { name: "description", content: "Browse every social media boosting service: Instagram, TikTok, YouTube, Spotify, Google Maps reviews and more. Live prices in your local currency." },
-      { property: "og:title", content: "All Services & Prices — iGroBrand" },
+      { property: "og:title", content: "Social Media Services & Prices — iGroBrand" },
     ],
   }),
   component: PublicServicesPage,

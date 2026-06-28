@@ -24,7 +24,7 @@ type Dict = Record<string, string>;
 
 const en: Dict = {
   "nav.home": "Home",
-  "nav.services": "All Services",
+  "nav.services": "Social Media Services",
   "nav.tools": "Tools Store",
   "nav.blog": "Blog",
   "nav.platforms": "Platforms",

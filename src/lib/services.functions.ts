@@ -168,6 +168,41 @@ function sanitizeText(input: string): string {
   return out;
 }
 
+const SERVICES_CONN_KEY = "services_api_connection";
+
+export const saveServicesConnection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { api_url: string; api_key: string }) =>
+    z.object({ api_url: z.string().url().min(5), api_key: z.string().min(4) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (!isAdmin) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("app_settings").upsert({
+      key: SERVICES_CONN_KEY,
+      value: { api_url: data.api_url.replace(/\/$/, ""), api_key: data.api_key } as unknown as never,
+    });
+    return { ok: true };
+  });
+
+export const getServicesConnectionStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: roleData } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    const isAdmin = Boolean(roleData);
+    const supabase = publicClient();
+    const { data } = await supabase.from("app_settings").select("value").eq("key", SERVICES_CONN_KEY).maybeSingle();
+    const v = (data?.value ?? null) as { api_url?: string; api_key?: string } | null;
+    const hasEnvKey = Boolean(process.env.SMM_API_KEY ?? process.env.FAMOUSPROVIDER_API_KEY);
+    return {
+      connected: Boolean(v?.api_url && v?.api_key) || hasEnvKey,
+      configuredInDb: Boolean(v?.api_url && v?.api_key),
+      isAdmin,
+      apiUrl: isAdmin && v?.api_url ? v.api_url : null,
+    };
+  });
+
 export const getMarkup = createServerFn({ method: "GET" }).handler(async () => {
   const supabase = publicClient();
   const { data } = await supabase.from("app_settings").select("value").eq("key", "markup_percent").maybeSingle();
