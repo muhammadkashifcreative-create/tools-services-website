@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Loader2, CreditCard, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile, listMyTransactions } from "@/lib/wallet.functions";
@@ -32,10 +32,11 @@ function WalletPage() {
 
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const isHttps = typeof window === "undefined" || window.location.protocol === "https:" || window.location.hostname === "localhost";
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
-  const fetchClientSecret = useCallback(async () => {
+  const openCheckout = async () => {
     setCheckoutError(null);
+    setClientSecret(null);
     setCheckoutLoading(true);
     try {
       const res = await startCheckout({
@@ -48,25 +49,27 @@ function WalletPage() {
       if ("error" in res) {
         setCheckoutError(res.error);
         toast.error(res.error);
-        throw new Error(res.error);
+        return;
       }
       if (!res.clientSecret) {
-        const msg = "Stripe did not return a payment session. Check your Stripe keys in Vercel.";
-        setCheckoutError(msg);
-        throw new Error(msg);
+        setCheckoutError("Stripe did not return a payment session. Check your Stripe keys in Vercel.");
+        return;
       }
-      return res.clientSecret;
+      setClientSecret(res.clientSecret);
+      setCheckoutOpen(true);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Payment session failed";
       setCheckoutError(msg);
-      throw e;
+      toast.error(msg);
     } finally {
       setCheckoutLoading(false);
     }
-  }, [amount, startCheckout]);
+  };
 
   const closeCheckout = () => {
     setCheckoutOpen(false);
+    setClientSecret(null);
+    setCheckoutError(null);
     qc.invalidateQueries({ queryKey: ["profile"] });
     qc.invalidateQueries({ queryKey: ["transactions"] });
   };
@@ -114,11 +117,14 @@ function WalletPage() {
             {isStripeConfigured() ? (
               !checkoutOpen ? (
                 <button
-                  onClick={() => setCheckoutOpen(true)}
-                  disabled={!amount || amount <= 0}
+                  onClick={openCheckout}
+                  disabled={!amount || amount <= 0 || checkoutLoading}
                   className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
                 >
-                  <CreditCard className="h-4 w-4" /> Pay ${amount} with card
+                  {checkoutLoading
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Setting up payment…</>
+                    : <><CreditCard className="h-4 w-4" /> Pay ${amount} with card</>
+                  }
                 </button>
               ) : (
                 <button
@@ -131,6 +137,11 @@ function WalletPage() {
             ) : (
               <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
                 Card payments not yet configured. Contact support to top up your wallet.
+              </div>
+            )}
+            {checkoutError && !checkoutOpen && (
+              <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                {checkoutError}
               </div>
             )}
           </div>
@@ -148,107 +159,11 @@ function WalletPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="p-4 min-h-75">
-              {!isHttps ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm">
-                  <p className="font-semibold text-amber-800">HTTPS required for payments</p>
-                  <p className="mt-1 text-xs text-amber-700">Stripe only works on secure connections. Please access this page over HTTPS.</p>
-                  <a
-                    href={`https://${window.location.host}${window.location.pathname}`}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
-                  >
-                    Switch to HTTPS →
-                  </a>
-                </div>
-              ) : checkoutError ? (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                  <p className="font-semibold">Payment setup failed</p>
-                  <p className="mt-1 text-xs">{checkoutError}</p>
-                  <button
-                    onClick={() => { setCheckoutError(null); setCheckoutOpen(false); }}
-                    className="mt-3 text-xs underline"
-                  >
-                    Try again
-                  </button>
-                </div>
-              ) : checkoutLoading ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  <p className="text-sm">Setting up secure payment…</p>
-                </div>
-              ) : (
+            <div className="p-4">
+              {clientSecret && (
               <EmbeddedCheckoutProvider
                 stripe={getStripe()}
-                options={{
-                  fetchClientSecret,
-                  appearance: {
-                    theme: "stripe",
-                    variables: {
-                      colorPrimary: "#e07b2e",
-                      colorBackground: "#ffffff",
-                      colorText: "#0f172a",
-                      colorDanger: "#ef4444",
-                      colorSuccess: "#16a34a",
-                      fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif",
-                      fontSizeBase: "14px",
-                      spacingUnit: "4px",
-                      borderRadius: "12px",
-                      gridRowSpacing: "16px",
-                      gridColumnSpacing: "16px",
-                    },
-                    rules: {
-                      ".Input": {
-                        border: "1.5px solid #e2e8f0",
-                        boxShadow: "none",
-                        padding: "10px 14px",
-                        fontSize: "14px",
-                      },
-                      ".Input:focus": {
-                        border: "1.5px solid #e07b2e",
-                        boxShadow: "0 0 0 3px rgba(224,123,46,0.12)",
-                      },
-                      ".Label": {
-                        fontWeight: "600",
-                        fontSize: "13px",
-                        color: "#374151",
-                        marginBottom: "6px",
-                      },
-                      ".Tab": {
-                        border: "1.5px solid #e2e8f0",
-                        borderRadius: "10px",
-                        padding: "10px 16px",
-                      },
-                      ".Tab:hover": {
-                        border: "1.5px solid #e07b2e",
-                        color: "#e07b2e",
-                      },
-                      ".Tab--selected": {
-                        border: "1.5px solid #e07b2e",
-                        backgroundColor: "#fff7ed",
-                        color: "#e07b2e",
-                        boxShadow: "0 0 0 1px #e07b2e",
-                      },
-                      ".Block": {
-                        borderRadius: "12px",
-                        border: "1.5px solid #e2e8f0",
-                        backgroundColor: "#f9fafb",
-                        padding: "12px",
-                      },
-                      ".CheckboxInput": {
-                        borderRadius: "6px",
-                        border: "1.5px solid #e2e8f0",
-                      },
-                      ".CheckboxInput--checked": {
-                        backgroundColor: "#e07b2e",
-                        borderColor: "#e07b2e",
-                      },
-                      ".PaymentMethodSelector": {
-                        borderRadius: "12px",
-                        border: "1.5px solid #e2e8f0",
-                      },
-                    },
-                  },
-                }}
+                options={{ clientSecret }}
               >
                 <EmbeddedCheckout />
               </EmbeddedCheckoutProvider>
