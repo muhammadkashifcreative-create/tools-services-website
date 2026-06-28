@@ -607,7 +607,32 @@ function ServicesPage() {
             <div className="max-h-[90vh] overflow-y-auto">
               <EmbeddedCheckoutProvider
                 stripe={getStripe()}
-                options={{ fetchClientSecret: fetchOrderClientSecret }}
+                options={{
+                  fetchClientSecret: fetchOrderClientSecret,
+                  appearance: {
+                    theme: "stripe",
+                    variables: {
+                      colorPrimary: "#e07b2e",
+                      colorBackground: "#ffffff",
+                      colorText: "#0f172a",
+                      colorDanger: "#ef4444",
+                      fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif",
+                      fontSizeBase: "14px",
+                      spacingUnit: "4px",
+                      borderRadius: "12px",
+                      gridRowSpacing: "16px",
+                    },
+                    rules: {
+                      ".Input": { border: "1.5px solid #e2e8f0", boxShadow: "none", padding: "10px 14px" },
+                      ".Input:focus": { border: "1.5px solid #e07b2e", boxShadow: "0 0 0 3px rgba(224,123,46,0.12)" },
+                      ".Label": { fontWeight: "600", fontSize: "13px", color: "#374151", marginBottom: "6px" },
+                      ".Tab": { border: "1.5px solid #e2e8f0", borderRadius: "10px" },
+                      ".Tab--selected": { border: "1.5px solid #e07b2e", backgroundColor: "#fff7ed", color: "#e07b2e", boxShadow: "0 0 0 1px #e07b2e" },
+                      ".Block": { borderRadius: "12px", border: "1.5px solid #e2e8f0", backgroundColor: "#f9fafb" },
+                      ".CheckboxInput--checked": { backgroundColor: "#e07b2e", borderColor: "#e07b2e" },
+                    },
+                  },
+                }}
               >
                 <EmbeddedCheckout />
               </EmbeddedCheckoutProvider>

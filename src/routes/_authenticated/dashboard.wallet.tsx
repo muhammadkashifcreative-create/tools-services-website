@@ -129,7 +129,79 @@ function WalletPage() {
               </button>
             </div>
             <div className="p-4">
-              <EmbeddedCheckoutProvider stripe={getStripe()} options={{ fetchClientSecret }}>
+              <EmbeddedCheckoutProvider
+                stripe={getStripe()}
+                options={{
+                  fetchClientSecret,
+                  appearance: {
+                    theme: "stripe",
+                    variables: {
+                      colorPrimary: "#e07b2e",
+                      colorBackground: "#ffffff",
+                      colorText: "#0f172a",
+                      colorDanger: "#ef4444",
+                      colorSuccess: "#16a34a",
+                      fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif",
+                      fontSizeBase: "14px",
+                      spacingUnit: "4px",
+                      borderRadius: "12px",
+                      gridRowSpacing: "16px",
+                      gridColumnSpacing: "16px",
+                    },
+                    rules: {
+                      ".Input": {
+                        border: "1.5px solid #e2e8f0",
+                        boxShadow: "none",
+                        padding: "10px 14px",
+                        fontSize: "14px",
+                      },
+                      ".Input:focus": {
+                        border: "1.5px solid #e07b2e",
+                        boxShadow: "0 0 0 3px rgba(224,123,46,0.12)",
+                      },
+                      ".Label": {
+                        fontWeight: "600",
+                        fontSize: "13px",
+                        color: "#374151",
+                        marginBottom: "6px",
+                      },
+                      ".Tab": {
+                        border: "1.5px solid #e2e8f0",
+                        borderRadius: "10px",
+                        padding: "10px 16px",
+                      },
+                      ".Tab:hover": {
+                        border: "1.5px solid #e07b2e",
+                        color: "#e07b2e",
+                      },
+                      ".Tab--selected": {
+                        border: "1.5px solid #e07b2e",
+                        backgroundColor: "#fff7ed",
+                        color: "#e07b2e",
+                        boxShadow: "0 0 0 1px #e07b2e",
+                      },
+                      ".Block": {
+                        borderRadius: "12px",
+                        border: "1.5px solid #e2e8f0",
+                        backgroundColor: "#f9fafb",
+                        padding: "12px",
+                      },
+                      ".CheckboxInput": {
+                        borderRadius: "6px",
+                        border: "1.5px solid #e2e8f0",
+                      },
+                      ".CheckboxInput--checked": {
+                        backgroundColor: "#e07b2e",
+                        borderColor: "#e07b2e",
+                      },
+                      ".PaymentMethodSelector": {
+                        borderRadius: "12px",
+                        border: "1.5px solid #e2e8f0",
+                      },
+                    },
+                  },
+                }}
+              >
                 <EmbeddedCheckout />
               </EmbeddedCheckoutProvider>
             </div>
