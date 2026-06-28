@@ -124,7 +124,7 @@ function SupportPage() {
                 {(cases ?? []).map((c) => (
                   <tr key={c.id} className="hover:bg-accent/40">
                     <td className="px-5 py-3">
-                      <Link to="/support/$caseId" params={{ caseId: c.id }} className="font-medium hover:underline">
+                      <Link to="/dashboard/support/$caseId" params={{ caseId: c.id }} className="font-medium hover:underline">
                         {c.subject}
                       </Link>
                     </td>

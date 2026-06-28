@@ -473,7 +473,7 @@ function AdminBody() {
                     <tr key={c.id}>
                       <td className="px-5 py-3">{c.profile?.username ?? c.profile?.full_name ?? c.user_id.slice(0, 8)}</td>
                       <td className="px-5 py-3">
-                        <Link to="/support/$caseId" params={{ caseId: c.id }} className="font-medium hover:underline">{c.subject}</Link>
+                        <Link to="/dashboard/support/$caseId" params={{ caseId: c.id }} className="font-medium hover:underline">{c.subject}</Link>
                       </td>
                       <td className="px-5 py-3 capitalize text-muted-foreground">{c.category.replace("_", " ")}</td>
                       <td className="px-5 py-3 capitalize">{c.priority}</td>
