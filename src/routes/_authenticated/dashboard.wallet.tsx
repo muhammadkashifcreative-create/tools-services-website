@@ -7,7 +7,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile, listMyTransactions } from "@/lib/wallet.functions";
 import { createDepositCheckout } from "@/lib/payments.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
-import { getStripe, getStripeEnvironment } from "@/lib/stripe";
+import { getStripe, getStripeEnvironment, isStripeConfigured } from "@/lib/stripe";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -91,13 +91,19 @@ function WalletPage() {
                 You'll be charged ≈ <span className="font-semibold text-foreground">{symbol}{localPreview} {ccy.currency}</span>
               </p>
             )}
-            <button
-              onClick={() => setCheckoutOpen(true)}
-              disabled={!amount || amount <= 0}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
-            >
-              <CreditCard className="h-4 w-4" /> Pay ${amount} with card
-            </button>
+            {isStripeConfigured() ? (
+              <button
+                onClick={() => setCheckoutOpen(true)}
+                disabled={!amount || amount <= 0}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+              >
+                <CreditCard className="h-4 w-4" /> Pay ${amount} with card
+              </button>
+            ) : (
+              <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                Card payments not yet configured. Contact support to top up your wallet.
+              </div>
+            )}
           </div>
         </div>
 

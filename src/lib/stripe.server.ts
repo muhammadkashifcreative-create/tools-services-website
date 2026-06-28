@@ -1,92 +1,60 @@
 import Stripe from "stripe";
 
-const getEnv = (key: string): string => {
-  const value = process.env[key];
-  if (!value) throw new Error(`${key} is not configured`);
-  return value;
-};
-
 export type StripeEnv = "sandbox" | "live";
 
-const GATEWAY_STRIPE_BASE = "https://connector-gateway.lovable.dev/stripe";
-
-export function getConnectionApiKey(env: StripeEnv): string {
-  return env === "sandbox"
-    ? getEnv("STRIPE_SANDBOX_API_KEY")
-    : getEnv("STRIPE_LIVE_API_KEY");
+function getEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) throw new Error(`${key} is not configured in Vercel environment variables`);
+  return value;
 }
 
 export function createStripeClient(env: StripeEnv): Stripe {
-  const connectionApiKey = getConnectionApiKey(env);
-  const lovableApiKey = getEnv("LOVABLE_API_KEY");
+  const key = env === "sandbox"
+    ? (process.env.STRIPE_SANDBOX_API_KEY ?? getEnv("STRIPE_SECRET_KEY"))
+    : (process.env.STRIPE_LIVE_API_KEY ?? getEnv("STRIPE_SECRET_KEY"));
 
-  return new Stripe(connectionApiKey, {
-    apiVersion: "2026-03-25.dahlia",
-    httpClient: Stripe.createFetchHttpClient((input, init) => {
-      const stripeUrl = input instanceof Request ? input.url : input.toString();
-      const gatewayUrl = stripeUrl.replace("https://api.stripe.com", GATEWAY_STRIPE_BASE);
-      return fetch(gatewayUrl, {
-        ...init,
-        headers: {
-          ...Object.fromEntries(
-            new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined)).entries(),
-          ),
-          "X-Connection-Api-Key": connectionApiKey,
-          "Lovable-API-Key": lovableApiKey,
-        },
-      });
-    }),
-  });
+  return new Stripe(key, { apiVersion: "2025-05-28.basil" });
 }
 
 export function getStripeErrorMessage(error: unknown): string {
   if (error && typeof error === "object") {
     const e = error as { message?: string; raw?: { message?: string } };
-    return e.raw?.message ?? e.message ?? "Stripe request failed";
+    return e.raw?.message ?? e.message ?? "Payment failed";
   }
-  return "Stripe request failed";
+  return "Payment failed";
 }
 
 export async function verifyWebhook(
   req: Request,
   env: StripeEnv,
-): Promise<{ type: string; data: { object: any } }> {
+): Promise<{ type: string; data: { object: unknown } }> {
   const signature = req.headers.get("stripe-signature");
   const body = await req.text();
-  const secret =
-    env === "sandbox"
-      ? getEnv("PAYMENTS_SANDBOX_WEBHOOK_SECRET")
-      : getEnv("PAYMENTS_LIVE_WEBHOOK_SECRET");
+  const secret = env === "sandbox"
+    ? (process.env.PAYMENTS_SANDBOX_WEBHOOK_SECRET ?? getEnv("STRIPE_WEBHOOK_SECRET"))
+    : (process.env.PAYMENTS_LIVE_WEBHOOK_SECRET ?? getEnv("STRIPE_WEBHOOK_SECRET"));
 
-  if (!signature || !body) throw new Error("Missing signature or body");
+  if (!signature || !body) throw new Error("Missing Stripe signature");
 
   let timestamp: string | undefined;
-  const v1Signatures: string[] = [];
+  const v1: string[] = [];
   for (const part of signature.split(",")) {
-    const [key, value] = part.split("=", 2);
-    if (key === "t") timestamp = value;
-    if (key === "v1") v1Signatures.push(value);
+    const [k, v] = part.split("=", 2);
+    if (k === "t") timestamp = v;
+    if (k === "v1") v1.push(v);
   }
-  if (!timestamp || v1Signatures.length === 0) throw new Error("Invalid signature format");
+  if (!timestamp || !v1.length) throw new Error("Invalid Stripe signature format");
 
-  const age = Math.abs(Date.now() / 1000 - Number(timestamp));
-  if (age > 300) throw new Error("Webhook timestamp too old");
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300)
+    throw new Error("Stripe webhook timestamp too old");
 
   const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
+    "raw", new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   );
-  const signed = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(`${timestamp}.${body}`),
-  );
-  const expected = Buffer.from(new Uint8Array(signed)).toString("hex");
-
-  if (!v1Signatures.includes(expected)) throw new Error("Invalid webhook signature");
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${timestamp}.${body}`));
+  const expected = Buffer.from(new Uint8Array(sig)).toString("hex");
+  if (!v1.includes(expected)) throw new Error("Invalid Stripe webhook signature");
 
   return JSON.parse(body);
 }

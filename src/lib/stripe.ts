@@ -1,27 +1,28 @@
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 
-type StripeEnv = "sandbox" | "live";
+export type StripeEnv = "sandbox" | "live";
 
-const clientToken = import.meta.env.VITE_PAYMENTS_CLIENT_TOKEN as string | undefined;
+// Supports both VITE_PAYMENTS_CLIENT_TOKEN (legacy) and VITE_STRIPE_PUBLISHABLE_KEY
+const clientToken =
+  (import.meta.env.VITE_PAYMENTS_CLIENT_TOKEN as string | undefined) ??
+  (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined);
 
-function paymentsEnvironment(): StripeEnv {
-  if (clientToken?.startsWith("pk_test_")) return "sandbox";
-  if (clientToken?.startsWith("pk_live_")) return "live";
-  throw new Error(
-    "Stripe payments are not configured for this build. Complete Stripe go-live in your Lovable project to enable production checkout.",
-  );
+export function getStripeEnvironment(): StripeEnv {
+  if (!clientToken) throw new Error("Stripe publishable key not configured. Set VITE_STRIPE_PUBLISHABLE_KEY in Vercel.");
+  if (clientToken.startsWith("pk_test_")) return "sandbox";
+  if (clientToken.startsWith("pk_live_")) return "live";
+  throw new Error("Invalid Stripe publishable key format");
 }
 
 let stripePromise: Promise<Stripe | null> | null = null;
 
 export function getStripe(): Promise<Stripe | null> {
   if (!stripePromise) {
-    paymentsEnvironment();
     stripePromise = loadStripe(clientToken as string);
   }
   return stripePromise;
 }
 
-export function getStripeEnvironment(): StripeEnv {
-  return paymentsEnvironment();
+export function isStripeConfigured(): boolean {
+  return Boolean(clientToken?.startsWith("pk_test_") || clientToken?.startsWith("pk_live_"));
 }
