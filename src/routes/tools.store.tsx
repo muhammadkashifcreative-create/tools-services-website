@@ -15,7 +15,6 @@ import {
   type ToolProduct,
 } from "@/lib/toolstore.functions";
 import { getMyProfile } from "@/lib/wallet.functions";
-import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/tools/store")({
   ssr: false,
@@ -37,9 +36,9 @@ function ToolsStorePublicPage() {
 
   const [authed, setAuthed] = useState<boolean | null>(null);
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setAuthed(Boolean(data.user)));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setAuthed(Boolean(s?.user)));
-    return () => sub.subscription.unsubscribe();
+    // Use the session cookie check via /api/auth/me instead of Supabase client
+    // (Supabase client may not be configured client-side without VITE_ env vars)
+    fetch("/api/auth/me").then((r) => setAuthed(r.ok)).catch(() => setAuthed(false));
   }, []);
 
   const { data: status, isLoading: stLoading } = useQuery({ queryKey: ["toolStatusPub"], queryFn: () => fetchStatus() });
