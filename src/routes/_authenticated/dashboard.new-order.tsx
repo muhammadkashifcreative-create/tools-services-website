@@ -7,11 +7,13 @@ import {
   Instagram, Music2, Youtube, Facebook, Twitter, Linkedin,
   Send, MapPin, Twitch, Music, Globe2, ShieldCheck, MousePointerClick,
   Link2, ListChecks, Rocket, Check, Clock4, CreditCard, Wallet, X,
-  Wrench, ArrowRight,
+  Wrench, ArrowRight, ArrowLeft, Package, Copy, CheckCheck,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { listServices } from "@/lib/services.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
+import { listToolProducts, purchaseToolProduct, type ToolProduct } from "@/lib/toolstore.functions";
+import { TiltCard } from "@/components/TiltCard";
 import { placeOrder } from "@/lib/orders.functions";
 import { createOrderCheckout } from "@/lib/payments.functions";
 import { getStripe, getStripeEnvironment } from "@/lib/stripe";
@@ -44,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/dashboard/new-order")({
 });
 
 function ServicesPage() {
-  const [mode, setMode] = useState<"choose" | "smm">("choose");
+  const [mode, setMode] = useState<"choose" | "smm" | "tools">("choose");
   const router = useRouter();
 
   const fetchServices = useServerFn(listServices);
@@ -52,6 +54,28 @@ function ServicesPage() {
     queryKey: ["services"],
     queryFn: () => fetchServices(),
     enabled: mode === "smm",
+  });
+
+  // ── Tools Store ──
+  const fetchToolProducts = useServerFn(listToolProducts);
+  const purchaseTool = useServerFn(purchaseToolProduct);
+  const { data: toolData, isLoading: toolsLoading } = useQuery({
+    queryKey: ["toolProducts"],
+    queryFn: () => fetchToolProducts(),
+    enabled: mode === "tools",
+  });
+  const [toolQtyMap, setToolQtyMap] = useState<Record<string, number>>({});
+  const [codesResult, setCodesResult] = useState<{ name: string; codes: string[] } | null>(null);
+  const [copiedCodes, setCopiedCodes] = useState(false);
+  const toolMut = useMutation({
+    mutationFn: ({ productId, qty }: { productId: string; qty: number }) =>
+      purchaseTool({ data: { productId, qty } }),
+    onSuccess: (r, vars) => {
+      const product = (toolData?.products ?? []).find((p) => p.id === vars.productId);
+      setCodesResult({ name: product?.name_en ?? "Tool", codes: r.codes });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
   const fetchCurrency = useServerFn(getUserCurrency);
   const { data: ccy } = useQuery({
@@ -221,7 +245,7 @@ function ServicesPage() {
 
               {/* Tools Store */}
               <button
-                onClick={() => router.navigate({ to: "/tools/store" })}
+                onClick={() => setMode("tools")}
                 className="group flex flex-col items-center gap-4 rounded-2xl border border-border/60 bg-card p-8 text-center shadow-soft transition-all hover:border-primary/60 hover:shadow-glow hover:-translate-y-1"
               >
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-soft transition group-hover:scale-110" style={{ background: "linear-gradient(135deg,#e07b2e,#f59e0b)" }}>
@@ -594,6 +618,146 @@ function ServicesPage() {
 
       </div>
 
+      {/* ── Tools Store mode ── */}
+      {mode === "tools" && (
+        <div className="mx-auto max-w-6xl">
+          {/* Header */}
+          <div className="relative overflow-hidden rounded-2xl border border-border/60 p-5 shadow-elegant sm:rounded-3xl sm:p-7" style={{ background: "var(--gradient-hero)" }}>
+            <div className="absolute inset-0 grid-pattern opacity-50" aria-hidden />
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <button
+                  onClick={() => setMode("choose")}
+                  className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-xs font-medium backdrop-blur hover:bg-background/80 transition"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back
+                </button>
+                <h1 className="text-2xl font-bold tracking-tight sm:text-4xl">
+                  Tools Store <span className="text-gradient">— Instant delivery.</span>
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {(toolData?.products ?? []).length} products available — paid from your wallet, codes delivered instantly.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Chip icon={Zap} label="Instant codes" />
+                <Chip icon={ShieldCheck} label="Wallet-secured" />
+                <Chip icon={Check} label="Curated catalog" />
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="mt-6">
+            {toolsLoading ? (
+              <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : !toolData?.connected ? (
+              <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-16 text-center">
+                <Wrench className="mx-auto h-10 w-10 text-muted-foreground/50" />
+                <p className="mt-3 font-semibold">Tools store not connected</p>
+                <p className="mt-1 text-sm text-muted-foreground">Ask an admin to connect the Tools Store API.</p>
+              </div>
+            ) : (toolData?.products ?? []).length === 0 ? (
+              <div className="rounded-2xl border border-border/60 bg-card p-16 text-center text-sm text-muted-foreground">No products available right now.</div>
+            ) : (
+              <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                {(toolData!.products as ToolProduct[]).map((p) => {
+                  const outOfStock = p.in_stock === false || p.stock === 0;
+                  const ps = toolPaletteFor(p.id);
+                  const qty = toolQtyMap[p.id] ?? 1;
+                  const priceLocal = +(Number(p.your_price) * fx).toFixed(2);
+                  const totalLocal = +(priceLocal * qty).toFixed(2);
+                  return (
+                    <TiltCard key={p.id} className="h-full">
+                      <div
+                        className="group relative h-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft transition hover:border-primary/40 hover:shadow-elegant flex flex-col"
+                        style={{ backgroundImage: "radial-gradient(400px circle at var(--mx,50%) var(--my,0%), oklch(0.72 0.20 50/0.10), transparent 45%)" }}
+                      >
+                        <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg,${ps.from},${ps.to})` }} aria-hidden />
+                        <div className="relative flex flex-col flex-1 p-4">
+                          <div className="flex items-start gap-2">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-soft" style={{ background: `linear-gradient(135deg,${ps.from},${ps.to})` }}>
+                              {p.emoji ?? <Package className="h-4 w-4 text-white" />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap gap-1">
+                                <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: `linear-gradient(135deg,${ps.from},${ps.to})` }}>Tool</span>
+                                <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${outOfStock ? "bg-destructive/15 text-destructive" : "border border-emerald-500/30 bg-emerald-500/10 text-emerald-600"}`}>
+                                  {outOfStock ? "Out of stock" : p.stock > 0 ? `${p.stock} left` : "In stock"}
+                                </span>
+                              </div>
+                              <h3 className="mt-1.5 text-xs font-semibold leading-snug line-clamp-2">{p.name_en}</h3>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex items-end justify-between border-t border-border/60 pt-3">
+                            <div>
+                              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Price</p>
+                              <p className="text-base font-bold tabular-nums text-gradient">{symbol}{priceLocal.toFixed(2)}</p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <label className="text-[9px] uppercase text-muted-foreground">Qty</label>
+                              <input
+                                type="number" min={1} max={Math.max(1, p.stock)} value={qty}
+                                onChange={(e) => setToolQtyMap((prev) => ({ ...prev, [p.id]: Math.max(1, Math.min(p.stock || 1, Number(e.target.value || 1))) }))}
+                                className="w-12 rounded border border-border/60 bg-background px-1.5 py-1 text-right text-xs"
+                                disabled={outOfStock}
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            disabled={outOfStock || toolMut.isPending}
+                            onClick={() => toolMut.mutate({ productId: p.id, qty })}
+                            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-50"
+                            style={{ background: "var(--gradient-accent)" }}
+                          >
+                            {toolMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+                            {outOfStock ? "Out of stock" : `Buy · ${symbol}${totalLocal.toFixed(2)}`}
+                          </button>
+                        </div>
+                      </div>
+                    </TiltCard>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Codes delivery modal */}
+      {codesResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Purchase successful</p>
+                <h2 className="font-bold text-lg">{codesResult.name}</h2>
+              </div>
+              <button onClick={() => { setCodesResult(null); setCopiedCodes(false); }} className="rounded-lg border border-border p-1.5 hover:bg-accent">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="rounded-xl bg-muted/40 border border-border p-4 space-y-2">
+              {codesResult.codes.map((c, i) => (
+                <p key={i} className="font-mono text-sm break-all">{c}</p>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText(codesResult.codes.join("\n"));
+                setCopiedCodes(true);
+              }}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:bg-accent transition"
+            >
+              {copiedCodes ? <><CheckCheck className="h-4 w-4 text-emerald-500" /> Copied!</> : <><Copy className="h-4 w-4" /> Copy code(s)</>}
+            </button>
+            <p className="mt-2 text-center text-xs text-muted-foreground">Your order history is saved in the Orders tab.</p>
+          </div>
+        </div>
+      )}
+
       {checkoutOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="relative w-full max-w-2xl overflow-hidden rounded-xl bg-background shadow-2xl">
@@ -650,5 +814,18 @@ function Chip({ icon: Icon, label }: { icon: typeof Zap; label: string }) {
       <Icon className="h-3.5 w-3.5 text-primary" /> {label}
     </span>
   );
+}
+
+const TOOL_PALETTES = [
+  { from: "#f09433", to: "#bc1888" }, { from: "#25F4EE", to: "#FE2C55" },
+  { from: "#ff5858", to: "#c4302b" }, { from: "#1877F2", to: "#0a4fb5" },
+  { from: "#1DB954", to: "#168f3f" }, { from: "#9146FF", to: "#5d2eb8" },
+  { from: "#EA4335", to: "#4285F4" }, { from: "#6366f1", to: "#06b6d4" },
+  { from: "#f59e0b", to: "#ef4444" }, { from: "#10b981", to: "#0ea5e9" },
+];
+function toolPaletteFor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return TOOL_PALETTES[h % TOOL_PALETTES.length];
 }
 
