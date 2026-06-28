@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState, useCallback } from "react";
@@ -7,7 +7,6 @@ import {
   Instagram, Music2, Youtube, Facebook, Twitter, Linkedin,
   Send, MapPin, Twitch, Music, Globe2, ShieldCheck, MousePointerClick,
   Link2, ListChecks, Rocket, Check, Clock4, CreditCard, Wallet, X,
-  Wrench, ArrowRight, Package, ShoppingBag, LogIn,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { listServices } from "@/lib/services.functions";
@@ -18,7 +17,6 @@ import { getStripe, getStripeEnvironment } from "@/lib/stripe";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { listToolProducts, purchaseToolProduct, type ToolProduct } from "@/lib/toolstore.functions";
 
 // Platform → icon + gradient tokens
 const PLATFORM_STYLE: Record<string, { icon: typeof Instagram; from: string; to: string; text: string }> = {
@@ -45,20 +43,10 @@ export const Route = createFileRoute("/_authenticated/new-order")({
 });
 
 function ServicesPage() {
-  const [mode, setMode] = useState<"choose" | "smm" | "tools">("choose");
-
   const fetchServices = useServerFn(listServices);
   const { data: services, isLoading } = useQuery({
     queryKey: ["services"],
     queryFn: () => fetchServices(),
-    enabled: mode === "smm",
-  });
-
-  const fetchTools = useServerFn(listToolProducts);
-  const { data: toolsData, isLoading: toolsLoading } = useQuery({
-    queryKey: ["toolProducts"],
-    queryFn: () => fetchTools(),
-    enabled: mode === "tools",
   });
   const fetchCurrency = useServerFn(getUserCurrency);
   const { data: ccy } = useQuery({
@@ -197,78 +185,6 @@ function ServicesPage() {
       <Toaster />
       <div className="mx-auto max-w-6xl">
 
-        {/* ── Category chooser ── */}
-        <div className="mb-6 flex items-center gap-3">
-          <button
-            onClick={() => setMode("smm")}
-            className={`group flex flex-1 items-center gap-4 rounded-2xl border p-5 text-left transition-all ${
-              mode === "smm"
-                ? "border-primary/60 bg-primary/5 shadow-glow"
-                : "border-border/60 bg-card hover:border-primary/40 hover:bg-accent/30"
-            }`}
-          >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-soft" style={{ background: "linear-gradient(135deg,#f09433,#bc1888)" }}>
-              <Instagram className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-semibold">Social Media Services</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{(services ?? []).length > 0 ? `${(services ?? []).length.toLocaleString()} services` : "Instagram, TikTok, YouTube & more"}</p>
-            </div>
-            {mode === "smm" && <Check className="ml-auto h-5 w-5 text-primary" />}
-          </button>
-
-          <button
-            onClick={() => setMode("tools")}
-            className={`group flex flex-1 items-center gap-4 rounded-2xl border p-5 text-left transition-all ${
-              mode === "tools"
-                ? "border-primary/60 bg-primary/5 shadow-glow"
-                : "border-border/60 bg-card hover:border-primary/40 hover:bg-accent/30"
-            }`}
-          >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-soft" style={{ background: "linear-gradient(135deg,#e07b2e,#f59e0b)" }}>
-              <Wrench className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-semibold">Tools Store</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{(toolsData?.products ?? []).length > 0 ? `${(toolsData?.products ?? []).length} products` : "Premium accounts & subscriptions"}</p>
-            </div>
-            {mode === "tools" && <Check className="ml-auto h-5 w-5 text-primary" />}
-          </button>
-        </div>
-
-        {/* ── Tools Store view ── */}
-        {mode === "tools" && (
-          <div>
-            {toolsLoading ? (
-              <div className="flex flex-col items-center justify-center gap-4 py-24">
-                <div className="relative h-16 w-16">
-                  <div className="absolute inset-0 rounded-full border-4 border-border/30" />
-                  <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-primary" />
-                  <div className="absolute inset-2 flex items-center justify-center rounded-full bg-primary/10">
-                    <Wrench className="h-5 w-5 text-primary" />
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">Loading tools catalog…</p>
-              </div>
-            ) : (toolsData?.products ?? []).length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-12 text-center">
-                <Wrench className="mx-auto h-8 w-8 text-muted-foreground" />
-                <h2 className="mt-3 text-lg font-bold">No tools available</h2>
-                <p className="mt-1 text-sm text-muted-foreground">The tools catalog is empty or not connected.</p>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {(toolsData!.products as ToolProduct[]).map((p) => (
-                  <ToolCard key={p.id} product={p} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── SMM Services view ── */}
-        {mode === "smm" && (
-        <div>
         {/* Hero header */}
         <div className="relative overflow-hidden rounded-2xl border border-border/60 p-5 shadow-elegant sm:rounded-3xl sm:p-7 lg:p-10" style={{ background: "var(--gradient-hero)" }}>
           <div className="absolute inset-0 grid-pattern opacity-50" aria-hidden />
@@ -614,9 +530,6 @@ function ServicesPage() {
             </aside>
           </div>
         )}
-        </div>
-        )}
-
       </div>
 
       {checkoutOpen && (
@@ -652,61 +565,3 @@ function Chip({ icon: Icon, label }: { icon: typeof Zap; label: string }) {
   );
 }
 
-function ToolCard({ product }: { product: ToolProduct }) {
-  const qc = useQueryClient();
-  const purchase = useServerFn(purchaseToolProduct);
-  const [qty, setQty] = useState(1);
-  const mut = useMutation({
-    mutationFn: () => purchase({ data: { productId: product.id, qty } }),
-    onSuccess: (r) => {
-      toast.success(`Purchased! ${r.codes.length} code(s) delivered.`);
-      qc.invalidateQueries({ queryKey: ["profile"] });
-      if (r.codes?.length) navigator.clipboard?.writeText(r.codes.join("\n")).catch(() => {});
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const total = +(Number(product.your_price) * qty).toFixed(2);
-  const outOfStock = product.in_stock === false;
-
-  return (
-    <div className="group overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft transition hover:border-primary/40 hover:shadow-elegant">
-      <div className="h-1 w-full" style={{ background: "var(--gradient-accent)" }} />
-      <div className="p-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-soft" style={{ background: "var(--gradient-accent)" }}>
-            <Package className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{product.name_en}</h3>
-            <span className={`mt-1 inline-block rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${outOfStock ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600"}`}>
-              {outOfStock ? "Out of stock" : product.stock > 0 ? `${product.stock} left` : "In stock"}
-            </span>
-          </div>
-        </div>
-        <div className="mt-4 flex items-end justify-between border-t border-border/60 pt-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Qty</p>
-            <input
-              type="number" min={1} max={Math.max(1, product.stock || 50)} value={qty}
-              onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))}
-              disabled={outOfStock}
-              className="w-16 rounded-md border border-border/60 bg-background px-2 py-1 text-sm text-right"
-            />
-          </div>
-          <div className="text-right">
-            <p className="text-xl font-bold tabular-nums text-gradient">${total.toFixed(2)}</p>
-            <p className="text-[10px] text-muted-foreground">per unit</p>
-          </div>
-        </div>
-        <button
-          onClick={() => mut.mutate()}
-          disabled={outOfStock || mut.isPending}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ background: "var(--gradient-accent)" }}
-        >
-          {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ShoppingBag className="h-3.5 w-3.5" /> Buy · ${total.toFixed(2)}</>}
-        </button>
-      </div>
-    </div>
-  );
-}
