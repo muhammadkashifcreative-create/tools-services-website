@@ -231,7 +231,9 @@ function AdminBody() {
 
           <div className="rounded-xl border bg-card p-6">
             <h3 className="font-semibold">Pricing markup</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Percentage added on top of the provider's rate.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              % added on top of provider's USD cost. Selling price = provider cost × (1 + markup%). Must be &gt; 0 to avoid losses.
+            </p>
             <div className="mt-4 flex items-center gap-3">
               <input
                 type="number"

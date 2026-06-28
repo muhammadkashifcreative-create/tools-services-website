@@ -50,14 +50,11 @@ export const syncServicesFromProvider = createServerFn({ method: "POST" })
 
     const { fetchServices } = await import("./famousprovider.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { getFxRatesUSDBase } = await import("./fx.server");
 
     const services = await fetchServices();
-    // Provider rates are quoted in INR. Convert to USD so the DB stores a
-    // canonical USD price; user-facing pages convert from USD to local currency.
-    const fx = await getFxRatesUSDBase();
-    const inrPerUsd = Number(fx.INR) > 0 ? Number(fx.INR) : 83.2;
-
+    // justanotherpanel.com rates are already in USD per 1,000 units.
+    // We store provider_rate (cost) and rate (selling price = cost + markup).
+    // This ensures we never sell below cost.
     const { data: settings } = await supabaseAdmin
       .from("app_settings")
       .select("value")
@@ -67,9 +64,11 @@ export const syncServicesFromProvider = createServerFn({ method: "POST" })
 
     const rows = services.map((s) => {
       const rawRate = Number(s.rate);
-      const providerRateInr = Number.isFinite(rawRate) && rawRate >= 0 ? Math.min(rawRate, 9_999_999) : 0;
-      // Convert INR → USD, then apply markup.
-      const providerRate = +(providerRateInr / inrPerUsd).toFixed(6);
+      // Provider rate in USD — use directly, no currency conversion needed
+      const providerRate = Number.isFinite(rawRate) && rawRate >= 0
+        ? +Math.min(rawRate, 9_999_999).toFixed(6)
+        : 0;
+      // Selling price = provider cost × (1 + markup%) — always above cost
       const computed = providerRate * (1 + markupPct / 100);
       const rate = +(Number.isFinite(computed) ? Math.min(computed, 9_999_999) : 0).toFixed(4);
       const min = Math.max(1, Math.min(Number(s.min) || 1, 2_000_000_000));
