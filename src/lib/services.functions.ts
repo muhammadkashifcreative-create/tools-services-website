@@ -30,7 +30,7 @@ export const listServices = createServerFn({ method: "GET" }).handler(async () =
   while (true) {
     const { data, error } = await supabase
       .from("services")
-      .select("id, provider_service_id, name, category, platform, type, provider_rate, rate, min_quantity, max_quantity, description")
+      .select("id, provider_service_id, name, category, platform, type, provider_rate, rate, min_quantity, max_quantity, description, average_time")
       .eq("is_active", true)
       .order("platform", { ascending: true })
       .order("name", { ascending: true })
@@ -86,6 +86,7 @@ export const syncServicesFromProvider = createServerFn({ method: "POST" })
       const name = sanitizeText(String(s.name ?? ""));
       const category = s.category ? sanitizeText(String(s.category)) : null;
       const platform = detectPlatform(name, category);
+      const avgTime = s.average_time != null ? Number(s.average_time) : null;
       return {
         provider_service_id: String(s.service),
         name,
@@ -98,6 +99,7 @@ export const syncServicesFromProvider = createServerFn({ method: "POST" })
         min_quantity: min,
         max_quantity: max,
         is_active: true,
+        ...(avgTime != null && Number.isFinite(avgTime) ? { average_time: avgTime } : {}),
       };
     }).filter((r) => r.provider_service_id && r.name);
 

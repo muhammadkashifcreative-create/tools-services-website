@@ -5,8 +5,15 @@ import { useMemo, useState } from "react";
 import {
   Search, Loader2, Sparkles, ArrowRight, Globe2,
   Instagram, Music2, Youtube, Facebook, Twitter, Linkedin,
-  Send, MapPin, Twitch, Music, ShieldCheck, Zap, Check,
+  Send, MapPin, Twitch, Music, ShieldCheck, Zap, Check, Clock,
 } from "lucide-react";
+
+function fmtTime(minutes: number | null | undefined): string | null {
+  if (!minutes || minutes <= 0) return null;
+  if (minutes < 60) return `~${minutes} min`;
+  if (minutes < 1440) return `~${Math.round(minutes / 60)} hr`;
+  return `~${Math.round(minutes / 1440)} day${Math.round(minutes / 1440) > 1 ? "s" : ""}`;
+}
 import { listServices } from "@/lib/services.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -192,17 +199,24 @@ function PublicServicesPage() {
                         <p className="mt-1 text-[10px] font-mono text-muted-foreground">ID: {s.provider_service_id}</p>
                       </div>
                     </div>
-                    <div className="mt-4 flex items-end justify-between border-t border-border/60 pt-3">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Min – Max</p>
-                        <p className="text-xs font-medium tabular-nums">
-                          {s.min_quantity.toLocaleString()} – {s.max_quantity.toLocaleString()}
+                    <div className="mt-4 border-t border-border/60 pt-3">
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Min – Max</p>
+                          <p className="text-xs font-medium tabular-nums">
+                            {s.min_quantity.toLocaleString()} – {s.max_quantity.toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-bold tabular-nums text-gradient">{fmt(Number(s.rate))}</p>
+                          <p className="text-[10px] text-muted-foreground">per 1,000 · {code}</p>
+                        </div>
+                      </div>
+                      {fmtTime((s as { average_time?: number }).average_time) && (
+                        <p className="mt-2 inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Clock className="h-3 w-3" /> Avg delivery: {fmtTime((s as { average_time?: number }).average_time)}
                         </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold tabular-nums text-gradient">{fmt(Number(s.rate))}</p>
-                        <p className="text-[10px] text-muted-foreground">per 1,000 · {code}</p>
-                      </div>
+                      )}
                     </div>
                     <Link
                       to="/auth"

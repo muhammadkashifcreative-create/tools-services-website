@@ -83,20 +83,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Social Padu — Premium Social Media & Digital Tools" },
+      { name: "description", content: "Social Padu — boost your social media presence and buy premium digital tools instantly." },
+      { name: "author", content: "Social Padu" },
+      { property: "og:title", content: "Social Padu" },
+      { property: "og:description", content: "Premium social media growth services and digital tools — instant delivery, one wallet." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/svg+xml", href: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e07b2e'/%3E%3Ctext x='16' y='23' font-family='Arial Black,sans-serif' font-size='14' font-weight='900' fill='white' text-anchor='middle'%3ESP%3C/text%3E%3C/svg%3E" },
+      { rel: "apple-touch-icon", href: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e07b2e'/%3E%3Ctext x='16' y='23' font-family='Arial Black,sans-serif' font-size='14' font-weight='900' fill='white' text-anchor='middle'%3ESP%3C/text%3E%3C/svg%3E" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

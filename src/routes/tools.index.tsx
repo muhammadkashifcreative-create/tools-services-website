@@ -1,9 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Wrench, ShieldCheck, Zap, ShoppingBag, Bot, ArrowRight, Check } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Wrench, ShieldCheck, Zap, ShoppingBag, Bot, ArrowRight, Check, Loader2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { listToolProductsPublic } from "@/lib/toolstore.functions";
 
 export const Route = createFileRoute("/tools/")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Tools Store — Premium Digital Tools & Accounts | Social Padu" },
@@ -16,6 +20,14 @@ export const Route = createFileRoute("/tools/")({
 });
 
 function ToolsMarketing() {
+  const fetchProducts = useServerFn(listToolProductsPublic);
+  const { data: catalog, isLoading } = useQuery({
+    queryKey: ["toolProductsPreview"],
+    queryFn: () => fetchProducts(),
+  });
+
+  const preview = (catalog?.products ?? []).slice(0, 5);
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -25,7 +37,7 @@ function ToolsMarketing() {
         <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-2">
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary backdrop-blur">
-              <Wrench className="h-3 w-3" /> Tools Store · Hybrid
+              <Wrench className="h-3 w-3" /> Tools Store · Live
             </span>
             <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
               Every premium tool you need. <span className="text-gradient">One wallet.</span>
@@ -47,29 +59,36 @@ function ToolsMarketing() {
               <Chip icon={Bot} label="Curated premium catalog" />
             </div>
           </div>
+
+          {/* Live product preview */}
           <div className="relative">
             <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-soft">
               <div className="flex items-center justify-between">
-                <p className="text-xs uppercase text-muted-foreground">Hybrid storefront</p>
-                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase text-primary">Live</span>
+                <p className="text-xs uppercase text-muted-foreground">Live catalog</p>
+                <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase text-emerald-600">● Live</span>
               </div>
               <div className="mt-4 space-y-3">
-                {[
-                  { name: "Netflix Premium", stock: 45, price: "from $3.50" },
-                  { name: "Spotify Family", stock: 30, price: "from $4.20" },
-                  { name: "ChatGPT Plus", stock: 12, price: "from $9.90" },
-                  { name: "YouTube Premium", stock: 60, price: "from $2.80" },
-                ].map((p) => (
-                  <div key={p.name} className="flex items-center justify-between rounded-xl border border-border/60 p-3">
-                    <div>
-                      <p className="text-sm font-semibold">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">{p.stock} in stock</p>
+                {isLoading ? (
+                  <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                ) : preview.length > 0 ? (
+                  preview.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between rounded-xl border border-border/60 p-3">
+                      <div>
+                        <p className="text-sm font-semibold">{p.name_en}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.in_stock ? (p.stock > 0 ? `${p.stock} in stock` : "In stock") : "Out of stock"}
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold text-gradient">${Number(p.your_price).toFixed(2)}</span>
                     </div>
-                    <span className="text-sm font-bold text-gradient">{p.price}</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="py-4 text-center text-sm text-muted-foreground">No products available yet.</p>
+                )}
               </div>
-              <p className="mt-4 text-[11px] text-muted-foreground">Sample catalog. Live products appear after the connection is set by an admin.</p>
+              <Link to="/tools/store" className="mt-4 flex items-center justify-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                View all products <ArrowRight className="h-3 w-3" />
+              </Link>
             </div>
           </div>
         </div>

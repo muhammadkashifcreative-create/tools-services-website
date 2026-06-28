@@ -53,6 +53,10 @@ export interface ProviderService {
   min: string | number;
   max: string | number;
   description?: string;
+  average_time?: string | number; // average delivery time in minutes (returned by most SMM panels)
+  dripfeed?: boolean;
+  refill?: boolean;
+  cancel?: boolean;
 }
 
 export async function fetchServices(): Promise<ProviderService[]> {
