@@ -77,7 +77,7 @@ function PublicServicesPage() {
       if (platform !== "All" && s.platform !== platform) return false;
       if (query) {
         const q = query.toLowerCase();
-        const hay = `${s.name} ${s.category ?? ""} ${s.type ?? ""}`.toLowerCase();
+        const hay = `${s.provider_service_id} ${s.name} ${s.category ?? ""} ${s.type ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
