@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrandMark } from "@/components/BrandMark";
+import logo from "@/assets/logo.png";
 
 export function PremiumLoader() {
   const [phase, setPhase] = useState(0); // 0=visible 1=fading 2=gone
