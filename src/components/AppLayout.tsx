@@ -46,7 +46,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const initial = (profile?.full_name || profile?.username || "U").trim().charAt(0).toUpperCase();
   const pageTitle =
-    [...mainNav, { to: "/admin", label: "Admin" }]
+    [...mainNav, { to: "/admin/cases", label: "Support Cases" }, { to: "/admin", label: "Admin" }]
       .find((n) => location.pathname.startsWith(n.to))?.label ?? "Dashboard";
 
   return (
