@@ -40,8 +40,8 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           {/* Brand column */}
           <div className="lg:col-span-4">
-            <Link to="/" className="flex items-center gap-2.5">
-              <BrandMark size={360} />
+            <Link to="/" className="inline-block">
+              <BrandMark size={180} />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               {t("footer.tagline") ?? "Premium social growth solutions for creators, brands, and businesses worldwide."}
