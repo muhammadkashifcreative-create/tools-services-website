@@ -33,25 +33,22 @@ export function PremiumLoader() {
       </div>
 
       <div className="relative flex flex-col items-center gap-8">
-        {/* Logo with spinning ring */}
-        <div className="relative">
+        {/* Spinning ring only — no inner box */}
+        <div className="relative flex h-24 w-24 items-center justify-center">
           {/* Outer glow */}
-          <div className="absolute inset-0 -m-6 rounded-full blur-2xl" style={{ background: "var(--gradient-accent)", opacity: 0.25 }} />
+          <div className="absolute inset-0 rounded-full blur-2xl" style={{ background: "var(--gradient-accent)", opacity: 0.3 }} />
           {/* Spinning gradient ring */}
-          <svg className="absolute -m-4 animate-spin" style={{ inset: "-16px", width: "calc(100% + 32px)", height: "calc(100% + 32px)", animationDuration: "2s" }} viewBox="0 0 100 100">
+          <svg className="absolute inset-0 animate-spin" style={{ animationDuration: "1.4s" }} viewBox="0 0 100 100">
             <defs>
-              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#e07b2e" stopOpacity="0" />
                 <stop offset="50%" stopColor="#e07b2e" stopOpacity="1" />
-                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.2" />
               </linearGradient>
             </defs>
-            <circle cx="50" cy="50" r="46" fill="none" stroke="url(#ringGrad)" strokeWidth="3" strokeLinecap="round" strokeDasharray="180 110" />
+            <circle cx="50" cy="50" r="44" fill="none" stroke="hsl(var(--border))" strokeWidth="4" />
+            <circle cx="50" cy="50" r="44" fill="none" stroke="url(#ringGrad)" strokeWidth="4" strokeLinecap="round" strokeDasharray="200 76" />
           </svg>
-          {/* Logo box */}
-          <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl shadow-elegant" style={{ background: "var(--gradient-accent)" }}>
-            <span className="font-black text-white" style={{ fontSize: 28 }}>SP</span>
-          </div>
         </div>
 
         {/* Brand name */}
