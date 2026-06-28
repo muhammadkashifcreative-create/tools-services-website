@@ -106,11 +106,17 @@ function AdminBody() {
     enabled: !!selectedUser,
   });
 
+  const [migrationSql, setMigrationSql] = useState("");
   const migrationMut = useMutation({
     mutationFn: () => runMigration(),
-    onSuccess: (r: { ok: boolean; message: string }) => {
-      toast.success(r.message);
-      qc.invalidateQueries();
+    onSuccess: (r: { ok: boolean; message: string; sql?: string; missing?: string[] }) => {
+      if (r.ok) {
+        toast.success(r.message);
+        qc.invalidateQueries();
+      } else {
+        toast.error(r.message);
+        if (r.sql) setMigrationSql(r.sql);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -198,19 +204,33 @@ function AdminBody() {
             <StatIcon icon={MessageSquare} tone="default" label="Active services" value={stats?.services ?? 0} />
           </div>
 
-        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="font-semibold text-amber-800 dark:text-amber-400">Database not set up?</p>
-            <p className="text-sm text-amber-700 dark:text-amber-500 mt-0.5">If you see table errors, click this once to create all required tables automatically.</p>
+        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-400">Database not set up?</p>
+              <p className="text-sm text-amber-700 dark:text-amber-500 mt-0.5">Click to check which tables exist. If any are missing, you'll get the SQL to run in Supabase.</p>
+            </div>
+            <button
+              onClick={() => migrationMut.mutate()}
+              disabled={migrationMut.isPending}
+              className="shrink-0 inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              {migrationMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              Check Database
+            </button>
           </div>
-          <button
-            onClick={() => migrationMut.mutate()}
-            disabled={migrationMut.isPending}
-            className="shrink-0 inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-          >
-            {migrationMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-            Setup Database
-          </button>
+          {migrationSql && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-semibold text-amber-800">Run this SQL in <a href="https://supabase.com/dashboard" target="_blank" rel="noopener" className="underline">Supabase SQL Editor</a>:</p>
+              <div className="relative">
+                <pre className="overflow-auto rounded-lg bg-slate-900 p-4 text-[11px] text-green-400 max-h-40">{migrationSql}</pre>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(migrationSql); toast.success("SQL copied!"); }}
+                  className="absolute right-2 top-2 rounded bg-white/10 px-2 py-1 text-[10px] text-white hover:bg-white/20"
+                >Copy</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
