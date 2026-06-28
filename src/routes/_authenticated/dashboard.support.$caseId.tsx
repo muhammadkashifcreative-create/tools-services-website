@@ -128,7 +128,7 @@ function CaseDetail() {
                 value={c.status}
                 onChange={(e) => statusMut.mutate(e.target.value)}
                 disabled={statusMut.isPending}
-                className="rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs font-medium capitalize outline-none focus:ring-2 ring-ring"
+                className="rounded-lg border border-border bg-card text-foreground px-3 py-1.5 text-xs font-medium capitalize outline-none focus:ring-2 ring-ring"
               >
                 <option value="open">Open</option>
                 <option value="pending">Pending</option>
@@ -175,7 +175,7 @@ function CaseDetail() {
         {c.status !== "closed" && (
           <form
             onSubmit={(e) => { e.preventDefault(); if (reply.trim()) sendMut.mutate(); }}
-            className="mt-4 rounded-2xl border border-border/60 bg-card p-4 shadow-soft"
+            className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-soft"
           >
             <div className="flex items-center gap-2 mb-3">
               <div className={`flex h-6 w-6 items-center justify-center rounded-full text-white ${isAdmin ? "bg-primary" : "bg-slate-400"}`}>
@@ -191,7 +191,7 @@ function CaseDetail() {
               onChange={(e) => setReply(e.target.value)}
               rows={4}
               placeholder={isAdmin ? "Type your support reply…" : "Describe your issue or follow-up…"}
-              className="w-full resize-none rounded-xl border border-border/60 bg-background px-4 py-3 text-sm outline-none focus:ring-2 ring-ring transition"
+              className="w-full resize-none rounded-xl border border-border bg-muted/40 text-foreground px-4 py-3 text-sm outline-none focus:ring-2 ring-ring transition placeholder:text-muted-foreground"
             />
             <div className="mt-3 flex items-center justify-between gap-3">
               {isAdmin && (

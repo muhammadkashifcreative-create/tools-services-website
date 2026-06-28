@@ -68,10 +68,10 @@ function SupportPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <input required minLength={3} maxLength={160} placeholder={t("case.subject")}
                 value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 ring-ring" />
+                className="rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 ring-ring placeholder:text-muted-foreground" />
               <div className="grid grid-cols-2 gap-3">
                 <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="rounded-md border bg-background px-3 py-2 text-sm">
+                  className="rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm outline-none focus:ring-2 ring-ring">
                   <option value="order_issue">Order issue</option>
                   <option value="refund">Refund</option>
                   <option value="payment">Payment</option>
@@ -80,7 +80,7 @@ function SupportPage() {
                   <option value="other">Other</option>
                 </select>
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                  className="rounded-md border bg-background px-3 py-2 text-sm">
+                  className="rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm outline-none focus:ring-2 ring-ring">
                   <option value="low">Low</option>
                   <option value="normal">Normal</option>
                   <option value="high">High</option>
@@ -90,7 +90,7 @@ function SupportPage() {
             </div>
             <textarea required minLength={5} maxLength={4000} rows={5} placeholder={t("case.message")}
               value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 ring-ring" />
+              className="w-full rounded-md border border-border bg-muted/40 text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 ring-ring placeholder:text-muted-foreground" />
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setOpen(false)} className="rounded-md border px-3 py-2 text-sm">Cancel</button>
               <button type="submit" disabled={mut.isPending}
