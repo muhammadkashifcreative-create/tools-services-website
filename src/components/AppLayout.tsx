@@ -142,7 +142,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <span className="truncate text-sm font-semibold sm:text-base">{pageTitle}</span>
             </div>
             <div className="hidden min-w-0 lg:block">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Social Padu</p>
+              <p className="text-xs text-muted-foreground">
+                Welcome, <span className="font-semibold text-foreground">{profile?.full_name || profile?.username || "there"}</span>
+              </p>
               <h2 className="truncate text-lg font-semibold tracking-tight">{pageTitle}</h2>
             </div>
           </div>
