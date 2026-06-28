@@ -189,6 +189,7 @@ function PublicServicesPage() {
                           )}
                         </div>
                         <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{s.name}</h3>
+                        <p className="mt-1 text-[10px] font-mono text-muted-foreground">ID: {s.provider_service_id}</p>
                       </div>
                     </div>
                     <div className="mt-4 flex items-end justify-between border-t border-border/60 pt-3">

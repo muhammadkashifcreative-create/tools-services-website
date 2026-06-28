@@ -153,13 +153,10 @@ export const listToolProducts = createServerFn({ method: "GET" })
 export const listToolProductsPublic = createServerFn({ method: "GET" })
   .handler(async () => {
     const conn = await loadConn();
-    if (!conn) return { connected: false, products: [] as ToolProduct[] };
-    try {
-      const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
-      return { connected: true, products: mapProducts(r.data ?? [], markup) };
-    } catch {
-      return { connected: true, products: [] as ToolProduct[] };
-    }
+    if (!conn) return { connected: false, products: [] as ToolProduct[], error: "Tools store not connected" };
+    const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
+    const products = mapProducts(r.data ?? [], markup);
+    return { connected: true, products };
   });
 
 export const getToolStoreStatusPublic = createServerFn({ method: "GET" })

@@ -43,10 +43,11 @@ function ToolsStorePublicPage() {
   }, []);
 
   const { data: status, isLoading: stLoading } = useQuery({ queryKey: ["toolStatusPub"], queryFn: () => fetchStatus() });
-  const { data: prod, isLoading: prLoading, refetch } = useQuery({
+  const { data: prod, isLoading: prLoading, error: prodError, refetch } = useQuery({
     queryKey: ["toolProductsPub"],
     queryFn: () => fetchProducts(),
-    enabled: Boolean(status?.connected),
+    enabled: true, // always attempt — server will return not-connected if no key
+    retry: 1,
   });
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -95,9 +96,15 @@ function ToolsStorePublicPage() {
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
 
-          {stLoading || prLoading ? (
+          {(stLoading || prLoading) && !prod ? (
             <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" /></div>
-          ) : !status?.connected ? (
+          ) : prodError ? (
+            <div className="rounded-2xl border border-dashed border-destructive/40 bg-destructive/5 p-10 text-center">
+              <Wrench className="mx-auto h-8 w-8 text-destructive/60" />
+              <h2 className="mt-3 text-lg font-bold">Could not load catalog</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{(prodError as Error).message}</p>
+            </div>
+          ) : !prod?.connected ? (
             <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-10 text-center">
               <Wrench className="mx-auto h-8 w-8 text-muted-foreground" />
               <h2 className="mt-3 text-lg font-bold">Store catalog coming soon</h2>
