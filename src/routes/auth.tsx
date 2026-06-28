@@ -36,9 +36,8 @@ function AuthPage() {
     <Toaster />
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="hidden lg:flex lg:flex-col lg:justify-between lg:p-12 brand-gradient">
-        <Link to="/" className="flex items-center gap-2">
-          <BrandMark size={32} />
-          <span className="font-semibold tracking-tight">Social Padu</span>
+        <Link to="/">
+          <BrandMark size={180} />
         </Link>
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Grow on every platform.</h2>
@@ -52,9 +51,8 @@ function AuthPage() {
       <div className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
-            <Link to="/" className="flex items-center gap-2">
-              <BrandMark size={32} />
-              <span className="font-semibold">Social Padu</span>
+            <Link to="/">
+              <BrandMark size={160} />
             </Link>
           </div>
           <h1 className="text-2xl font-bold tracking-tight">

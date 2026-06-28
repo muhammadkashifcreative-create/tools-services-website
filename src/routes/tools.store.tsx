@@ -250,28 +250,13 @@ function ProductCard({ product, authed, walletBalance, onPurchased }: { product:
             </div>
           </div>
 
-          {authed ? (
-            <>
-              <button
-                onClick={() => mut.mutate()}
-                disabled={outOfStock || mut.isPending || !canAfford}
-                className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ background: "var(--gradient-accent)" }}
-              >
-                {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : (<><ShoppingBag className="h-3.5 w-3.5" /> Buy · ${total.toFixed(2)}</>)}
-              </button>
-              {!canAfford && !outOfStock && (
-                <p className="mt-2 text-[11px] text-destructive">Wallet balance too low. <Link to="/wallet" className="underline">Top up</Link>.</p>
-              )}
-            </>
-          ) : (
-            <Link
-              to="/auth"
-              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-background px-3 py-2.5 text-xs font-semibold hover:bg-accent"
-            >
-              <LogIn className="h-3.5 w-3.5" /> Sign in to buy · ${total.toFixed(2)}
-            </Link>
-          )}
+          <Link
+            to="/auth"
+            className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90"
+            style={{ background: "var(--gradient-accent)" }}
+          >
+            <LogIn className="h-3.5 w-3.5" /> Sign in to purchase · ${total.toFixed(2)}
+          </Link>
         </div>
       </div>
     </TiltCard>
