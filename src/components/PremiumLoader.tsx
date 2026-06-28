@@ -1,60 +1,72 @@
 import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/BrandMark";
 
-/**
- * Full-screen premium loader shown on first paint only.
- * Fades out after the app is hydrated.
- */
 export function PremiumLoader() {
-  const [hidden, setHidden] = useState(false);
-  const [gone, setGone] = useState(false);
+  const [phase, setPhase] = useState(0); // 0=visible 1=fading 2=gone
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const t = setTimeout(() => setHidden(true), 700);
-    const t2 = setTimeout(() => setGone(true), 1300);
-    return () => {
-      clearTimeout(t);
-      clearTimeout(t2);
-    };
+    // Animate progress bar
+    const interval = setInterval(() => {
+      setProgress((p) => Math.min(p + Math.random() * 18, 95));
+    }, 80);
+    const t1 = setTimeout(() => { setProgress(100); clearInterval(interval); }, 550);
+    const t2 = setTimeout(() => setPhase(1), 750);
+    const t3 = setTimeout(() => setPhase(2), 1250);
+    return () => { clearInterval(interval); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
-  if (gone) return null;
+  if (phase === 2) return null;
 
   return (
     <div
       aria-hidden
-      className={`fixed inset-0 z-[200] flex items-center justify-center transition-opacity duration-500 ${
-        hidden ? "pointer-events-none opacity-0" : "opacity-100"
+      className={`fixed inset-0 z-[200] flex flex-col items-center justify-center transition-opacity duration-500 ${
+        phase === 1 ? "pointer-events-none opacity-0" : "opacity-100"
       }`}
-      style={{ background: "var(--gradient-hero), hsl(var(--background))" }}
+      style={{ background: "hsl(var(--background))" }}
     >
-      <div className="relative flex flex-col items-center">
-        {/* Glow ring */}
-        <div
-          className="absolute h-40 w-40 rounded-full blur-3xl"
-          style={{ background: "var(--gradient-accent)", opacity: 0.35 }}
-        />
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full blur-3xl" style={{ background: "oklch(0.72 0.20 50 / 0.12)" }} />
+        <div className="absolute -right-32 bottom-0 h-80 w-80 rounded-full blur-3xl" style={{ background: "oklch(0.68 0.22 35 / 0.10)" }} />
+      </div>
+
+      <div className="relative flex flex-col items-center gap-8">
+        {/* Logo with spinning ring */}
         <div className="relative">
-          <div
-            className="absolute inset-0 -m-3 rounded-full border-2 border-transparent"
-            style={{
-              borderTopColor: "oklch(0.72 0.20 50)",
-              borderRightColor: "oklch(0.68 0.22 35)",
-              animation: "spin 1.1s linear infinite",
-            }}
-          />
-          <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-card/80 shadow-elegant backdrop-blur">
-            <BrandMark size={44} />
+          {/* Outer glow */}
+          <div className="absolute inset-0 -m-6 rounded-full blur-2xl" style={{ background: "var(--gradient-accent)", opacity: 0.25 }} />
+          {/* Spinning gradient ring */}
+          <svg className="absolute -m-4 animate-spin" style={{ inset: "-16px", width: "calc(100% + 32px)", height: "calc(100% + 32px)", animationDuration: "2s" }} viewBox="0 0 100 100">
+            <defs>
+              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#e07b2e" stopOpacity="0" />
+                <stop offset="50%" stopColor="#e07b2e" stopOpacity="1" />
+                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.3" />
+              </linearGradient>
+            </defs>
+            <circle cx="50" cy="50" r="46" fill="none" stroke="url(#ringGrad)" strokeWidth="3" strokeLinecap="round" strokeDasharray="180 110" />
+          </svg>
+          {/* Logo box */}
+          <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl shadow-elegant" style={{ background: "var(--gradient-accent)" }}>
+            <span className="font-black text-white" style={{ fontSize: 28 }}>SP</span>
           </div>
         </div>
-        <div className="mt-6 flex items-center gap-1">
-          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
-          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
-          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary" />
+
+        {/* Brand name */}
+        <div className="text-center">
+          <p className="text-xl font-bold tracking-tight">Social Padu</p>
+          <p className="mt-1 text-xs text-muted-foreground tracking-widest uppercase">Loading your experience</p>
         </div>
-        <p className="mt-3 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-          Social Padu
-        </p>
+
+        {/* Progress bar */}
+        <div className="w-48 overflow-hidden rounded-full bg-border/40" style={{ height: 3 }}>
+          <div
+            className="h-full rounded-full transition-all duration-150"
+            style={{ width: `${progress}%`, background: "var(--gradient-accent)" }}
+          />
+        </div>
       </div>
     </div>
   );
