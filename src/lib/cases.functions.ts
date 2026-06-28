@@ -35,7 +35,7 @@ export const getCase = createServerFn({ method: "GET" })
     if (!c) throw new Error("Case not found");
     const { data: msgs, error: mErr } = await context.supabase
       .from("case_messages")
-      .select("id, author_id, is_staff, body, attachments, created_at")
+      .select("id, user_id, is_staff, body, attachments, created_at")
       .eq("case_id", data.caseId)
       .order("created_at", { ascending: true });
     if (mErr) throw new Error(mErr.message);
@@ -68,7 +68,7 @@ export const createCase = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const { error: mErr } = await context.supabase
       .from("case_messages")
-      .insert({ case_id: c.id, author_id: context.userId, is_staff: false, body: data.body });
+      .insert({ case_id: c.id, user_id: context.userId, is_staff: false, body: data.body });
     if (mErr) throw new Error(mErr.message);
     return { id: c.id };
   });
@@ -79,10 +79,10 @@ export const addCaseMessage = createServerFn({ method: "POST" })
     z.object({ caseId: z.string().uuid(), body: z.string().min(1).max(4000) }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const admin = await isAdmin(context as never);
+    const admin = isAdmin(context as never);
     const { error } = await context.supabase
       .from("case_messages")
-      .insert({ case_id: data.caseId, author_id: context.userId, is_staff: admin, body: data.body });
+      .insert({ case_id: data.caseId, user_id: context.userId, is_staff: admin, body: data.body });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -104,7 +104,7 @@ export const updateCaseStatus = createServerFn({ method: "POST" })
 export const adminListAllCases = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    if (!(await isAdmin(context as never))) throw new Error("Forbidden");
+    if (!isAdmin(context as never)) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("cases")
