@@ -64,6 +64,44 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
     }
   });
 
+// Called immediately after stripe.confirmCardPayment succeeds on the client.
+// Verifies the PaymentIntent server-side and credits the wallet — no webhook needed.
+export const confirmDeposit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { paymentIntentId: string; environment: string }) =>
+    z.object({ paymentIntentId: z.string().min(1), environment: z.enum(["sandbox", "live"]) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const stripe = createStripeClient(data.environment as StripeEnv);
+    const pi = await stripe.paymentIntents.retrieve(data.paymentIntentId);
+
+    if (pi.metadata?.userId !== context.userId) throw new Error("Payment intent does not belong to this user");
+    if (pi.status !== "succeeded") throw new Error("Payment has not succeeded yet");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Idempotency — skip if already credited (webhook may have fired first)
+    const { data: existing } = await supabaseAdmin
+      .from("transactions").select("id").eq("description", `stripe:${pi.id}`).limit(1).maybeSingle();
+    if (existing) return { ok: true, alreadyCredited: true };
+
+    const usdAmount = Number(pi.metadata?.usdAmount ?? 0);
+    if (!usdAmount) throw new Error("Missing usdAmount in payment metadata");
+
+    const { data: profile } = await supabaseAdmin.from("profiles").select("balance").eq("id", context.userId).maybeSingle();
+    const newBal = +(Number(profile?.balance ?? 0) + usdAmount).toFixed(4);
+
+    await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", context.userId);
+    await supabaseAdmin.from("transactions").insert({
+      user_id: context.userId,
+      amount: usdAmount,
+      type: "deposit",
+      description: `stripe:${pi.id} — top-up (${pi.metadata?.localAmount ?? ""} ${pi.metadata?.localCurrency ?? ""})`,
+    });
+
+    return { ok: true, newBalance: newBal };
+  });
+
 export const createOrderCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) =>

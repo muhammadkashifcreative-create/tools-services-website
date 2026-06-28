@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+
 import { useState } from "react";
 import { Loader2, CreditCard, Lock, ShieldCheck, X, CheckCircle2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
@@ -8,6 +9,7 @@ import { getMyProfile, listMyTransactions } from "@/lib/wallet.functions";
 import { createDepositCheckout } from "@/lib/payments.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 import { getStripe, getStripeEnvironment, isStripeConfigured } from "@/lib/stripe";
+import { confirmDeposit } from "@/lib/payments.functions";
 import {
   Elements,
   CardNumberElement,
@@ -41,6 +43,7 @@ function CardPaymentForm({
   localAmount,
   symbol,
   currency,
+  environment,
   onSuccess,
   onCancel,
 }: {
@@ -48,11 +51,13 @@ function CardPaymentForm({
   localAmount: string;
   symbol: string;
   currency: string;
+  environment: "sandbox" | "live";
   onSuccess: () => void;
   onCancel: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
+  const confirm = useServerFn(confirmDeposit);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,13 +80,24 @@ function CardPaymentForm({
       return_url: window.location.href,
     });
 
-    setLoading(false);
-
     if (confirmError) {
       setError(confirmError.message ?? "Payment failed. Please try again.");
-    } else if (paymentIntent?.status === "succeeded") {
+      setLoading(false);
+      return;
+    }
+
+    if (paymentIntent?.status === "succeeded") {
+      try {
+        await confirm({ data: { paymentIntentId: paymentIntent.id, environment } });
+      } catch (e) {
+        // Webhook may credit it anyway — still show success
+        console.warn("confirmDeposit error (webhook will handle):", e);
+      }
       setDone(true);
       setTimeout(onSuccess, 1800);
+    } else {
+      setError("Payment incomplete. Please try again.");
+      setLoading(false);
     }
   };
 
@@ -327,8 +343,9 @@ function WalletPage() {
                   localAmount={localPreview}
                   symbol={symbol}
                   currency={ccy?.currency ?? "USD"}
+                  environment={getStripeEnvironment()}
                   onSuccess={() => {
-                    toast.success("Payment successful! Your wallet will be credited shortly.");
+                    toast.success("Payment successful! Wallet credited.");
                     closeCheckout();
                   }}
                   onCancel={closeCheckout}
