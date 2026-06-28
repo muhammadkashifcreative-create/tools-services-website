@@ -1,14 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
 import { z } from "zod";
 
 const CategoryEnum = z.enum(["order_issue", "refund", "payment", "account", "technical", "other"]);
 const PriorityEnum = z.enum(["low", "normal", "high", "urgent"]);
 const StatusEnum = z.enum(["open", "pending", "resolved", "closed"]);
 
-async function isAdmin(ctx: { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string }) {
-  const { data } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
-  return Boolean(data);
+function isAdmin(ctx: { email?: string }) {
+  return (ctx as { email?: string }).email === ADMIN_EMAIL;
 }
 
 export const listMyCases = createServerFn({ method: "GET" })

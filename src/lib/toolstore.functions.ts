@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
 
 const CONN_KEY = "tool_store_connection";
 
@@ -45,9 +45,8 @@ async function callStore<T>(conn: Conn, path: string, init?: RequestInit): Promi
   return json as T;
 }
 
-async function assertAdmin(ctx: { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string }) {
-  const { data } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
-  if (!data) throw new Error("Admins only");
+function assertAdmin(ctx: { email?: string }) {
+  if ((ctx as { email?: string }).email !== ADMIN_EMAIL) throw new Error("Admins only");
 }
 
 // ---------- Admin: save connection (via connection code) ----------

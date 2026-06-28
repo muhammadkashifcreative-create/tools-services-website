@@ -1,8 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
-import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
 import type { Database } from "@/integrations/supabase/types";
+
+function isAdmin(ctx: { email?: string }) {
+  return (ctx as { email?: string }).email === ADMIN_EMAIL;
+}
 
 function publicClient() {
   return createClient<Database>(
@@ -44,12 +48,7 @@ export const listServices = createServerFn({ method: "GET" }).handler(async () =
 export const syncServicesFromProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: isAdmin, error: roleErr } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (roleErr) throw new Error(roleErr.message);
-    if (!isAdmin) throw new Error("Forbidden");
+    if (!isAdmin(context)) throw new Error("Forbidden");
 
     const { fetchServices } = await import("./famousprovider.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -176,8 +175,7 @@ export const saveServicesConnection = createServerFn({ method: "POST" })
     z.object({ api_url: z.string().url().min(5), api_key: z.string().min(4) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden");
+    if (!isAdmin(context)) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("app_settings").upsert({
       key: SERVICES_CONN_KEY,
@@ -189,8 +187,7 @@ export const saveServicesConnection = createServerFn({ method: "POST" })
 export const getServicesConnectionStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: roleData } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    const isAdmin = Boolean(roleData);
+    const adminUser = isAdmin(context);
     const supabase = publicClient();
     const { data } = await supabase.from("app_settings").select("value").eq("key", SERVICES_CONN_KEY).maybeSingle();
     const v = (data?.value ?? null) as { api_url?: string; api_key?: string } | null;
@@ -198,8 +195,8 @@ export const getServicesConnectionStatus = createServerFn({ method: "GET" })
     return {
       connected: Boolean(v?.api_url && v?.api_key) || hasEnvKey,
       configuredInDb: Boolean(v?.api_url && v?.api_key),
-      isAdmin,
-      apiUrl: isAdmin && v?.api_url ? v.api_url : null,
+      isAdmin: adminUser,
+      apiUrl: adminUser && v?.api_url ? v.api_url : null,
     };
   });
 
@@ -213,11 +210,7 @@ export const updateMarkup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => z.object({ markup: z.number().min(0).max(500) }).parse(data))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Forbidden");
+    if (!isAdmin(context)) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("app_settings").upsert({
       key: "markup_percent",

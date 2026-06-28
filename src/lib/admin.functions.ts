@@ -1,13 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
 
-async function assertAdmin(context: { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string }) {
-  const { data, error } = await context.supabase.rpc("has_role", {
-    _user_id: context.userId,
-    _role: "admin",
-  });
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Forbidden");
+function assertAdmin(context: { email?: string }) {
+  if ((context as { email?: string }).email !== ADMIN_EMAIL) throw new Error("Forbidden");
 }
 
 export const adminListOrders = createServerFn({ method: "GET" })
