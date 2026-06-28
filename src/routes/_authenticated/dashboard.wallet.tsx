@@ -83,7 +83,7 @@ function WalletPage() {
               min={1}
               max={2000}
               value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
+              onChange={(e) => { setAmount(Number(e.target.value)); if (checkoutOpen) setCheckoutOpen(false); }}
               className="mt-4 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
             />
             {ccy && ccy.currency !== "USD" && amount > 0 && (
@@ -92,13 +92,22 @@ function WalletPage() {
               </p>
             )}
             {isStripeConfigured() ? (
-              <button
-                onClick={() => setCheckoutOpen(true)}
-                disabled={!amount || amount <= 0}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
-              >
-                <CreditCard className="h-4 w-4" /> Pay ${amount} with card
-              </button>
+              !checkoutOpen ? (
+                <button
+                  onClick={() => setCheckoutOpen(true)}
+                  disabled={!amount || amount <= 0}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+                >
+                  <CreditCard className="h-4 w-4" /> Pay ${amount} with card
+                </button>
+              ) : (
+                <button
+                  onClick={closeCheckout}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-border/60 px-4 py-2.5 text-sm font-semibold transition hover:bg-accent"
+                >
+                  <X className="h-4 w-4" /> Cancel
+                </button>
+              )
             ) : (
               <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
                 Card payments not yet configured. Contact support to top up your wallet.
@@ -106,6 +115,26 @@ function WalletPage() {
             )}
           </div>
         </div>
+
+        {/* Inline Stripe checkout — renders below the form instead of in a popup */}
+        {checkoutOpen && isStripeConfigured() && (
+          <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft">
+            <div className="border-b border-border/60 px-5 py-3 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold">Complete payment</p>
+                <p className="text-xs text-muted-foreground">Topping up ${amount} USD · {ccy?.currency !== "USD" && `≈ ${symbol}${localPreview} ${ccy?.currency}`}</p>
+              </div>
+              <button onClick={closeCheckout} className="rounded-full p-1.5 text-muted-foreground hover:bg-accent">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              <EmbeddedCheckoutProvider stripe={getStripe()} options={{ fetchClientSecret }}>
+                <EmbeddedCheckout />
+              </EmbeddedCheckoutProvider>
+            </div>
+          </div>
+        )}
 
         {/* Preset top-up packages */}
         <div className="mt-10">
@@ -174,24 +203,6 @@ function WalletPage() {
         </div>
       </div>
 
-      {checkoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="relative w-full max-w-2xl overflow-hidden rounded-xl bg-background shadow-2xl">
-            <button
-              onClick={closeCheckout}
-              className="absolute right-3 top-3 z-10 rounded-full bg-background/90 p-2 text-foreground shadow hover:bg-accent"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <div className="max-h-[90vh] overflow-y-auto">
-              <EmbeddedCheckoutProvider stripe={getStripe()} options={{ fetchClientSecret }}>
-                <EmbeddedCheckout />
-              </EmbeddedCheckoutProvider>
-            </div>
-          </div>
-        </div>
-      )}
     </AppLayout>
   );
 }
