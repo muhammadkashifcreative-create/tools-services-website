@@ -52,9 +52,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/60 bg-sidebar lg:flex lg:flex-col">
-        <div className="flex h-16 items-center gap-2 border-b border-border/60 px-6">
-          <BrandMark size={36} />
-          <span className="text-lg font-bold tracking-tight">Social Padu</span>
+        <div className="flex h-16 items-center border-b border-border/60 px-4">
+          <BrandMark size={52} />
         </div>
         <nav className="flex-1 space-y-0.5 p-4">
           {/* Dashboard — top level */}
@@ -138,8 +137,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
         {/* Top header — desktop & mobile */}
         <header className="sticky top-0 z-30 grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/60 bg-background/80 px-3 backdrop-blur-xl sm:px-4 lg:flex lg:px-8">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-2 lg:hidden">
-              <BrandMark size={32} />
+            <div className="flex items-center gap-3 lg:hidden">
+              <BrandMark size={40} />
               <span className="truncate text-sm font-semibold sm:text-base">{pageTitle}</span>
             </div>
             <div className="hidden min-w-0 lg:block">
