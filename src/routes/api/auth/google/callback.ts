@@ -6,6 +6,25 @@ import {
   readOAuthState,
 } from "@/lib/direct-google-auth.server";
 
+async function findOrCreateSupabaseUser(email: string, name?: string, picture?: string): Promise<string | undefined> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Try listing first page only (100 users max) to find by email
+    const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 100 });
+    const existing = data?.users?.find((u) => u.email === email);
+    if (existing) return existing.id;
+    // Create new Supabase auth user
+    const { data: created } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: { name, picture },
+    });
+    return created?.user?.id;
+  } catch {
+    return undefined;
+  }
+}
+
 export const Route = createFileRoute("/api/auth/google/callback")({
   server: {
     handlers: {
@@ -21,9 +40,11 @@ export const Route = createFileRoute("/api/auth/google/callback")({
           }
 
           const user = await exchangeGoogleCode(url.origin, code);
+          // Find or create the Supabase user once at sign-in time
+          const supabase_id = await findOrCreateSupabaseUser(user.email, user.name, user.picture);
           const headers = new Headers({
             location: "/dashboard",
-            "set-cookie": createSessionCookie(user),
+            "set-cookie": createSessionCookie({ ...user, supabase_id }),
           });
           headers.append("set-cookie", clearStateCookie());
 

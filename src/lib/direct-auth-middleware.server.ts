@@ -2,14 +2,15 @@ import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { readSession } from "@/lib/direct-google-auth.server";
 
-// Unified auth middleware that works with the direct Google OAuth session cookie.
-// Falls back to Supabase Bearer token for clients that have a Supabase session.
+// Unified auth middleware.
+// Reads the socialpadu_session cookie which now contains the Supabase user ID
+// (stored at sign-in time). Zero database calls per request.
 export const requireDirectAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const request = getRequest();
 
-    // --- Try Supabase Bearer token first ---
+    // --- Try Supabase Bearer token first (users with a Supabase session) ---
     const authHeader = request?.headers?.get("authorization");
     if (authHeader?.startsWith("Bearer ")) {
       try {
@@ -33,31 +34,36 @@ export const requireDirectAuth = createMiddleware({ type: "function" }).server(
       }
     }
 
-    // --- Fall back to direct Google session cookie ---
+    // --- Use the direct Google session cookie ---
     const session = readSession(request);
     if (!session?.email) throw new Error("Unauthorized");
 
-    // Find or create the Supabase user by email
-    const { data: listData } = await supabaseAdmin.auth.admin.listUsers({
-      page: 1,
-      perPage: 1000,
-    });
-    let supabaseUser = listData?.users?.find((u) => u.email === session.email);
-
-    if (!supabaseUser) {
-      const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
-        email: session.email,
-        email_confirm: true,
-        user_metadata: {
-          name: session.name,
-          picture: session.picture,
-          google_sub: session.sub,
-        },
-      });
-      if (error || !created?.user) throw new Error("Failed to create user account");
-      supabaseUser = created.user;
+    // Fast path: supabase_id stored in cookie at sign-in time
+    if (session.supabase_id) {
+      return next({ context: { supabase: supabaseAdmin, userId: session.supabase_id } });
     }
 
-    return next({ context: { supabase: supabaseAdmin, userId: supabaseUser.id } });
+    // Slow fallback: cookie predates supabase_id storage — do a one-time lookup
+    // then user should re-login so the cookie is updated with the ID.
+    try {
+      const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const existing = data?.users?.find((u) => u.email === session.email);
+      if (existing) {
+        return next({ context: { supabase: supabaseAdmin, userId: existing.id } });
+      }
+      // Create Supabase user on the fly
+      const { data: created } = await supabaseAdmin.auth.admin.createUser({
+        email: session.email,
+        email_confirm: true,
+        user_metadata: { name: session.name, picture: session.picture },
+      });
+      if (created?.user?.id) {
+        return next({ context: { supabase: supabaseAdmin, userId: created.user.id } });
+      }
+    } catch {
+      // ignored
+    }
+
+    throw new Error("Unauthorized: please sign out and sign back in");
   },
 );

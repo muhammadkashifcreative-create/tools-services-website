@@ -19,8 +19,12 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 function AdminPage() {
   const fetchProfile = useServerFn(getMyProfile);
-  const { data: profile, isLoading } = useQuery({ queryKey: ["profile"], queryFn: () => fetchProfile() });
-  if (isLoading) {
+  const { data: profile, isLoading, isError } = useQuery({
+    queryKey: ["profile"],
+    queryFn: () => fetchProfile(),
+    retry: 1,
+  });
+  if (isLoading && !isError) {
     return <AppLayout><div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" /></div></AppLayout>;
   }
   if (!profile?.isAdmin) return <ClaimAdmin />;

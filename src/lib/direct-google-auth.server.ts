@@ -9,6 +9,7 @@ export type GoogleSessionUser = {
   email: string;
   name?: string;
   picture?: string;
+  supabase_id?: string;
 };
 
 type SessionPayload = GoogleSessionUser & {
