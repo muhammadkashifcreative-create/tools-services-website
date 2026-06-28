@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
 import {
   type StripeEnv,
   createStripeClient,

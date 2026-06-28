@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
 
 const CONN_KEY = "tool_store_connection";
 

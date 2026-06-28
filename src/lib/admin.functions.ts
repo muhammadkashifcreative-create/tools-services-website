@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
 
 async function assertAdmin(context: { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string }) {
   const { data, error } = await context.supabase.rpc("has_role", {

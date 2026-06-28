@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireDirectAuth as requireSupabaseAuth } from "@/lib/direct-auth-middleware.server";
 import { z } from "zod";
 
 const CategoryEnum = z.enum(["order_issue", "refund", "payment", "account", "technical", "other"]);
