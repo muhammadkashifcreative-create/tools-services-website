@@ -240,7 +240,7 @@ function AdminBody() {
                   type="text"
                   value={toolApiUrl}
                   onChange={(e) => setToolApiUrl(e.target.value)}
-                  placeholder="https://your-tools-store.com"
+                  placeholder="https://ggsoma.store/api/partner/v1"
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
                 />
                 <div className="flex items-center gap-2">

@@ -169,7 +169,7 @@ function ProductCard({ product, authed, walletBalance, onPurchased }: { product:
     onError: (e: Error) => toast.error(e.message),
   });
   const total = +(Number(product.your_price) * qty).toFixed(2);
-  const outOfStock = product.stock <= 0;
+  const outOfStock = product.in_stock === false || product.stock === 0;
   const canAfford = !authed || walletBalance >= total;
   const ps = paletteFor(product.id);
 
@@ -219,7 +219,7 @@ function ProductCard({ product, authed, walletBalance, onPurchased }: { product:
                       : "border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                   }`}
                 >
-                  {outOfStock ? "Out of stock" : `${product.stock} left`}
+                  {outOfStock ? "Out of stock" : product.stock > 0 ? `${product.stock} left` : "In stock"}
                 </span>
               </div>
               <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">

@@ -4,25 +4,20 @@ import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/dir
 
 const CONN_KEY = "tool_store_connection";
 
+// ggsoma Partner API base URL
+const DEFAULT_TOOL_STORE_URL = "https://ggsoma.store/api/partner/v1";
+
 type Conn = { api_url: string; api_key: string };
 
-function decodeConnCode(code: string): Conn {
-  const trimmed = code.trim().replace(/^conn_/, "");
-  const buf = Buffer.from(trimmed, "base64");
-  const obj = JSON.parse(buf.toString("utf8")) as { k?: string; u?: string };
-  if (!obj?.k || !obj?.u) throw new Error("Invalid connection code");
-  return { api_key: obj.k, api_url: obj.u.replace(/\/$/, "") };
-}
-
 async function loadConn(): Promise<Conn | null> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", CONN_KEY).maybeSingle();
-  const v = (data?.value ?? null) as Conn | null;
-  if (v?.api_url && v?.api_key) return v;
-  // Fall back to env vars
-  const envUrl = process.env.TOOLS_STORE_API_URL;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", CONN_KEY).maybeSingle();
+    const v = (data?.value ?? null) as Conn | null;
+    if (v?.api_url && v?.api_key) return v;
+  } catch { /* fall through */ }
   const envKey = process.env.TOOLS_STORE_API_KEY;
-  if (envUrl && envKey) return { api_url: envUrl.replace(/\/$/, ""), api_key: envKey };
+  if (envKey) return { api_url: DEFAULT_TOOL_STORE_URL, api_key: envKey };
   return null;
 }
 
@@ -39,8 +34,10 @@ async function callStore<T>(conn: Conn, path: string, init?: RequestInit): Promi
   let json: unknown;
   try { json = text ? JSON.parse(text) : {}; } catch { throw new Error(`Upstream non-JSON (${res.status})`); }
   if (!res.ok) {
-    const msg = (json as { error?: string })?.error || `Upstream ${res.status}`;
-    throw new Error(msg);
+    // ggsoma error shape: { ok: false, error: { code, message } }
+    const errObj = (json as { ok?: boolean; error?: { message?: string; code?: string } | string })?.error;
+    const msg = typeof errObj === "object" ? (errObj?.message ?? errObj?.code) : errObj;
+    throw new Error(String(msg || `Upstream ${res.status}`));
   }
   return json as T;
 }
@@ -49,20 +46,6 @@ function assertAdmin(ctx: { email?: string }) {
   if ((ctx as { email?: string }).email !== ADMIN_EMAIL) throw new Error("Admins only");
 }
 
-// ---------- Admin: save connection (via connection code) ----------
-export const saveToolStoreConnection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: { code: string }) => z.object({ code: z.string().min(8) }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context);
-    const conn = decodeConnCode(data.code);
-    // Sanity check
-    await callStore<{ success?: boolean; balance?: number }>(conn, "/balance");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("app_settings").upsert({ key: CONN_KEY, value: conn });
-    return { ok: true, api_url: conn.api_url };
-  });
-
 // ---------- Admin: save connection (direct API URL + key) ----------
 export const saveToolStoreConnectionDirect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -70,98 +53,109 @@ export const saveToolStoreConnectionDirect = createServerFn({ method: "POST" })
     z.object({ api_url: z.string().url().min(5), api_key: z.string().min(4) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    assertAdmin(context);
     const conn: Conn = { api_url: data.api_url.replace(/\/$/, ""), api_key: data.api_key };
-    await callStore<{ success?: boolean; balance?: number }>(conn, "/balance");
+    // Verify connection by calling /balance
+    await callStore<{ ok?: boolean; balance?: string }>(conn, "/balance");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("app_settings").upsert({ key: CONN_KEY, value: conn });
     return { ok: true, api_url: conn.api_url };
   });
 
-// ---------- Public-ish: status (admin sees keys, others only know if connected) ----------
+// Keep legacy connection code support
+export const saveToolStoreConnection = saveToolStoreConnectionDirect;
+
+// ---------- Status ----------
 export const getToolStoreStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const conn = await loadConn();
-    const { data: roleData } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    const isAdmin = Boolean(roleData);
+    const isAdminUser = (context as { email?: string }).email === ADMIN_EMAIL;
     let balance: number | null = null;
-    if (conn && isAdmin) {
+    if (conn && isAdminUser) {
       try {
-        const r = await callStore<{ balance?: number }>(conn, "/balance");
-        balance = r.balance ?? null;
+        const r = await callStore<{ balance?: string | number }>(conn, "/balance");
+        balance = r.balance != null ? Number(r.balance) : null;
       } catch { balance = null; }
     }
     return {
       connected: Boolean(conn),
-      isAdmin,
-      apiUrl: isAdmin && conn ? conn.api_url : null,
+      isAdmin: isAdminUser,
+      apiUrl: isAdminUser && conn ? conn.api_url : null,
       adminBalance: balance,
     };
   });
 
-// ---------- List products (any signed-in user) ----------
+// ---------- ToolProduct type (mapped from ggsoma catalog) ----------
 export type ToolProduct = {
-  id: string;
+  id: string;        // numeric id converted to string
+  slug: string;      // used when placing orders
   name_en: string;
-  name_ar?: string;
-  name_en_html?: string;
-  name_ar_html?: string;
   desc_en?: string;
-  desc_ar?: string;
-  custom_emoji_id?: string;
-  has_premium_emoji?: boolean;
-  desc_has_premium_emoji?: boolean;
-  all_emoji_ids?: string[];
   your_price: number;
   stock: number;
-  is_manual?: boolean;
+  delivery_type: "LINK" | "COUPON" | "READY_ACCOUNT";
+  in_stock: boolean;
+  duration_days?: number;
 };
 
-type RawProduct = ToolProduct & { store_price?: number | null; your_price: number | null };
+type GgsomaProduct = {
+  id: number;
+  slug: string;
+  productCode?: string;
+  name: string;
+  yourPrice: string;
+  stock: { inStock: boolean; count: number; maxQuantity: number };
+  deliveryType: "LINK" | "COUPON" | "READY_ACCOUNT";
+  durationDays?: number;
+  flags?: { sensitiveDelivery?: boolean };
+};
 
 async function loadMarkupPercent(): Promise<number> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("app_settings")
-    .select("value")
-    .eq("key", "markup_percent")
-    .maybeSingle();
-  const v = Number((data?.value as number | string | null) ?? 0);
-  return Number.isFinite(v) ? v : 0;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", "markup_percent").maybeSingle();
+    const v = Number((data?.value as number | string | null) ?? 0);
+    return Number.isFinite(v) ? v : 0;
+  } catch { return 0; }
 }
 
-function applyMarkup(products: RawProduct[], markupPct: number): ToolProduct[] {
+function mapProducts(raw: GgsomaProduct[], markupPct: number): ToolProduct[] {
   const factor = 1 + markupPct / 100;
-  return products.map((p) => {
-    const yp = p.your_price != null ? Number(p.your_price) : Number(p.store_price ?? 0) * factor;
-    return { ...p, your_price: +Number(yp || 0).toFixed(4) };
-  });
+  return raw.map((p) => ({
+    id: String(p.id),
+    slug: p.slug,
+    name_en: p.name,
+    your_price: +((Number(p.yourPrice) * factor) || 0).toFixed(4),
+    stock: p.stock?.count ?? 0,
+    in_stock: p.stock?.inStock ?? false,
+    delivery_type: p.deliveryType,
+    duration_days: p.durationDays,
+  }));
 }
 
+async function fetchProducts(conn: Conn): Promise<{ data?: GgsomaProduct[] }> {
+  return callStore<{ data?: GgsomaProduct[] }>(conn, "/catalog/products");
+}
+
+// ---------- List products (signed-in users) ----------
 export const listToolProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const conn = await loadConn();
     if (!conn) return { connected: false, products: [] as ToolProduct[] };
-    const [r, markup] = await Promise.all([
-      callStore<{ success?: boolean; products?: RawProduct[] }>(conn, "/products"),
-      loadMarkupPercent(),
-    ]);
-    return { connected: true, products: applyMarkup(r.products ?? [], markup) };
+    const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
+    return { connected: true, products: mapProducts(r.data ?? [], markup) };
   });
 
-// ---------- Public catalog (no auth) ----------
+// ---------- Public catalog (no auth needed) ----------
 export const listToolProductsPublic = createServerFn({ method: "GET" })
   .handler(async () => {
     const conn = await loadConn();
     if (!conn) return { connected: false, products: [] as ToolProduct[] };
     try {
-      const [r, markup] = await Promise.all([
-        callStore<{ success?: boolean; products?: RawProduct[] }>(conn, "/products"),
-        loadMarkupPercent(),
-      ]);
-      return { connected: true, products: applyMarkup(r.products ?? [], markup) };
+      const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
+      return { connected: true, products: mapProducts(r.data ?? [], markup) };
     } catch {
       return { connected: true, products: [] as ToolProduct[] };
     }
@@ -174,29 +168,46 @@ export const getToolStoreStatusPublic = createServerFn({ method: "GET" })
   });
 
 // ---------- Purchase ----------
+type GgsomaOrderResp = {
+  ok: boolean;
+  orderCode?: string;
+  deliveryType?: string;
+  delivery?: { link?: string; code?: string; content?: string; instructions?: string };
+  lines?: Array<{ orderCode: string; link?: string; code?: string; content?: string }>;
+  totalCharged?: string;
+  balanceAfter?: string;
+};
+
+function extractDeliverables(resp: GgsomaOrderResp): string[] {
+  if (resp.lines?.length) {
+    return resp.lines.map((l) => l.link ?? l.code ?? l.content ?? l.orderCode).filter(Boolean) as string[];
+  }
+  if (resp.delivery) {
+    const d = resp.delivery;
+    const val = d.link ?? d.code ?? d.content;
+    if (val) return [val];
+  }
+  return resp.orderCode ? [resp.orderCode] : [];
+}
+
 export const purchaseToolProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { productId: string; qty: number }) =>
-    z.object({
-      productId: z.string().min(1),
-      qty: z.number().int().positive().max(50),
-    }).parse(d),
+    z.object({ productId: z.string().min(1), qty: z.number().int().positive().max(50) }).parse(d),
   )
   .handler(async ({ data, context }) => {
     const conn = await loadConn();
     if (!conn) throw new Error("Tool store is not connected yet.");
 
-    // 1) Get product price/name from upstream
-    const [list, markup] = await Promise.all([
-      callStore<{ products?: RawProduct[] }>(conn, "/products"),
-      loadMarkupPercent(),
-    ]);
-    const products = applyMarkup(list.products ?? [], markup);
+    // 1) Fetch catalog to get slug + price
+    const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
+    const products = mapProducts(r.data ?? [], markup);
     const product = products.find((p) => p.id === data.productId);
     if (!product) throw new Error("Product not found");
+    if (!product.in_stock) throw new Error("Product is out of stock.");
     const total = +(Number(product.your_price) * data.qty).toFixed(4);
 
-    // 2) Check user wallet
+    // 2) Check wallet balance
     const { data: profile } = await context.supabase
       .from("profiles")
       .select("balance")
@@ -205,17 +216,16 @@ export const purchaseToolProduct = createServerFn({ method: "POST" })
     const balance = Number(profile?.balance ?? 0);
     if (balance < total) throw new Error("Insufficient wallet balance. Top up first.");
 
-    // 3) Call upstream purchase
-    const buyer = `user:${context.userId}`;
-    const resp = await callStore<{ success?: boolean; codes?: string[]; error?: string }>(
-      conn,
-      "/purchase",
-      { method: "POST", body: JSON.stringify({ product_id: data.productId, qty: data.qty, buyer_info: buyer }) },
-    );
-    if (!resp.success) throw new Error(resp.error || "Upstream purchase failed");
-    const codes = resp.codes ?? [];
+    // 3) Place order via ggsoma Partner API
+    const externalOrderId = `sp-${context.userId.slice(0, 8)}-${Date.now()}`;
+    const resp = await callStore<GgsomaOrderResp>(conn, "/orders", {
+      method: "POST",
+      body: JSON.stringify({ productSlug: product.slug, quantity: data.qty, externalOrderId }),
+    });
+    if (!resp.ok) throw new Error("Upstream purchase failed");
+    const codes = extractDeliverables(resp);
 
-    // 4) Deduct wallet + record order + transaction
+    // 4) Deduct wallet + record
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const newBal = +(balance - total).toFixed(4);
     await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", context.userId);
