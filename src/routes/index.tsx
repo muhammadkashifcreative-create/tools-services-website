@@ -46,10 +46,10 @@ const features = [
 ];
 
 const stats = [
-  { v: "2.4M+", l: "Orders delivered" },
-  { v: "180+", l: "Services live" },
-  { v: "99.6%", l: "Success rate" },
+  { v: "5,786+", l: "Services available" },
+  { v: "16", l: "Platforms covered" },
   { v: "< 60s", l: "Avg. start time" },
+  { v: "24/7", l: "Live support" },
 ];
 
 const fadeUp = {
@@ -71,7 +71,7 @@ function Landing() {
 
         {/* Editorial vertical labels */}
         <div aria-hidden className="pointer-events-none absolute left-4 top-1/2 hidden -translate-y-1/2 -rotate-90 select-none text-[10px] font-medium uppercase tracking-[0.4em] text-muted-foreground/70 lg:block">
-          EST · 2024 — Social Padu™ Growth Engine
+          EST · 2026 — Social Padu™ Growth Engine
         </div>
         <div aria-hidden className="pointer-events-none absolute right-6 top-1/2 hidden -translate-y-1/2 rotate-90 select-none text-[10px] font-medium uppercase tracking-[0.4em] text-muted-foreground/70 lg:block">
           v.2026 / Real Delivery / 15+ Networks
@@ -88,7 +88,7 @@ function Landing() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
               </span>
-              Live · Trusted by 12,000+ creators & brands
+              Live · Malaysia's #1 Social Growth Platform
             </motion.div>
 
             <motion.h1
@@ -128,7 +128,7 @@ function Landing() {
                 to="/services"
                 className="group inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-7 py-4 text-sm font-semibold backdrop-blur transition hover:border-primary/40 hover:bg-accent"
               >
-                Browse 180+ services
+                Browse 5,786+ services
                 <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
               </Link>
             </motion.div>
@@ -147,7 +147,7 @@ function Landing() {
                   {Array.from({length:5}).map((_,i)=>(<Star key={i} className="h-3.5 w-3.5 fill-current"/>))}
                 </div>
                 <span className="font-medium text-foreground">4.9/5</span>
-                <span>· 2,400+ reviews</span>
+                <span>· Trusted in Malaysia & beyond</span>
               </div>
             </motion.div>
           </div>
@@ -451,7 +451,7 @@ function Landing() {
             Ready to <span className="text-gradient">grow?</span>
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Join thousands of creators and brands boosting their reach with Social Padu.
+            Malaysia's trusted social media growth platform — 5,786+ services, instant delivery, zero passwords.
           </p>
           <Link
             to="/auth"
