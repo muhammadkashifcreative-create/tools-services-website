@@ -6,6 +6,11 @@ const SERVICES_CONN_KEY = "services_api_connection";
 type ServicesConn = { api_url: string; api_key: string };
 
 async function getConnection(): Promise<ServicesConn> {
+  // Env var takes priority — always works even when DB isn't set up
+  const envKey = process.env.SMM_API_KEY ?? process.env.FAMOUSPROVIDER_API_KEY;
+  const envUrl = process.env.SMM_API_URL ?? "https://justanotherpanel.com/api/v2";
+  if (envKey) return { api_url: envUrl, api_key: envKey };
+  // Fall back to DB
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
@@ -15,11 +20,8 @@ async function getConnection(): Promise<ServicesConn> {
       .maybeSingle();
     const v = (data?.value ?? null) as ServicesConn | null;
     if (v?.api_url && v?.api_key) return v;
-  } catch { /* fall through to env var */ }
-  const key = process.env.SMM_API_KEY ?? process.env.FAMOUSPROVIDER_API_KEY;
-  const url = process.env.SMM_API_URL ?? "https://justanotherpanel.com/api/v2";
-  if (!key) throw new Error("Services API key is not configured. Set it in the Admin panel.");
-  return { api_url: url, api_key: key };
+  } catch { /* DB not ready */ }
+  throw new Error("Services API key is not configured. Set SMM_API_KEY in Vercel environment variables.");
 }
 
 async function call(params: Record<string, string | number>): Promise<unknown> {

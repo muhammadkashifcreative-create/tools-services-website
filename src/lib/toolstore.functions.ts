@@ -10,14 +10,16 @@ const DEFAULT_TOOL_STORE_URL = "https://ggsoma.store/api/partner/v1";
 type Conn = { api_url: string; api_key: string };
 
 async function loadConn(): Promise<Conn | null> {
+  // Env var takes priority — always works even when DB isn't set up
+  const envKey = process.env.TOOLS_STORE_API_KEY;
+  if (envKey) return { api_url: DEFAULT_TOOL_STORE_URL, api_key: envKey };
+  // Fall back to DB
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", CONN_KEY).maybeSingle();
     const v = (data?.value ?? null) as Conn | null;
     if (v?.api_url && v?.api_key) return v;
-  } catch { /* fall through */ }
-  const envKey = process.env.TOOLS_STORE_API_KEY;
-  if (envKey) return { api_url: DEFAULT_TOOL_STORE_URL, api_key: envKey };
+  } catch { /* DB not ready */ }
   return null;
 }
 
