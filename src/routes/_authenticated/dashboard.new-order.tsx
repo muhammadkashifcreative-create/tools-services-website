@@ -267,39 +267,35 @@ function ServicesPage() {
 
         {/* ── SMM Services ── */}
         {mode === "smm" && (
-        <div>
+        <div className="w-full overflow-x-hidden">
 
-        {/* Hero header */}
-        <div className="relative overflow-hidden rounded-2xl border border-border/60 p-5 shadow-elegant sm:rounded-3xl sm:p-7 lg:p-10" style={{ background: "var(--gradient-hero)" }}>
-          <div className="absolute inset-0 grid-pattern opacity-50" aria-hidden />
-          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between lg:gap-6">
-            <div className="min-w-0">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary backdrop-blur">
-                <Sparkles className="h-3 w-3" /> Catalog
-              </span>
-              <h1 className="mt-3 text-2xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-                Place a <span className="text-gradient">new boost</span>.
-              </h1>
-              <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-                {(services ?? []).length.toLocaleString()} services across {Math.max(platforms.length - 1, 0)} platforms. Pick a service, paste your link, and watch it grow.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Chip icon={Zap}        label="Starts in < 60s" />
-              <Chip icon={ShieldCheck}label="No password ever" />
-              <Chip icon={Check}      label="Auto refill" />
-              <Chip icon={Clock4}     label="Delivered < 72 hrs" />
-            </div>
+        {/* ── Mobile hero (compact) ── */}
+        <div className="rounded-2xl border border-border/60 p-4 sm:p-7 lg:p-10" style={{ background: "var(--gradient-hero)" }}>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary backdrop-blur">
+            <Sparkles className="h-2.5 w-2.5" /> Catalog
+          </span>
+          <h1 className="mt-2 text-xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
+            Place a <span className="text-gradient">new boost</span>.
+          </h1>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-base">
+            {(services ?? []).length.toLocaleString()} services · {Math.max(platforms.length - 1, 0)} platforms
+          </p>
+          {/* Chips: single scroll row on mobile, wrap on desktop */}
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0" style={{ scrollbarWidth: "none" }}>
+            <Chip icon={Zap}         label="< 60s" />
+            <Chip icon={ShieldCheck} label="No password" />
+            <Chip icon={Check}       label="Auto refill" />
+            <Chip icon={Clock4}      label="< 72 hrs" />
           </div>
         </div>
 
-        {/* How it works strip */}
-        <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-border/60 bg-card p-3 shadow-soft lg:grid-cols-4">
+        {/* How it works — hidden on mobile to save space */}
+        <div className="mt-4 hidden sm:grid gap-2 rounded-2xl border border-border/60 bg-card p-3 shadow-soft sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { n: 1, t: "Choose a service",   d: "Filter by platform & type",      icon: MousePointerClick },
-            { n: 2, t: "Paste your link",    d: "Profile, post, video or page",   icon: Link2 },
-            { n: 3, t: "Set the quantity",   d: "Live total before you confirm",  icon: ListChecks },
-            { n: 4, t: "We deliver fast",    d: "Track progress in real time",    icon: Rocket },
+            { n: 1, t: "Choose a service",  d: "Filter by platform & type",     icon: MousePointerClick },
+            { n: 2, t: "Paste your link",   d: "Profile, post, video or page",  icon: Link2 },
+            { n: 3, t: "Set the quantity",  d: "Live total before you confirm", icon: ListChecks },
+            { n: 4, t: "We deliver fast",   d: "Track progress in real time",   icon: Rocket },
           ].map((s) => {
             const I = s.icon;
             return (
@@ -327,15 +323,14 @@ function ServicesPage() {
               <Sparkles className="h-6 w-6" />
             </div>
             <h3 className="text-lg font-semibold">No services yet</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              An admin needs to sync the catalog. Visit the Admin panel.
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">An admin needs to sync the catalog.</p>
           </div>
         ) : (
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] pb-24 lg:pb-0">
-            <div>
-              {/* Platform pill bar */}
-              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] pb-24 lg:pb-0">
+            <div className="min-w-0 w-full">
+              {/* Platform pill bar — contained scroll, no overflow bleed */}
+              <div className="w-full overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+                <div className="flex gap-2 w-max pr-1">
                 {platforms.map((p) => {
                   const active = platform === p;
                   const style = platformStyle(p === "All" ? "Other" : p);
@@ -356,9 +351,10 @@ function ServicesPage() {
                     </button>
                   );
                 })}
+                </div>
               </div>
 
-              <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-soft">
+              <div className="mt-3 rounded-2xl border border-border/60 bg-card p-3 shadow-soft">
                 {/* Search — full width */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -388,7 +384,7 @@ function ServicesPage() {
               </div>
 
               {/* 2-col on mobile, 1-col on desktop (desktop uses sidebar layout) */}
-              <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-1 lg:space-y-0">
+              <div className="mt-3 grid grid-cols-2 gap-2.5 lg:grid-cols-1">
                 {filtered.length === 0 && (
                   <div className="col-span-2 rounded-2xl border border-border/60 bg-card px-5 py-12 text-center text-sm text-muted-foreground lg:col-span-1">
                     No services match your filters.

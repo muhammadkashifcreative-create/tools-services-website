@@ -194,7 +194,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <main className="px-4 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</main>
+        <main className="px-4 py-6 sm:px-6 sm:py-8 lg:px-10 overflow-x-hidden">{children}</main>
       </div>
     </div>
   );
