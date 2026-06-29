@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createSessionCookie } from "@/lib/direct-google-auth.server";
 import { generateToken, storeToken } from "@/lib/auth-tokens.server";
 
 export const Route = createFileRoute("/api/auth/register")({
@@ -51,23 +50,12 @@ export const Route = createFileRoute("/api/auth/register")({
           const origin = new URL(request.url).origin;
           const verifyUrl = `${origin}/api/auth/verify-email?token=${token}`;
 
-          import("@/lib/email.server").then(({ sendVerificationEmail, sendWelcomeEmail }) => {
+          import("@/lib/email.server").then(({ sendVerificationEmail }) => {
             sendVerificationEmail(email, displayName, verifyUrl).catch(console.error);
-            // Welcome email after verification (sent now as a heads-up)
-            sendWelcomeEmail(email, displayName).catch(console.error);
           });
 
-          // Sign them in immediately but flag unverified
-          const cookie = createSessionCookie({
-            sub: userId,
-            email: email.toLowerCase(),
-            name: displayName,
-            supabase_id: userId,
-          });
-
-          return Response.json({ ok: true, needsVerification: true }, {
-            headers: { "set-cookie": cookie },
-          });
+          // Do NOT create a session — user must verify email first
+          return Response.json({ ok: true, needsVerification: true });
         } catch (e) {
           console.error("register error", e);
           return Response.json({ error: "Registration failed. Please try again." }, { status: 500 });

@@ -102,13 +102,23 @@ function AuthPage() {
   if (done === "account") return (
     <Page>
       <Card>
-        <Center><div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100"><CheckCircle2 className="h-8 w-8 text-emerald-600" /></div></Center>
-        <h1 className="mt-4 text-center text-2xl font-bold">Account created!</h1>
+        <Center>
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+            <Mail className="h-8 w-8 text-amber-600" />
+          </div>
+        </Center>
+        <h1 className="mt-4 text-center text-2xl font-bold">Check your email</h1>
         <p className="mt-2 text-center text-sm text-muted-foreground">
-          Welcome to Social Padu! We sent a <strong>verification email</strong> to <strong>{form.email}</strong>. Please check your inbox and click the link to verify your account.
+          We sent a verification link to <strong>{form.email}</strong>. Click the link in that email to activate your account before logging in.
         </p>
-        <button onClick={() => router.navigate({ to: "/dashboard", replace: true })} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white" style={{ background: "var(--gradient-accent)" }}>
-          Continue to Dashboard →
+        <div className="mt-5 w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs text-amber-800">
+          ⚠️ You must verify your email before you can login.
+        </div>
+        <button
+          onClick={() => switchMode("signin")}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-semibold hover:bg-accent transition"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Login
         </button>
       </Card>
     </Page>

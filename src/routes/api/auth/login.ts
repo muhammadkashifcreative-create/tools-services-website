@@ -32,6 +32,15 @@ export const Route = createFileRoute("/api/auth/login")({
           }
 
           const user = data.user;
+
+          // Block login if email not verified
+          if (!user.email_confirmed_at) {
+            return Response.json({
+              error: "Please verify your email first. Check your inbox for the verification link.",
+              needsVerification: true,
+            }, { status: 403 });
+          }
+
           const displayName = (user.user_metadata?.name as string | undefined) ?? email.split("@")[0];
 
           const cookie = createSessionCookie({
