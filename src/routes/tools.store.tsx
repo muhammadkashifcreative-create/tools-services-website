@@ -22,7 +22,7 @@ export const Route = createFileRoute("/tools/store")({
   head: () => ({
     meta: [
       { title: "Tools Store — Browse premium digital tools | Social Padu" },
-      { name: "description", content: "Browse the live catalog of premium digital tools and accounts. Sign in to purchase with your wallet." },
+      { name: "description", content: "Browse the live catalog of premium digital tools and accounts. Login to purchase with your wallet." },
       { property: "og:title", content: "Social Padu Tools Store" },
       { property: "og:description", content: "Live catalog of premium digital tools. Open to browse, sign in to buy." },
     ],
@@ -89,7 +89,7 @@ function ToolsStorePublicPage() {
             </div>
             {!authed && (
               <Link to="/auth" className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow" style={{ background: "var(--gradient-accent)" }}>
-                <LogIn className="h-4 w-4" /> Sign in to buy
+                <LogIn className="h-4 w-4" /> Login to buy
               </Link>
             )}
           </div>
@@ -269,7 +269,7 @@ function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fx
             className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90"
             style={{ background: "var(--gradient-accent)" }}
           >
-            <LogIn className="h-3.5 w-3.5" /> Sign in to purchase · {fmt(totalLocal)}
+            <LogIn className="h-3.5 w-3.5" /> Login to purchase · {fmt(totalLocal)}
           </Link>
         </div>
       </div>

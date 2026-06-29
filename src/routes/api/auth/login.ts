@@ -55,7 +55,7 @@ export const Route = createFileRoute("/api/auth/login")({
           });
         } catch (e) {
           console.error("login error", e);
-          return Response.json({ error: "Sign in failed. Please try again." }, { status: 500 });
+          return Response.json({ error: "Login failed. Please try again." }, { status: 500 });
         }
       },
     },

@@ -63,7 +63,7 @@ export const Route = createFileRoute("/api/auth/register")({
 
           if (existingUser?.email_confirmed_at) {
             return Response.json(
-              { error: "An account with this email already exists. Please sign in." },
+              { error: "An account with this email already exists. Please login." },
               { status: 409 },
             );
           }

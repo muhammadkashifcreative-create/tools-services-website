@@ -40,7 +40,7 @@ const en: Dict = {
   "nav.wallet": "Wallet",
   "nav.cases": "Cases",
   "nav.admin": "Admin",
-  "cta.signIn": "Sign in",
+  "cta.signIn": "Login",
   "cta.getStarted": "Get started",
   "cta.signOut": "Sign out",
   "cta.newCase": "Open a case",
