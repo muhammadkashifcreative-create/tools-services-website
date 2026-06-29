@@ -235,8 +235,8 @@ function extractDeliverables(resp: GgsomaOrderResp): string[] {
 
 export const purchaseToolProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { productId: string; qty: number }) =>
-    z.object({ productId: z.string().min(1), qty: z.number().int().positive().max(50) }).parse(d),
+  .inputValidator((d: { productId: string; qty: number; coupon?: string }) =>
+    z.object({ productId: z.string().min(1), qty: z.number().int().positive().max(50), coupon: z.string().trim().max(32).optional() }).parse(d),
   )
   .handler(async ({ data, context }) => {
     const conn = await loadConn();
@@ -248,7 +248,26 @@ export const purchaseToolProduct = createServerFn({ method: "POST" })
     const product = products.find((p) => p.id === data.productId);
     if (!product) throw new Error("Product not found");
     if (!product.in_stock) throw new Error("Product is out of stock.");
-    const total = +(Number(product.your_price) * data.qty).toFixed(4);
+
+    const baseTotal = +(Number(product.your_price) * data.qty).toFixed(4);
+
+    // Apply coupon discount
+    let discountUsd = 0;
+    const couponCode = data.coupon?.toUpperCase();
+    if (couponCode === "WELCOME5") {
+      discountUsd = +(baseTotal * 0.05).toFixed(4);
+    } else if (couponCode === "GEMIPRO10") {
+      // RM10 off — only valid for product 6
+      if (data.productId !== "6") throw new Error("Coupon GEMIPRO10 is only valid for Gemini Pro 18 Months (product #6)");
+      const { getUserCurrency } = await import("./geo.functions");
+      let rate = 4.7;
+      try { const ccy = await getUserCurrency(); rate = ccy.rate || 4.7; } catch { /* use fallback */ }
+      discountUsd = Math.min(+(10 / rate).toFixed(4), baseTotal * 0.9); // RM10 in USD, max 90% off
+    } else if (couponCode) {
+      throw new Error("Invalid coupon code");
+    }
+
+    const total = +(baseTotal - discountUsd).toFixed(4);
 
     // 2) Check wallet balance
     const { data: profile } = await context.supabase

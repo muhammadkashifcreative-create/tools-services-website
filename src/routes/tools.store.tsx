@@ -309,7 +309,7 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
   const startCheckout = useServerFn(createDepositCheckout);
   const [qty, setQty] = useState(1);
   const [coupon, setCoupon] = useState("");
-  const [couponApplied, setCouponApplied] = useState<{ code: string; percent: number } | null>(null);
+  const [couponApplied, setCouponApplied] = useState<{ code: string; percent?: number; fixedLocal?: number } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [payMode, setPayMode] = useState<"wallet" | "card" | null>(null);
   const [cardSecret, setCardSecret] = useState<string | null>(null);
@@ -325,7 +325,7 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
   });
 
   const walletMut = useMutation({
-    mutationFn: () => purchase({ data: { productId, qty, coupon: couponApplied?.code } }),
+    mutationFn: () => purchase({ data: { productId, qty, coupon: couponApplied?.code ?? undefined } }),
     onSuccess: (r) => {
       setSuccess(r.codes);
       qc.invalidateQueries({ queryKey: ["profile"] });
@@ -335,14 +335,26 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
 
   const ps = paletteFor(productId);
   const priceLocal = product ? +(Number(product.your_price) * fxRate).toFixed(2) : 0;
-  const discount = couponApplied ? +(priceLocal * qty * (couponApplied.percent / 100)).toFixed(2) : 0;
-  const totalLocal = +(priceLocal * qty - discount).toFixed(2);
+  const discount = couponApplied
+    ? couponApplied.fixedLocal ?? +(priceLocal * qty * ((couponApplied.percent ?? 0) / 100)).toFixed(2)
+    : 0;
+  const totalLocal = Math.max(0, +(priceLocal * qty - discount).toFixed(2));
   const outOfStock = product ? (product.in_stock === false || product.stock === 0) : false;
 
   const applyCoupon = () => {
     const c = coupon.trim().toUpperCase();
-    if (c === "WELCOME5") { setCouponApplied({ code: c, percent: 5 }); setCouponError(null); }
-    else { setCouponApplied(null); setCouponError("Invalid coupon code"); }
+    if (c === "WELCOME5") {
+      setCouponApplied({ code: c, percent: 5 }); setCouponError(null);
+    } else if (c === "GEMIPRO10") {
+      if (productId !== "6") {
+        setCouponApplied(null);
+        setCouponError("This coupon is only valid for Gemini Pro 18 Months");
+      } else {
+        setCouponApplied({ code: c, fixedLocal: 10 }); setCouponError(null);
+      }
+    } else {
+      setCouponApplied(null); setCouponError("Invalid coupon code");
+    }
   };
 
   const openCardPayment = async () => {
@@ -450,7 +462,7 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
                   </div>
                 )}
               </div>
-              {couponApplied && <div className="flex justify-between text-sm mt-2 text-emerald-600"><span>Coupon {couponApplied.code} (−{couponApplied.percent}%)</span><span>−{fxSymbol}{discount.toFixed(2)}</span></div>}
+              {couponApplied && <div className="flex justify-between text-sm mt-2 text-emerald-600"><span>Coupon {couponApplied.code} {couponApplied.fixedLocal ? `(−${fxSymbol}${couponApplied.fixedLocal})` : `(−${couponApplied.percent}%)`}</span><span>−{fxSymbol}{discount.toFixed(2)}</span></div>}
               {!outOfStock && <div className="flex justify-between mt-2 pt-2 border-t border-border/60 text-sm"><span className="font-semibold">Total</span><span className="font-bold text-gradient tabular-nums">{fxSymbol}{totalLocal.toFixed(2)}</span></div>}
             </div>
 
