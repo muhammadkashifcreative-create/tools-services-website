@@ -1,7 +1,8 @@
 import { Link, useRouter, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { LayoutDashboard, Sparkles, Wallet, Receipt, Shield, LogOut, Bell, Plus, LifeBuoy, Wrench } from "lucide-react";
+import { useState } from "react";
+import { LayoutDashboard, Sparkles, Wallet, Receipt, Shield, LogOut, Bell, Plus, LifeBuoy, Wrench, User } from "lucide-react";
 import { getMyProfile } from "@/lib/wallet.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { BrandMark } from "@/components/BrandMark";
 import type { ReactNode } from "react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const fetchProfile = useServerFn(getMyProfile);
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -172,14 +174,58 @@ export function AppLayout({ children }: { children: ReactNode }) {
             >
               <Bell className="h-4 w-4" />
             </button>
-            <Link
-              to="/dashboard/wallet"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-primary-foreground shadow-glow"
-              style={{ background: "var(--gradient-accent)" }}
-              aria-label="Account"
-            >
-              {initial}
-            </Link>
+            {/* Avatar — opens menu on mobile */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setAvatarMenuOpen((v) => !v)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-primary-foreground shadow-glow"
+                style={{ background: "var(--gradient-accent)" }}
+                aria-label="Account menu"
+              >
+                {initial}
+              </button>
+
+              {avatarMenuOpen && (
+                <>
+                  {/* Backdrop */}
+                  <div className="fixed inset-0 z-40" onClick={() => setAvatarMenuOpen(false)} />
+                  {/* Dropdown */}
+                  <div className="absolute right-0 top-11 z-50 w-52 rounded-2xl border border-border/60 bg-card shadow-elegant overflow-hidden">
+                    {/* User info */}
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-border/60">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white" style={{ background: "var(--gradient-accent)" }}>
+                        {initial}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{profile?.full_name || profile?.username || "Member"}</p>
+                        <p className="text-xs text-muted-foreground truncate">{fmtBal(Number(profile?.balance ?? 0))}</p>
+                      </div>
+                    </div>
+                    {/* Links */}
+                    <div className="py-1">
+                      <Link to="/dashboard/wallet" onClick={() => setAvatarMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition">
+                        <Wallet className="h-4 w-4 text-primary" /> Wallet
+                      </Link>
+                      <Link to="/dashboard/support" onClick={() => setAvatarMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition">
+                        <LifeBuoy className="h-4 w-4 text-primary" /> Support
+                      </Link>
+                    </div>
+                    {/* Logout */}
+                    <div className="border-t border-border/60 py-1">
+                      <button
+                        onClick={() => { setAvatarMenuOpen(false); handleSignOut(); }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/5 transition"
+                      >
+                        <LogOut className="h-4 w-4" /> Sign out
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
         <nav className="flex gap-1 overflow-x-auto border-b border-border/60 bg-card px-3 py-2 sm:px-4 lg:hidden">
