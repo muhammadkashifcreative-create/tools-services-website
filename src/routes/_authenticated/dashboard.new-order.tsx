@@ -16,8 +16,9 @@ import { listToolProducts, purchaseToolProduct, type ToolProduct } from "@/lib/t
 import { TiltCard } from "@/components/TiltCard";
 import { placeOrder } from "@/lib/orders.functions";
 import { createOrderCheckout } from "@/lib/payments.functions";
-import { getStripe, getStripeEnvironment } from "@/lib/stripe";
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
+import { getStripe, getStripeEnvironment, isStripeConfigured } from "@/lib/stripe";
+import { createDepositCheckout } from "@/lib/payments.functions";
+import { EmbeddedCheckoutProvider, EmbeddedCheckout, Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -59,25 +60,62 @@ function ServicesPage() {
   // ── Tools Store ──
   const fetchToolProducts = useServerFn(listToolProducts);
   const purchaseTool = useServerFn(purchaseToolProduct);
+  const startCheckout = useServerFn(createDepositCheckout);
   const { data: toolData, isLoading: toolsLoading } = useQuery({
     queryKey: ["toolProducts"],
     queryFn: () => fetchToolProducts(),
     enabled: mode === "tools",
   });
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  const [toolQtyMap, setToolQtyMap] = useState<Record<string, number>>({});
+  const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
+  const [toolSheetOpen, setToolSheetOpen] = useState(false);
+  const [toolQty, setToolQty] = useState(1);
+  const [toolCoupon, setToolCoupon] = useState("");
+  const [toolCouponApplied, setToolCouponApplied] = useState<{ code: string; percent?: number; fixedLocal?: number } | null>(null);
+  const [toolCouponError, setToolCouponError] = useState<string | null>(null);
+  const [toolCardSecret, setToolCardSecret] = useState<string | null>(null);
+  const [toolCardLoading, setToolCardLoading] = useState(false);
   const [codesResult, setCodesResult] = useState<{ name: string; codes: string[] } | null>(null);
   const [copiedCodes, setCopiedCodes] = useState(false);
-  const toolMut = useMutation({
-    mutationFn: ({ productId, qty }: { productId: string; qty: number }) =>
-      purchaseTool({ data: { productId, qty } }),
-    onSuccess: (r, vars) => {
-      const product = (toolData?.products ?? []).find((p) => p.id === vars.productId);
+
+  const selectedTool = selectedToolId ? (toolData?.products ?? []).find((p) => p.id === selectedToolId) ?? null : null;
+  const toolPriceLocal = selectedTool ? +(Number(selectedTool.your_price) * fx).toFixed(2) : 0;
+  const toolDiscount = toolCouponApplied
+    ? toolCouponApplied.fixedLocal ?? +(toolPriceLocal * toolQty * ((toolCouponApplied.percent ?? 0) / 100)).toFixed(2)
+    : 0;
+  const toolTotal = Math.max(0, +(toolPriceLocal * toolQty - toolDiscount).toFixed(2));
+
+  const applyToolCoupon = () => {
+    const c = toolCoupon.trim().toUpperCase();
+    if (c === "WELCOME5") { setToolCouponApplied({ code: c, percent: 5 }); setToolCouponError(null); }
+    else if (c === "GEMIPRO10") {
+      if (selectedToolId !== "6") { setToolCouponApplied(null); setToolCouponError("This coupon is only valid for Gemini Pro 18 Months"); }
+      else { setToolCouponApplied({ code: c, fixedLocal: 10 }); setToolCouponError(null); }
+    } else { setToolCouponApplied(null); setToolCouponError("Invalid coupon code"); }
+  };
+
+  const openTool = (id: string) => { setSelectedToolId(id); setToolQty(1); setToolCoupon(""); setToolCouponApplied(null); setToolCouponError(null); setToolCardSecret(null); };
+  const closeTool = () => { setSelectedToolId(null); setToolSheetOpen(false); };
+
+  const toolWalletMut = useMutation({
+    mutationFn: () => purchaseTool({ data: { productId: selectedToolId!, qty: toolQty, coupon: toolCouponApplied?.code } }),
+    onSuccess: (r) => {
+      const product = (toolData?.products ?? []).find((p) => p.id === selectedToolId);
       setCodesResult({ name: product?.name_en ?? "Tool", codes: r.codes });
-      qc.invalidateQueries({ queryKey: ["profile"] });
+      closeTool(); qc.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const openToolCard = async () => {
+    if (!isStripeConfigured()) { toast.error("Card payments not configured"); return; }
+    setToolCardLoading(true);
+    try {
+      const res = await startCheckout({ data: { usdAmount: toolTotal / fx, environment: getStripeEnvironment() } });
+      if ("error" in res) { toast.error(res.error); return; }
+      setToolCardSecret(res.clientSecret ?? ""); setToolSheetOpen(true);
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    finally { setToolCardLoading(false); }
+  };
   const fetchCurrency = useServerFn(getUserCurrency);
   const { data: ccy } = useQuery({
     queryKey: ["user-currency"],
@@ -744,8 +782,8 @@ function ServicesPage() {
             </div>
           </div>
 
-          {/* Content */}
-          <div className="mt-6">
+          {/* Content — pb-24 so sticky bar doesn't cover cards */}
+          <div className="mt-6 pb-24 lg:pb-0">
             {toolsLoading ? (
               <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : !toolData?.connected ? (
@@ -787,42 +825,25 @@ function ServicesPage() {
                             </div>
                           </div>
 
-                          <div className="mt-3 flex items-end justify-between border-t border-border/60 pt-3">
-                            <div>
-                              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Price</p>
-                              <p className="text-base font-bold tabular-nums text-gradient">{symbol}{priceLocal.toFixed(2)}</p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <label className="text-[9px] uppercase text-muted-foreground">Qty</label>
-                              <input
-                                type="number" min={1} max={Math.max(1, p.stock)} value={qty}
-                                onChange={(e) => setToolQtyMap((prev) => ({ ...prev, [p.id]: Math.max(1, Math.min(p.stock || 1, Number(e.target.value || 1))) }))}
-                                className="w-12 rounded border border-border/60 bg-background px-1.5 py-1 text-right text-xs"
-                                disabled={outOfStock}
-                              />
-                            </div>
+                          <div className="mt-2.5 pt-2.5 border-t border-border/60">
+                            <p className="text-sm font-bold tabular-nums text-gradient">{symbol}{priceLocal.toFixed(2)}</p>
+                            <p className="text-[9px] text-muted-foreground mb-1.5">per unit</p>
+                            <button
+                              disabled={outOfStock}
+                              onClick={() => openTool(p.id)}
+                              className={`w-full rounded-lg py-1.5 text-xs font-bold transition active:scale-95 disabled:opacity-50 ${selectedToolId === p.id ? "bg-primary/10 text-primary" : "text-white"}`}
+                              style={selectedToolId === p.id || outOfStock ? undefined : { background: "var(--gradient-accent)" }}
+                            >
+                              {selectedToolId === p.id ? "✓ Selected" : "Order →"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { const url = `${window.location.origin}/tools/store?product=${p.id}`; navigator.clipboard?.writeText(url); toast.success("Link copied!"); }}
+                              className="mt-1 w-full flex items-center justify-center gap-1 rounded-lg py-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/60 transition"
+                            >
+                              <Copy className="h-2.5 w-2.5" /> Copy link
+                            </button>
                           </div>
-
-                          <button
-                            disabled={outOfStock || toolMut.isPending}
-                            onClick={() => toolMut.mutate({ productId: p.id, qty })}
-                            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-50"
-                            style={{ background: "var(--gradient-accent)" }}
-                          >
-                            {toolMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
-                            {outOfStock ? "Out of stock" : `Buy · ${symbol}${totalLocal.toFixed(2)}`}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const url = `${window.location.origin}/tools/store?product=${p.id}`;
-                              navigator.clipboard?.writeText(url);
-                              toast.success("Link copied!");
-                            }}
-                            className="mt-1.5 w-full flex items-center justify-center gap-1 rounded-lg py-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/60 transition"
-                          >
-                            <Copy className="h-2.5 w-2.5" /> Copy link
-                          </button>
                         </div>
                       </div>
                     </TiltCard>
@@ -832,6 +853,121 @@ function ServicesPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Tools sticky bar (mirrors SMM pattern) ── */}
+      {mode === "tools" && selectedTool && (
+        <>
+          {/* Sticky bottom bar */}
+          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur-xl px-4 py-3 shadow-elegant">
+            <div className="flex items-center gap-3 mx-auto max-w-6xl">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">Selected tool</p>
+                <p className="text-sm font-semibold truncate">{selectedTool.name_en}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-lg font-bold tabular-nums text-gradient">{symbol}{toolTotal.toFixed(2)}</p>
+                <p className="text-[10px] text-muted-foreground">{ccy?.currency ?? "MYR"}</p>
+              </div>
+              <button onClick={() => setToolSheetOpen(true)}
+                className="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-glow"
+                style={{ background: "var(--gradient-accent)" }}>
+                Order →
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom sheet */}
+          {toolSheetOpen && (
+            <div className="fixed inset-0 z-50">
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setToolSheetOpen(false)} />
+              <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-card border-t border-border overflow-y-auto max-h-[90dvh]">
+                <div className="flex justify-center pt-3 pb-1"><div className="h-1 w-10 rounded-full bg-border" /></div>
+                <div className="flex items-center justify-between px-5 pb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl" style={{ background: `linear-gradient(135deg,${toolPaletteFor(selectedTool.id).from},${toolPaletteFor(selectedTool.id).to})` }}>
+                      {selectedTool.emoji ?? <Package className="h-4 w-4 text-white" />}
+                    </div>
+                    <p className="text-sm font-bold truncate">{selectedTool.name_en}</p>
+                  </div>
+                  <button onClick={() => setToolSheetOpen(false)} className="shrink-0 rounded-full p-1.5 hover:bg-accent ml-2"><X className="h-4 w-4" /></button>
+                </div>
+
+                <div className="px-5 pb-8 space-y-4">
+                  {/* Qty */}
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quantity</label>
+                    <input type="number" min={1} max={Math.max(1, selectedTool.stock)} value={toolQty}
+                      onChange={(e) => setToolQty(Math.max(1, Math.min(selectedTool.stock || 1, Number(e.target.value || 1))))}
+                      className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 ring-primary/30 text-foreground" />
+                  </div>
+
+                  {/* Price breakdown */}
+                  <div className="rounded-xl border border-border/60 bg-background/60 p-4 space-y-1.5">
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Unit price</span><span>{symbol}{toolPriceLocal.toFixed(2)}</span></div>
+                    {toolCouponApplied && <div className="flex justify-between text-sm text-emerald-600"><span>Coupon {toolCouponApplied.code} {toolCouponApplied.fixedLocal ? `(−${symbol}${toolCouponApplied.fixedLocal})` : `(−${toolCouponApplied.percent}%)`}</span><span>−{symbol}{toolDiscount.toFixed(2)}</span></div>}
+                    <div className="flex justify-between pt-1.5 border-t border-border/60"><span className="font-semibold">Total</span><span className="text-xl font-bold text-gradient tabular-nums">{symbol}{toolTotal.toFixed(2)}</span></div>
+                  </div>
+
+                  {/* Coupon */}
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Coupon code</label>
+                    {toolCouponApplied ? (
+                      <div className="mt-1.5 flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2.5 text-sm">
+                        <span className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-emerald-500" /><span className="font-mono font-bold">{toolCouponApplied.code}</span></span>
+                        <button type="button" onClick={() => { setToolCouponApplied(null); setToolCoupon(""); }} className="text-xs text-muted-foreground">Remove</button>
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 flex gap-2">
+                        <input type="text" placeholder="WELCOME5" value={toolCoupon}
+                          onChange={(e) => { setToolCoupon(e.target.value); setToolCouponError(null); }}
+                          className="flex-1 rounded-xl border border-border bg-background px-3 py-2.5 text-sm uppercase outline-none text-foreground placeholder:text-muted-foreground" />
+                        <button type="button" onClick={applyToolCoupon} className="rounded-xl border border-border/60 bg-card px-3 py-2 text-xs font-semibold hover:bg-accent">Apply</button>
+                      </div>
+                    )}
+                    {toolCouponError && <p className="mt-1 text-[11px] text-destructive">{toolCouponError}</p>}
+                  </div>
+
+                  {/* Card form */}
+                  {toolCardSecret && (
+                    <div className="rounded-xl border border-border bg-muted/30 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Card details</p>
+                      <Elements stripe={getStripe()}>
+                        <DashboardToolCardForm
+                          clientSecret={toolCardSecret}
+                          productId={selectedToolId!}
+                          qty={toolQty}
+                          coupon={toolCouponApplied?.code}
+                          purchaseFn={purchaseTool}
+                          onSuccess={(codes) => { setCodesResult({ name: selectedTool.name_en, codes }); closeTool(); qc.invalidateQueries({ queryKey: ["profile"] }); }}
+                          onCancel={() => setToolCardSecret(null)}
+                        />
+                      </Elements>
+                    </div>
+                  )}
+
+                  {/* Pay buttons */}
+                  {!toolCardSecret && (
+                    <>
+                      <button disabled={toolWalletMut.isPending}
+                        onClick={() => toolWalletMut.mutate()}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-50"
+                        style={{ background: "var(--gradient-accent)" }}>
+                        {toolWalletMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+                        Pay from wallet · {symbol}{toolTotal.toFixed(2)}
+                      </button>
+                      <button disabled={toolCardLoading} onClick={openToolCard}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-background px-4 py-3 text-sm font-semibold transition hover:bg-accent disabled:opacity-60">
+                        {toolCardLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                        Pay with card
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Codes delivery modal */}
@@ -935,5 +1071,70 @@ function toolPaletteFor(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return TOOL_PALETTES[h % TOOL_PALETTES.length];
+}
+
+const ELEMENT_STYLE_DASH = {
+  base: { color: "#0f172a", fontFamily: "Arial,sans-serif", fontSize: "14px", "::placeholder": { color: "#94a3b8" } },
+  invalid: { color: "#ef4444" },
+};
+
+function DashboardToolCardForm({ clientSecret, productId, qty, coupon, purchaseFn, onSuccess, onCancel }: {
+  clientSecret: string; productId: string; qty: number; coupon?: string;
+  purchaseFn: (args: { data: { productId: string; qty: number; coupon?: string } }) => Promise<{ codes: string[] }>;
+  onSuccess: (codes: string[]) => void; onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setLoading(true); setError(null);
+    const cardNumber = elements.getElement(CardNumberElement);
+    if (!cardNumber) { setLoading(false); return; }
+    const { error: stripeErr, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: { card: cardNumber, billing_details: { name: name.trim() || undefined } },
+      return_url: window.location.href,
+    });
+    if (stripeErr) { setError(stripeErr.message ?? "Payment failed"); setLoading(false); return; }
+    if (paymentIntent?.status === "succeeded") {
+      try {
+        const r = await purchaseFn({ data: { productId, qty, coupon } });
+        onSuccess(r.codes);
+      } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to deliver codes"); setLoading(false); }
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div>
+        <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Card number</label>
+        <div className="rounded-xl border border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/30"><CardNumberElement options={{ style: ELEMENT_STYLE_DASH, showIcon: true }} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Expiry</label>
+          <div className="rounded-xl border border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/30"><CardExpiryElement options={{ style: ELEMENT_STYLE_DASH }} /></div>
+        </div>
+        <div>
+          <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">CVC</label>
+          <div className="rounded-xl border border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/30"><CardCvcElement options={{ style: ELEMENT_STYLE_DASH }} /></div>
+        </div>
+      </div>
+      <input type="text" placeholder="Name on card" value={name} onChange={(e) => setName(e.target.value)}
+        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 ring-primary/30" />
+      {error && <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
+      <button type="submit" disabled={!stripe || loading}
+        className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow disabled:opacity-60"
+        style={{ background: "var(--gradient-accent)" }}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {loading ? "Processing…" : "Pay & Get Codes"}
+      </button>
+      <button type="button" onClick={onCancel} className="w-full text-xs text-muted-foreground text-center py-1 hover:text-foreground transition">Cancel card payment</button>
+    </form>
+  );
 }
 
