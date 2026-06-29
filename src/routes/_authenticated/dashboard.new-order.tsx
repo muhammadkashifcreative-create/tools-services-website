@@ -17,7 +17,6 @@ import { TiltCard } from "@/components/TiltCard";
 import { placeOrder } from "@/lib/orders.functions";
 import { createOrderCheckout } from "@/lib/payments.functions";
 import { getStripe, getStripeEnvironment } from "@/lib/stripe";
-import { createOrderCheckout } from "@/lib/payments.functions";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
