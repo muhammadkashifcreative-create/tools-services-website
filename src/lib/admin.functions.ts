@@ -10,20 +10,59 @@ export const adminListOrders = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context as never);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("id, link, quantity, charge, status, provider_order_id, created_at, user_id, services(name, platform)")
-      .order("created_at", { ascending: false })
-      .limit(200);
+    const [{ data: smmData, error }, { data: toolData }] = await Promise.all([
+      supabaseAdmin
+        .from("orders")
+        .select("id, link, quantity, charge, status, provider_order_id, created_at, user_id, services(name, platform)")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabaseAdmin
+        .from("tool_orders")
+        .select("id, product_name, qty, total_price, status, created_at, user_id")
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ]);
     if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    const userIds = Array.from(new Set(rows.map((r) => r.user_id)));
+
+    const allUserIds = Array.from(new Set([
+      ...(smmData ?? []).map((r) => r.user_id),
+      ...(toolData ?? []).map((r) => r.user_id),
+    ]));
     const { data: profiles } = await supabaseAdmin
       .from("profiles")
       .select("id, username, full_name")
-      .in("id", userIds);
+      .in("id", allUserIds);
     const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
-    return rows.map((r) => ({ ...r, profile: byId.get(r.user_id) ?? null }));
+
+    const smm = (smmData ?? []).map((r) => ({
+      id: r.id,
+      type: "smm" as const,
+      user_id: r.user_id,
+      name: (r.services as { name?: string } | null)?.name ?? "—",
+      platform: (r.services as { platform?: string } | null)?.platform ?? "",
+      quantity: r.quantity,
+      charge: Number(r.charge),
+      status: r.status,
+      created_at: r.created_at,
+      profile: byId.get(r.user_id) ?? null,
+    }));
+
+    const tools = (toolData ?? []).map((r) => ({
+      id: r.id,
+      type: "tool" as const,
+      user_id: r.user_id,
+      name: r.product_name,
+      platform: "Tools Store",
+      quantity: r.qty,
+      charge: Number(r.total_price),
+      status: r.status,
+      created_at: r.created_at,
+      profile: byId.get(r.user_id) ?? null,
+    }));
+
+    return [...smm, ...tools].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
   });
 
 export const adminStats = createServerFn({ method: "GET" })
@@ -31,26 +70,30 @@ export const adminStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context as never);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [users, services, orders, ordersFull] = await Promise.all([
+    const [users, services, smmCount, toolCount, smmFull, toolFull] = await Promise.all([
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("services").select("id", { count: "exact", head: true }).eq("is_active", true),
       supabaseAdmin.from("orders").select("id", { count: "exact", head: true }),
+      supabaseAdmin.from("tool_orders").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("orders").select("charge, quantity, services(provider_rate)"),
+      supabaseAdmin.from("tool_orders").select("total_price"),
     ]);
-    type OrderRow = { charge: number | string; quantity: number; services: { provider_rate: number | string } | null };
-    const rows = (ordersFull.data ?? []) as unknown as OrderRow[];
-    const totalEarned = rows.reduce((s, r) => s + Number(r.charge ?? 0), 0);
-    const totalSpent = rows.reduce((s, r) => {
+    type SmmRow = { charge: number | string; quantity: number; services: { provider_rate: number | string } | null };
+    const smmRows = (smmFull.data ?? []) as unknown as SmmRow[];
+    const smmEarned = smmRows.reduce((s, r) => s + Number(r.charge ?? 0), 0);
+    const smmCost = smmRows.reduce((s, r) => {
       const rate = Number(r.services?.provider_rate ?? 0);
       return s + (Number(r.quantity) / 1000) * rate;
     }, 0);
+    const toolEarned = (toolFull.data ?? []).reduce((s, r) => s + Number(r.total_price ?? 0), 0);
+    const totalEarned = smmEarned + toolEarned;
     return {
       users: users.count ?? 0,
       services: services.count ?? 0,
-      orders: orders.count ?? 0,
+      orders: (smmCount.count ?? 0) + (toolCount.count ?? 0),
       revenue: +totalEarned.toFixed(2),
-      spent: +totalSpent.toFixed(2),
-      profit: +(totalEarned - totalSpent).toFixed(2),
+      spent: +smmCost.toFixed(2),
+      profit: +(totalEarned - smmCost).toFixed(2),
     };
   });
 
