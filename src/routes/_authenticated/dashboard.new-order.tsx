@@ -172,7 +172,7 @@ function ServicesPage() {
         serviceId: selectedId,
         link,
         quantity: qty,
-        returnUrl: `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+        returnUrl: `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}&env=${getStripeEnvironment()}`,
         environment: getStripeEnvironment(),
       },
     });

@@ -204,9 +204,105 @@ export const createOrderCheckout = createServerFn({ method: "POST" })
         },
       } as any);
 
-      return { clientSecret: session.client_secret ?? "" };
+      return { clientSecret: session.client_secret ?? "", sessionId: session.id };
     } catch (error) {
       console.error("createOrderCheckout error", error);
       return { error: getStripeErrorMessage(error) };
+    }
+  });
+
+export const confirmOrderCheckout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      sessionId: z.string().min(1),
+      environment: z.enum(["sandbox", "live"]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const stripe = createStripeClient(data.environment as StripeEnv);
+    const session = await stripe.checkout.sessions.retrieve(data.sessionId);
+
+    if (session.payment_status !== "paid") throw new Error("Payment not completed yet.");
+
+    const meta = session.metadata ?? {};
+    if (meta.userId !== context.userId) throw new Error("Session does not belong to this user.");
+    if (meta.kind !== "order_payment") throw new Error("Invalid session type.");
+
+    const piId = typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id ?? "";
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Idempotency — already processed by webhook or a previous confirmation
+    const { data: existing } = await supabaseAdmin
+      .from("transactions")
+      .select("id, reference_id")
+      .like("description", `stripe:${piId}%`)
+      .limit(1)
+      .maybeSingle();
+    if (existing) return { ok: true, alreadyProcessed: true, orderId: existing.reference_id };
+
+    const serviceId = meta.serviceId as string;
+    const link = meta.link as string;
+    const quantity = Number(meta.quantity);
+    const usdAmount = Number(meta.usdAmount);
+
+    if (!serviceId || !link || !quantity || !usdAmount) throw new Error("Incomplete session metadata.");
+
+    const { data: service } = await supabaseAdmin
+      .from("services")
+      .select("id, provider_service_id, name")
+      .eq("id", serviceId)
+      .maybeSingle();
+    if (!service) throw new Error("Service not found.");
+
+    let providerOrderId: string | null = null;
+    try {
+      const { placeOrder: providerPlace } = await import("@/lib/famousprovider.server");
+      const res = await providerPlace({ service: service.provider_service_id, link, quantity });
+      providerOrderId = String(res.order);
+    } catch (e) {
+      console.error("confirmOrderCheckout: provider failed, crediting wallet", e);
+    }
+
+    if (providerOrderId) {
+      const { data: order } = await supabaseAdmin
+        .from("orders")
+        .insert({ user_id: context.userId, service_id: serviceId, link, quantity, charge: usdAmount, status: "processing", provider_order_id: providerOrderId })
+        .select("id")
+        .single();
+      await supabaseAdmin.from("transactions").insert({
+        user_id: context.userId,
+        amount: -usdAmount,
+        type: "order",
+        description: `stripe:${piId} — ${service.name}`,
+        reference_id: order?.id ?? null,
+      });
+
+      // Send confirmation email (non-blocking)
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+      const toEmail = authUser?.user?.email;
+      if (toEmail && order?.id) {
+        const { data: prof } = await supabaseAdmin.from("profiles").select("full_name").eq("id", context.userId).maybeSingle();
+        import("@/lib/email.server").then(({ sendOrderConfirmationEmail }) => {
+          sendOrderConfirmationEmail(toEmail, prof?.full_name ?? "", order.id, service.name, quantity, usdAmount, link).catch(console.error);
+        });
+      }
+
+      return { ok: true, orderId: order?.id };
+    } else {
+      // Provider failed — refund to wallet
+      const { data: profile } = await supabaseAdmin.from("profiles").select("balance").eq("id", context.userId).maybeSingle();
+      const newBal = +(Number(profile?.balance ?? 0) + usdAmount).toFixed(4);
+      await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", context.userId);
+      await supabaseAdmin.from("transactions").insert({
+        user_id: context.userId,
+        amount: usdAmount,
+        type: "deposit",
+        description: `stripe:${piId} — order failed, credited to wallet`,
+      });
+      throw new Error("Provider could not process the order. Your payment has been credited to your wallet.");
     }
   });
