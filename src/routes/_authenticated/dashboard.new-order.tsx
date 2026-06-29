@@ -66,6 +66,7 @@ function ServicesPage() {
     queryFn: () => fetchToolProducts(),
     enabled: mode === "tools",
   });
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
   const [toolSheetOpen, setToolSheetOpen] = useState(false);
   const [toolQty, setToolQty] = useState(1);
