@@ -7,17 +7,17 @@ import {
   Instagram, Music2, Youtube, Facebook, Twitter, Linkedin,
   Send, MapPin, Twitch, Music, Globe2, ShieldCheck, MousePointerClick,
   Link2, ListChecks, Rocket, Check, Clock4, CreditCard, Wallet, X,
-  Wrench, ArrowRight, ArrowLeft, Package, Copy, CheckCheck,
+  Wrench, ArrowRight, ArrowLeft, Package, Copy, CheckCheck, Lock,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { listServices } from "@/lib/services.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
-import { listToolProducts, purchaseToolProduct, type ToolProduct } from "@/lib/toolstore.functions";
+import { listToolProducts, purchaseToolProduct, createToolCheckout, confirmToolCardPurchase, type ToolProduct } from "@/lib/toolstore.functions";
 import { TiltCard } from "@/components/TiltCard";
 import { placeOrder } from "@/lib/orders.functions";
 import { createOrderCheckout } from "@/lib/payments.functions";
-import { getStripe, getStripeEnvironment } from "@/lib/stripe";
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
+import { getStripe, getStripeEnvironment, isStripeConfigured } from "@/lib/stripe";
+import { EmbeddedCheckoutProvider, EmbeddedCheckout, Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -59,6 +59,8 @@ function ServicesPage() {
   // ── Tools Store ──
   const fetchToolProducts = useServerFn(listToolProducts);
   const purchaseTool = useServerFn(purchaseToolProduct);
+  const createToolCheckoutFn = useServerFn(createToolCheckout);
+  const confirmToolCardFn = useServerFn(confirmToolCardPurchase);
   const { data: toolData, isLoading: toolsLoading } = useQuery({
     queryKey: ["toolProducts"],
     queryFn: () => fetchToolProducts(),
@@ -71,6 +73,8 @@ function ServicesPage() {
   const [toolCoupon, setToolCoupon] = useState("");
   const [toolCouponApplied, setToolCouponApplied] = useState<{ code: string; percent?: number; fixedLocal?: number } | null>(null);
   const [toolCouponError, setToolCouponError] = useState<string | null>(null);
+  const [toolCardSecret, setToolCardSecret] = useState<string | null>(null);
+  const [toolCardLoading, setToolCardLoading] = useState(false);
   const [codesResult, setCodesResult] = useState<{ name: string; codes: string[] } | null>(null);
   const [copiedCodes, setCopiedCodes] = useState(false);
 
@@ -88,8 +92,20 @@ function ServicesPage() {
   const openTool = (id: string) => {
     setSelectedToolId(id); setToolQty(1);
     setToolCoupon(""); setToolCouponApplied(null); setToolCouponError(null);
+    setToolCardSecret(null);
   };
-  const closeTool = () => { setSelectedToolId(null); setToolSheetOpen(false); };
+  const closeTool = () => { setSelectedToolId(null); setToolSheetOpen(false); setToolCardSecret(null); };
+
+  const openToolCard = async () => {
+    if (!selectedToolId || !isStripeConfigured()) { toast.error("Card payments not available"); return; }
+    setToolCardLoading(true);
+    try {
+      const res = await createToolCheckoutFn({ data: { productId: selectedToolId, qty: toolQty, coupon: toolCouponApplied?.code, environment: getStripeEnvironment() } });
+      if (!res.clientSecret) throw new Error("Could not create payment session");
+      setToolCardSecret(res.clientSecret);
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed to start card payment"); }
+    finally { setToolCardLoading(false); }
+  };
 
   const toolWalletMut = useMutation({
     mutationFn: async () => {
@@ -944,19 +960,47 @@ function ServicesPage() {
                     {toolCouponError && <p className="mt-1 text-[11px] text-destructive">{toolCouponError}</p>}
                   </div>
 
-                  {/* Pay from wallet */}
-                  <button
-                    disabled={toolWalletMut.isPending}
-                    onClick={() => toolWalletMut.mutate()}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-50"
-                    style={{ background: "var(--gradient-accent)" }}
-                  >
-                    {toolWalletMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
-                    Pay from wallet · {symbol}{toolTotal.toFixed(2)}
-                  </button>
-                  <p className="text-center text-xs text-muted-foreground">
-                    Need to top up? <button type="button" onClick={() => { closeTool(); router.navigate({ to: "/dashboard/wallet" }); }} className="text-primary underline">Go to Wallet</button>
-                  </p>
+                  {/* Card form */}
+                  {toolCardSecret && (
+                    <div className="rounded-xl border border-border bg-muted/20 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Card details</p>
+                      <Elements stripe={getStripe()}>
+                        <ToolCardForm
+                          clientSecret={toolCardSecret}
+                          environment={getStripeEnvironment()}
+                          confirmFn={confirmToolCardFn}
+                          onSuccess={(codes) => { setCodesResult({ name: selectedTool!.name_en, codes }); closeTool(); qc.invalidateQueries({ queryKey: ["profile"] }); }}
+                          onCancel={() => setToolCardSecret(null)}
+                        />
+                      </Elements>
+                    </div>
+                  )}
+
+                  {/* Pay buttons */}
+                  {!toolCardSecret && (
+                    <div className="space-y-2">
+                      <button
+                        disabled={toolWalletMut.isPending}
+                        onClick={() => toolWalletMut.mutate()}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-50"
+                        style={{ background: "var(--gradient-accent)" }}
+                      >
+                        {toolWalletMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+                        Pay from wallet · {symbol}{toolTotal.toFixed(2)}
+                      </button>
+                      <button
+                        disabled={toolCardLoading}
+                        onClick={openToolCard}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-background px-4 py-3 text-sm font-semibold transition hover:bg-accent disabled:opacity-60"
+                      >
+                        {toolCardLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                        Pay with card
+                      </button>
+                      <p className="text-center text-xs text-muted-foreground">
+                        Need to top up? <button type="button" onClick={() => { closeTool(); router.navigate({ to: "/dashboard/wallet" }); }} className="text-primary underline">Go to Wallet</button>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1051,6 +1095,66 @@ function Chip({ icon: Icon, label }: { icon: typeof Zap; label: string }) {
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur">
       <Icon className="h-3.5 w-3.5 text-primary" /> {label}
     </span>
+  );
+}
+
+const CARD_STYLE = {
+  base: { color: "#0f172a", fontFamily: "Arial,sans-serif", fontSize: "14px", "::placeholder": { color: "#94a3b8" } },
+  invalid: { color: "#ef4444" },
+};
+
+function ToolCardForm({ clientSecret, environment, confirmFn, onSuccess, onCancel }: {
+  clientSecret: string;
+  environment: "sandbox" | "live";
+  confirmFn: (args: { data: { paymentIntentId: string; environment: string } }) => Promise<{ ok: boolean; codes: string[] }>;
+  onSuccess: (codes: string[]) => void;
+  onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setLoading(true); setError(null);
+    const cardEl = elements.getElement(CardNumberElement);
+    if (!cardEl) { setLoading(false); return; }
+    const { error: stripeErr, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: { card: cardEl, billing_details: { name: name.trim() || undefined } },
+      return_url: window.location.href,
+    });
+    if (stripeErr) { setError(stripeErr.message ?? "Payment failed"); setLoading(false); return; }
+    if (paymentIntent?.status === "succeeded") {
+      try {
+        const r = await confirmFn({ data: { paymentIntentId: paymentIntent.id, environment } });
+        onSuccess(r.codes ?? []);
+      } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to deliver codes"); setLoading(false); }
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="rounded-xl border border-border bg-background px-4 py-3"><CardNumberElement options={{ style: CARD_STYLE, showIcon: true }} /></div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-border bg-background px-4 py-3"><CardExpiryElement options={{ style: CARD_STYLE }} /></div>
+        <div className="rounded-xl border border-border bg-background px-4 py-3"><CardCvcElement options={{ style: CARD_STYLE }} /></div>
+      </div>
+      <input type="text" placeholder="Name on card" value={name} onChange={(e) => setName(e.target.value)}
+        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 ring-primary/30" />
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <button type="submit" disabled={!stripe || loading}
+        className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow disabled:opacity-60"
+        style={{ background: "var(--gradient-accent)" }}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+        {loading ? "Processing…" : "Pay & Get Codes"}
+      </button>
+      <button type="button" onClick={onCancel} className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-1 transition">
+        ← Back to payment options
+      </button>
+    </form>
   );
 }
 

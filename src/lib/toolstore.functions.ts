@@ -327,3 +327,85 @@ export const listMyToolOrders = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return data ?? [];
   });
+
+// ---------- Create card checkout for tool purchase ----------
+function toMinorUnitTool(amount: number, currency: string): number {
+  const c = currency.toLowerCase();
+  const zero = new Set(["bif","clp","djf","gnf","jpy","kmf","krw","mga","pyg","rwf","ugx","vnd","vuv","xaf","xof","xpf"]);
+  const three = new Set(["bhd","jod","kwd","omr","tnd"]);
+  if (zero.has(c)) return Math.round(amount);
+  if (three.has(c)) return Math.round(amount * 1000);
+  return Math.round(amount * 100);
+}
+
+export const createToolCheckout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { productId: string; qty: number; coupon?: string; environment: string }) =>
+    z.object({ productId: z.string().min(1), qty: z.number().int().positive().max(50), coupon: z.string().optional(), environment: z.enum(["sandbox", "live"]) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const conn = await loadConn();
+    if (!conn) throw new Error("Tool store not connected");
+    const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
+    const products = mapProducts(r.data ?? [], markup);
+    const product = products.find((p) => p.id === data.productId);
+    if (!product) throw new Error("Product not found");
+    if (!product.in_stock) throw new Error("Product is out of stock");
+    const baseTotal = +(Number(product.your_price) * data.qty).toFixed(4);
+    let discountUsd = 0;
+    const couponCode = data.coupon?.toUpperCase();
+    if (couponCode === "WELCOME5") discountUsd = +(baseTotal * 0.05).toFixed(4);
+    else if (couponCode === "GEMIPRO10") {
+      if (data.productId !== "6") throw new Error("Coupon only valid for Gemini Pro 18 Months");
+      const { getUserCurrency } = await import("./geo.functions");
+      let rate = 4.7;
+      try { const ccy = await getUserCurrency(); rate = ccy.rate || 4.7; } catch { /* fallback */ }
+      discountUsd = Math.min(+(10 / rate).toFixed(4), baseTotal * 0.9);
+    } else if (couponCode) throw new Error("Invalid coupon code");
+    const usdTotal = +(baseTotal - discountUsd).toFixed(4);
+    const { getUserCurrency } = await import("./geo.functions");
+    const ccy = await getUserCurrency();
+    const localAmount = +(usdTotal * ccy.rate).toFixed(2);
+    const minor = toMinorUnitTool(localAmount, ccy.currency);
+    if (minor < 50) throw new Error("Amount too small for payment");
+    const { createStripeClient } = await import("@/lib/stripe.server");
+    const stripe = createStripeClient(data.environment as "sandbox" | "live");
+    const pi = await stripe.paymentIntents.create({
+      amount: minor, currency: ccy.currency.toLowerCase(), payment_method_types: ["card"],
+      description: `Social Padu — ${product.name_en}`,
+      metadata: { userId: context.userId, kind: "tool_purchase", productId: data.productId, qty: String(data.qty), coupon: data.coupon ?? "", usdAmount: usdTotal.toFixed(4) },
+    });
+    return { clientSecret: pi.client_secret ?? "" };
+  });
+
+export const confirmToolCardPurchase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { paymentIntentId: string; environment: string }) =>
+    z.object({ paymentIntentId: z.string().min(1), environment: z.enum(["sandbox", "live"]) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { createStripeClient } = await import("@/lib/stripe.server");
+    const stripe = createStripeClient(data.environment as "sandbox" | "live");
+    const pi = await stripe.paymentIntents.retrieve(data.paymentIntentId);
+    if (pi.metadata?.userId !== context.userId) throw new Error("Not authorized");
+    if (pi.status !== "succeeded") throw new Error("Payment not completed");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existingTx } = await supabaseAdmin.from("transactions").select("id").like("description", `stripe:${pi.id}%`).limit(1).maybeSingle();
+    if (existingTx) return { ok: true, codes: [] as string[], alreadyDone: true };
+    const productId = pi.metadata?.productId ?? "";
+    const qty = Number(pi.metadata?.qty ?? 1);
+    const usdAmount = Number(pi.metadata?.usdAmount ?? 0);
+    const conn = await loadConn();
+    if (!conn) throw new Error("Tool store not connected");
+    const [r, markupPct] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
+    const products = mapProducts(r.data ?? [], markupPct);
+    const product = products.find((p) => p.id === productId);
+    if (!product) throw new Error("Product not found");
+    const externalOrderId = `sp-card-${context.userId.slice(0, 8)}-${Date.now()}`;
+    const resp = await callStore<GgsomaOrderResp>(conn, "/orders", { method: "POST", body: JSON.stringify({ productSlug: product.slug, quantity: qty, externalOrderId }) });
+    if (!resp.ok) throw new Error("Failed to process order");
+    const codes = extractDeliverables(resp);
+    await supabaseAdmin.from("transactions").insert({ user_id: context.userId, amount: -usdAmount, type: "tool_purchase", description: `stripe:${pi.id} ${product.name_en} × ${qty}` });
+    await supabaseAdmin.from("tool_orders").insert({ user_id: context.userId, product_id: productId, product_name: product.name_en, qty, unit_price: product.your_price, total_price: usdAmount, codes, status: "completed" });
+    return { ok: true, codes };
+  });
