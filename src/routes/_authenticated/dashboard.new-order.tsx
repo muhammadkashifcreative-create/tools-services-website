@@ -802,27 +802,37 @@ function ServicesPage() {
                         style={{ backgroundImage: "radial-gradient(400px circle at var(--mx,50%) var(--my,0%), oklch(0.72 0.20 50/0.10), transparent 45%)" }}
                       >
                         <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg,${ps.from},${ps.to})` }} aria-hidden />
-                        <div className="relative flex flex-col flex-1 p-4">
-                          <div className="flex items-start gap-2">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-soft" style={{ background: `linear-gradient(135deg,${ps.from},${ps.to})` }}>
+                        <div className="relative flex flex-col flex-1 p-3">
+                          {/* Icon + name */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg" style={{ background: `linear-gradient(135deg,${ps.from},${ps.to})` }}>
                               {p.emoji ?? <Package className="h-4 w-4 text-white" />}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap gap-1">
-                                <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: `linear-gradient(135deg,${ps.from},${ps.to})` }}>Tool</span>
-                                <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${outOfStock ? "bg-destructive/15 text-destructive" : "border border-emerald-500/30 bg-emerald-500/10 text-emerald-600"}`}>
-                                  {outOfStock ? "Out of stock" : p.stock > 0 ? `${p.stock} left` : "In stock"}
-                                </span>
-                              </div>
-                              <h3 className="mt-1.5 text-xs font-semibold leading-snug line-clamp-2">{p.name_en}</h3>
+                              <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${outOfStock ? "bg-destructive/15 text-destructive" : "border border-emerald-500/30 bg-emerald-500/10 text-emerald-600"}`}>
+                                {outOfStock ? "Out of stock" : p.stock > 0 ? `${p.stock} left` : "In stock"}
+                              </span>
                             </div>
                           </div>
+                          <h3 className="text-xs font-semibold leading-snug line-clamp-3 flex-1">{p.name_en}</h3>
 
-                          <div className="mt-3 flex items-end justify-between border-t border-border/60 pt-3">
-                            <div>
-                              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Price</p>
-                              <p className="text-base font-bold tabular-nums text-gradient">{symbol}{priceLocal.toFixed(2)}</p>
-                            </div>
+                          {/* Details row */}
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {p.delivery_type && (
+                              <span className="text-[9px] text-muted-foreground bg-muted/60 rounded px-1 py-0.5">
+                                {{ LINK: "🔗 Link", COUPON: "🎫 Code", READY_ACCOUNT: "👤 Account" }[p.delivery_type]}
+                              </span>
+                            )}
+                            {p.duration_days && (
+                              <span className="text-[9px] text-muted-foreground bg-muted/60 rounded px-1 py-0.5">⏱ {p.duration_days}d</span>
+                            )}
+                            {p.provider_name && (
+                              <span className="text-[9px] text-muted-foreground bg-muted/60 rounded px-1 py-0.5">{p.provider_name}</span>
+                            )}
+                          </div>
+
+                          <div className="mt-2 pt-2 border-t border-border/60">
+                            <p className="text-sm font-bold tabular-nums text-gradient">{symbol}{priceLocal.toFixed(2)}</p>
                           </div>
                           <button
                             disabled={outOfStock}
@@ -876,16 +886,27 @@ function ServicesPage() {
           {toolSheetOpen && (
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setToolSheetOpen(false)} />
-              <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-card border-t border-border overflow-y-auto max-h-[90dvh]">
+              <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-card border-t border-border overflow-y-auto overflow-x-hidden max-h-[90dvh] w-full">
                 <div className="flex justify-center pt-3 pb-1"><div className="h-1 w-10 rounded-full bg-border" /></div>
-                <div className="flex items-center justify-between px-5 pb-3">
-                  <div className="flex items-center gap-3 min-w-0">
+                {/* Sheet header */}
+                <div className="flex items-center justify-between px-4 pb-3 gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl" style={{ background: `linear-gradient(135deg,${toolPaletteFor(selectedTool.id).from},${toolPaletteFor(selectedTool.id).to})` }}>
                       {selectedTool.emoji ?? <Package className="h-4 w-4 text-white" />}
                     </div>
-                    <p className="text-sm font-bold truncate">{selectedTool.name_en}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold leading-snug line-clamp-2">{selectedTool.name_en}</p>
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {selectedTool.delivery_type && <span className="text-[9px] text-muted-foreground bg-muted/60 rounded px-1 py-0.5">{{ LINK: "🔗 Instant link", COUPON: "🎫 Code", READY_ACCOUNT: "👤 Ready account" }[selectedTool.delivery_type]}</span>}
+                        {selectedTool.duration_days && <span className="text-[9px] text-muted-foreground bg-muted/60 rounded px-1 py-0.5">⏱ {selectedTool.duration_days} days</span>}
+                        {selectedTool.provider_name && <span className="text-[9px] text-muted-foreground bg-muted/60 rounded px-1 py-0.5">{selectedTool.provider_name}</span>}
+                        <span className={`text-[9px] font-bold rounded px-1 py-0.5 ${selectedTool.stock > 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"}`}>
+                          {selectedTool.stock > 0 ? `${selectedTool.stock} in stock` : "Out of stock"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <button onClick={() => setToolSheetOpen(false)} className="shrink-0 rounded-full p-1.5 hover:bg-accent ml-2"><X className="h-4 w-4" /></button>
+                  <button onClick={() => setToolSheetOpen(false)} className="shrink-0 rounded-full p-1.5 hover:bg-accent"><X className="h-4 w-4" /></button>
                 </div>
 
                 <div className="px-5 pb-8 space-y-4">

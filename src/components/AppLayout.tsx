@@ -52,7 +52,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       .find((n) => location.pathname.startsWith(n.to))?.label ?? "Dashboard";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/60 bg-sidebar lg:flex lg:flex-col">
         <div className="flex h-16 items-center border-b border-border/60 px-4">
           <BrandMark size={200} />
