@@ -64,6 +64,7 @@ function ServicesPage() {
     queryFn: () => fetchToolProducts(),
     enabled: mode === "tools",
   });
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [toolQtyMap, setToolQtyMap] = useState<Record<string, number>>({});
   const [codesResult, setCodesResult] = useState<{ name: string; codes: string[] } | null>(null);
   const [copiedCodes, setCopiedCodes] = useState(false);
@@ -293,7 +294,7 @@ function ServicesPage() {
         </div>
 
         {/* How it works strip */}
-        <div className="mt-6 grid gap-3 rounded-2xl border border-border/60 bg-card p-3 shadow-soft sm:grid-cols-2 sm:gap-2 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-border/60 bg-card p-3 shadow-soft lg:grid-cols-4">
           {[
             { n: 1, t: "Choose a service",   d: "Filter by platform & type",      icon: MousePointerClick },
             { n: 2, t: "Paste your link",    d: "Profile, post, video or page",   icon: Link2 },
@@ -331,7 +332,8 @@ function ServicesPage() {
             </p>
           </div>
         ) : (
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {/* Mobile: add bottom padding so sticky bar doesn't cover content */}
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] pb-24 lg:pb-0">
             <div>
               {/* Platform pill bar */}
               <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
@@ -492,7 +494,8 @@ function ServicesPage() {
               </div>
             </div>
 
-            <aside className="h-fit rounded-2xl border border-border/60 p-5 shadow-elegant sm:p-6 lg:sticky lg:top-20" style={{ background: "var(--gradient-card)" }}>
+            {/* Desktop order summary sidebar */}
+            <aside className="hidden lg:block h-fit rounded-2xl border border-border/60 p-5 shadow-elegant sm:p-6 lg:sticky lg:top-20" style={{ background: "var(--gradient-card)" }}>
               <h3 className="text-lg font-bold">Order summary</h3>
               {!selected ? (
                 <div className="mt-6 rounded-xl border border-dashed border-border/60 p-6 text-center">
@@ -614,6 +617,122 @@ function ServicesPage() {
           </div>
         )}
         </div>
+        )}
+
+        {/* ── Mobile sticky order bar (shown when service selected, hidden on lg) ── */}
+        {mode === "smm" && selected && (
+          <>
+            {/* Sticky bar */}
+            <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden border-t border-border/60 bg-card/95 backdrop-blur-xl px-4 py-3 shadow-elegant">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground">Selected service</p>
+                  <p className="text-sm font-semibold truncate">{selected.name}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-lg font-bold tabular-nums text-gradient">{fmt(finalCharge, 2)}</p>
+                  <p className="text-[10px] text-muted-foreground">{code}</p>
+                </div>
+                <button
+                  onClick={() => setMobileSheetOpen(true)}
+                  className="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-glow"
+                  style={{ background: "var(--gradient-accent)" }}
+                >
+                  Order →
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile bottom sheet */}
+            {mobileSheetOpen && (
+              <div className="fixed inset-0 z-50 lg:hidden">
+                {/* Backdrop */}
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileSheetOpen(false)} />
+                {/* Sheet */}
+                <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-card border-t border-border overflow-y-auto max-h-[90dvh]">
+                  {/* Handle */}
+                  <div className="flex justify-center pt-3 pb-1">
+                    <div className="h-1 w-10 rounded-full bg-border" />
+                  </div>
+                  <div className="flex items-center justify-between px-5 pb-3">
+                    <h3 className="font-bold text-lg">Order summary</h3>
+                    <button onClick={() => setMobileSheetOpen(false)} className="rounded-full p-1.5 hover:bg-accent">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="px-5 pb-8">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        mut.mutate({ serviceId: selected.id, link, quantity: qty, coupon: couponApplied?.code });
+                        setMobileSheetOpen(false);
+                      }}
+                      className="space-y-4"
+                    >
+                      <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                        <p className="text-xs text-muted-foreground">Service</p>
+                        <p className="text-sm font-semibold mt-0.5">{selected.name}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Your link</label>
+                        <input required type="url" placeholder="https://..." value={link}
+                          onChange={(e) => setLink(e.target.value)}
+                          className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 ring-primary/30 text-foreground placeholder:text-muted-foreground" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Quantity ({selected.min_quantity.toLocaleString()}–{selected.max_quantity.toLocaleString()})
+                        </label>
+                        <input required type="number" min={selected.min_quantity} max={selected.max_quantity} value={qty}
+                          onChange={(e) => setQty(Number(e.target.value))}
+                          className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 ring-primary/30 text-foreground" />
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                        <div className="flex justify-between text-sm"><span className="text-muted-foreground">Rate</span><span>{fmt(Number(selected.rate))} / 1k</span></div>
+                        <div className="flex justify-between text-sm mt-2"><span className="text-muted-foreground">Subtotal</span><span>{fmt(charge, 2)}</span></div>
+                        {couponApplied && (
+                          <div className="flex justify-between text-sm mt-1 text-emerald-600">
+                            <span>Coupon ({couponApplied.percent}% off)</span><span>−{fmt(discount, 2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between mt-2 pt-2 border-t border-border/60">
+                          <span className="font-semibold">Total</span>
+                          <span className="text-xl font-bold text-gradient tabular-nums">{fmt(finalCharge, 2)}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Coupon code</label>
+                        {couponApplied ? (
+                          <div className="mt-1.5 flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
+                            <span className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-emerald-500" /><span className="font-mono font-bold">{couponApplied.code}</span></span>
+                            <button type="button" onClick={removeCoupon} className="text-xs text-muted-foreground">Remove</button>
+                          </div>
+                        ) : (
+                          <div className="mt-1.5 flex gap-2">
+                            <input type="text" placeholder="WELCOME5" value={coupon}
+                              onChange={(e) => { setCoupon(e.target.value); setCouponError(null); }}
+                              className="flex-1 rounded-xl border border-border bg-background px-3 py-2.5 text-sm uppercase outline-none text-foreground" />
+                            <button type="button" onClick={applyCoupon}
+                              className="rounded-xl border border-border/60 bg-card px-3 py-2 text-xs font-semibold hover:bg-accent">Apply</button>
+                          </div>
+                        )}
+                        {couponError && <p className="mt-1 text-[11px] text-destructive">{couponError}</p>}
+                      </div>
+                      <button type="submit" disabled={mut.isPending}
+                        className="flex w-full items-center justify-center rounded-xl px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-glow"
+                        style={{ background: "var(--gradient-accent)" }}>
+                        {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Wallet className="mr-2 h-4 w-4" /> Pay from wallet</>}
+                      </button>
+                      <button type="button" onClick={() => { setMobileSheetOpen(false); openCardCheckout(); }}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-background px-4 py-3 text-sm font-semibold">
+                        <CreditCard className="h-4 w-4" /> Pay with card
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
       </div>
