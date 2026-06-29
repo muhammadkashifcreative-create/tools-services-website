@@ -258,31 +258,3 @@ export async function sendPasswordResetEmail(to: string, name: string, resetUrl:
   });
 }
 
-export async function sendOrderConfirmationEmail(to: string, name: string, orderId: string, serviceName: string, quantity: number, charge: number, link: string) {
-  const html = base(`
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="display:inline-block;background:#dbeafe;border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;">🚀</div>
-    </div>
-    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;text-align:center;">Order Placed!</h1>
-    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;text-align:center;">Hi ${name || "there"}, your order is being processed and will start shortly.</p>
-    ${divider()}
-    <table width="100%" cellpadding="0" cellspacing="0">
-      ${row("Order ID", `#${orderId.slice(0, 8).toUpperCase()}`)}
-      ${row("Service", serviceName)}
-      ${row("Quantity", quantity.toLocaleString())}
-      ${row("Charged", `$${charge.toFixed(2)} USD`)}
-      ${row("Link", `<span style="word-break:break-all;font-size:11px;">${link}</span>`)}
-      ${row("Status", `<span style="color:#2563eb;font-weight:700;">Processing</span>`)}
-    </table>
-    ${divider()}
-    <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Orders typically start within 60 seconds and complete within 72 hours.</p>
-    <div style="text-align:center;">${btn("Track Order →", "https://www.socialpadu.my/dashboard/orders")}</div>
-  `, `Your order for ${serviceName} is processing`);
-
-  await getTransporter().sendMail({
-    from: `"Social Padu" <${process.env.GMAIL_USER}>`,
-    to,
-    subject: `🚀 Order placed — ${serviceName}`,
-    html,
-  });
-}
