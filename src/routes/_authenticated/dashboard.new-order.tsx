@@ -75,11 +75,6 @@ function ServicesPage() {
   const [copiedCodes, setCopiedCodes] = useState(false);
 
   const selectedTool = selectedToolId ? (toolData?.products ?? []).find((p) => p.id === selectedToolId) ?? null : null;
-  const toolPriceLocal = selectedTool ? +(Number(selectedTool.your_price) * fx).toFixed(2) : 0;
-  const toolDiscount = toolCouponApplied
-    ? toolCouponApplied.fixedLocal ?? +(toolPriceLocal * toolQty * ((toolCouponApplied.percent ?? 0) / 100)).toFixed(2)
-    : 0;
-  const toolTotal = Math.max(0, +(toolPriceLocal * toolQty - toolDiscount).toFixed(2));
 
   const applyToolCoupon = () => {
     const c = toolCoupon.trim().toUpperCase();
@@ -119,6 +114,13 @@ function ServicesPage() {
   const code = ccy?.currency ?? "USD";
   const fx = ccy?.rate ?? 1;
   const fmt = (usd: number, dp = 3) => `${symbol}${(usd * fx).toFixed(dp)}`;
+
+  // Tool computed values — MUST be after fx is defined
+  const toolPriceLocal = selectedTool ? +(Number(selectedTool.your_price) * fx).toFixed(2) : 0;
+  const toolDiscount = toolCouponApplied
+    ? toolCouponApplied.fixedLocal ?? +(toolPriceLocal * toolQty * ((toolCouponApplied.percent ?? 0) / 100)).toFixed(2)
+    : 0;
+  const toolTotal = Math.max(0, +(toolPriceLocal * toolQty - toolDiscount).toFixed(2));
   const [platform, setPlatform] = useState<string>("All");
   const [category, setCategory] = useState<string>("All");
   const [sort, setSort] = useState<"name" | "price-asc" | "price-desc">("name");
