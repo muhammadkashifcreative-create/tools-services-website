@@ -19,7 +19,7 @@ async function sendEmail(to: string, subject: string, html: string, from = FROM)
   return res.json();
 }
 
-// ─── Master layout ─────────────────────────────────────────────────────────────
+// ─── Master layout — matches auth page theme ──────────────────────────────────
 
 function layout(preheader: string, accentLabel: string, body: string) {
   return `<!DOCTYPE html>
@@ -30,56 +30,56 @@ function layout(preheader: string, accentLabel: string, body: string) {
   <meta name="color-scheme" content="light"/>
   <title>Social Padu</title>
 </head>
-<body style="margin:0;padding:0;background:#f0f2f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-<!-- preheader -->
-<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f0f2f5;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#fff8f3;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
 
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f2f5;">
-<tr><td align="center" style="padding:40px 16px 56px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
+<!-- Warm peach background matching auth page -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+  style="background:linear-gradient(160deg,#fff3e8 0%,#fff8f3 40%,#fef9f5 70%,#fff3e8 100%);">
+<tr><td align="center" style="padding:44px 16px 60px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
 
-  <!-- ── Logo bar ── -->
-  <tr><td align="center" style="padding-bottom:24px;">
+  <!-- Logo -->
+  <tr><td align="center" style="padding-bottom:28px;">
     <a href="${BASE_URL}" style="text-decoration:none;">
-      <img src="${LOGO_URL}" alt="Social Padu" width="160" height="auto" style="display:block;border:0;max-width:160px;" />
+      <img src="${LOGO_URL}" alt="Social Padu" width="150" height="auto" style="display:block;border:0;max-width:150px;"/>
     </a>
   </td></tr>
 
-  <!-- ── Card ── -->
-  <tr><td style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,0.08);">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <!-- Card glow ring (fake with a coloured table behind the card) -->
+  <tr><td style="background:linear-gradient(135deg,#e07b2e,#c8621f);border-radius:24px;padding:2px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="background:#ffffff;border-radius:22px;overflow:hidden;">
 
-      <!-- Orange top stripe -->
-      <tr><td style="height:4px;background:linear-gradient(90deg,#e07b2e,#f59e0b);border-radius:20px 20px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>
+      <!-- Orange stripe top -->
+      <tr><td style="height:3px;background:linear-gradient(90deg,#e07b2e,#f59e0b,#e07b2e);font-size:0;line-height:0;">&nbsp;</td></tr>
 
-      <!-- Dark header band -->
-      <tr><td style="background:#0f172a;padding:28px 44px 24px;">
+      <!-- Dark header matching auth page card top -->
+      <tr><td style="background:#1a1a2e;padding:22px 40px 18px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
-            <td>
-              <img src="${FAVICON_URL}" alt="" width="20" height="20" style="display:inline-block;vertical-align:middle;border-radius:4px;border:0;margin-right:8px;"/>
-              <span style="color:#94a3b8;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;vertical-align:middle;">${accentLabel}</span>
+            <td style="vertical-align:middle;">
+              <img src="${FAVICON_URL}" alt="" width="18" height="18" style="display:inline-block;vertical-align:middle;border-radius:4px;border:0;margin-right:8px;"/>
+              <span style="color:#e07b2e;font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;vertical-align:middle;">${accentLabel}</span>
+            </td>
+            <td style="text-align:right;vertical-align:middle;">
+              <span style="color:#334155;font-size:11px;">socialpadu.my</span>
             </td>
           </tr>
         </table>
       </td></tr>
 
       <!-- Body -->
-      <tr><td style="padding:40px 44px 36px;">${body}</td></tr>
-
-      <!-- Divider -->
-      <tr><td style="padding:0 44px;"><div style="height:1px;background:#f1f5f9;font-size:0;line-height:0;">&nbsp;</div></td></tr>
+      <tr><td style="padding:40px 40px 32px;background:#ffffff;">${body}</td></tr>
 
       <!-- Footer -->
-      <tr><td style="padding:24px 44px 28px;text-align:center;">
-        <p style="margin:0 0 6px;font-size:12px;color:#94a3b8;line-height:1.6;">
+      <tr><td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:20px 40px;text-align:center;border-radius:0 0 22px 22px;">
+        <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">
           &copy; ${new Date().getFullYear()} Social Padu &middot;
           <a href="${BASE_URL}" style="color:#e07b2e;text-decoration:none;font-weight:600;">socialpadu.my</a>
+          &middot; <a href="${BASE_URL}/privacy" style="color:#94a3b8;text-decoration:none;">Privacy</a>
         </p>
-        <p style="margin:0;font-size:11px;color:#cbd5e1;">
-          You're receiving this because you have a Social Padu account. &middot;
-          <a href="${BASE_URL}/privacy" style="color:#94a3b8;text-decoration:none;">Privacy Policy</a>
-        </p>
+        <p style="margin:0;font-size:11px;color:#cbd5e1;">You received this because you have a Social Padu account.</p>
       </td></tr>
 
     </table>
@@ -96,7 +96,7 @@ function layout(preheader: string, accentLabel: string, body: string) {
 
 function heroIcon(emoji: string, bg: string) {
   return `<div style="text-align:center;margin-bottom:28px;">
-    <div style="display:inline-block;width:72px;height:72px;border-radius:50%;background:${bg};line-height:72px;font-size:32px;text-align:center;">${emoji}</div>
+    <div style="display:inline-block;width:76px;height:76px;border-radius:50%;background:${bg};line-height:76px;font-size:34px;text-align:center;box-shadow:0 4px 20px rgba(224,123,46,0.15);">${emoji}</div>
   </div>`;
 }
 
@@ -111,7 +111,7 @@ function subtitle(text: string) {
 function cta(label: string, url: string) {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 4px;">
     <tr><td align="center">
-      <a href="${url}" style="display:inline-block;background:linear-gradient(135deg,#e07b2e 0%,#c8621f 100%);color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;letter-spacing:0.02em;padding:16px 40px;border-radius:50px;box-shadow:0 4px 16px rgba(224,123,46,0.4);">${label}</a>
+      <a href="${url}" style="display:inline-block;background:linear-gradient(135deg,#e07b2e 0%,#c8621f 100%);color:#ffffff;text-decoration:none;font-size:15px;font-weight:800;letter-spacing:0.02em;padding:17px 44px;border-radius:50px;box-shadow:0 6px 24px rgba(224,123,46,0.45);">${label}</a>
     </td></tr>
   </table>`;
 }
