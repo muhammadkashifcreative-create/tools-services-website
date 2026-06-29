@@ -245,8 +245,6 @@ function AuthPage() {
               </button>
             </form>
 
-            )}
-
             <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground">
               By continuing, you agree to our{" "}
               <Link to="/terms" className="underline underline-offset-2 hover:text-foreground">Terms</Link>
