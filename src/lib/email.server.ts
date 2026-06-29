@@ -24,54 +24,68 @@ function layout(preheader: string, headerTag: string, body: string) {
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Social Padu</title>
 </head>
-<body style="margin:0;padding:0;background:#f1f3f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f1f3f5;">${preheader}</div>
+<body style="margin:0;padding:0;background:#f1f3f5;font-family:Arial,Helvetica,sans-serif;">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f1f3f5;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
 
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f1f3f5;min-height:100vh;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f3f5;">
 <tr><td align="center" style="padding:32px 16px 48px;">
+<table width="580" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;width:100%;">
 
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:580px;">
+  <!-- Logo bar -->
+  <tr><td align="center" style="padding-bottom:20px;">
+    <table cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="background:#e07b2e;border-radius:8px;width:30px;height:30px;text-align:center;vertical-align:middle;">
+          <span style="color:#ffffff;font-size:13px;font-weight:900;display:block;line-height:30px;">SP</span>
+        </td>
+        <td style="padding-left:8px;vertical-align:middle;">
+          <span style="color:#111827;font-size:16px;font-weight:700;">Social </span><span style="color:#e07b2e;font-size:16px;font-weight:700;">Padu</span>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
 
-    <!-- Logo bar -->
-    <tr><td style="padding-bottom:24px;text-align:center;">
-      <table cellpadding="0" cellspacing="0" role="presentation" style="display:inline-table;">
-        <tr>
-          <td style="background:#e07b2e;border-radius:10px;width:32px;height:32px;text-align:center;vertical-align:middle;">
-            <span style="color:#fff;font-size:14px;font-weight:900;line-height:32px;display:block;">SP</span>
-          </td>
-          <td style="padding-left:10px;vertical-align:middle;">
-            <span style="color:#111827;font-size:17px;font-weight:700;letter-spacing:-0.3px;">Social <span style="color:#e07b2e;">Padu</span></span>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
+  <!-- Card wrapper -->
+  <tr><td style="background:#ffffff;border-radius:16px;overflow:hidden;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
 
-    <!-- Card -->
-    <tr><td style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-
-      <!-- Header stripe -->
-      <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:40px 48px 36px;position:relative;overflow:hidden;">
-        <!-- Decorative circles -->
-        <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:rgba(224,123,46,0.15);"></div>
-        <div style="position:absolute;bottom:-60px;left:-20px;width:160px;height:160px;border-radius:50%;background:rgba(224,123,46,0.08);"></div>
-        <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#e07b2e;">${headerTag}</p>
+      <!-- Dark header -->
+      <tr><td style="background:#0f172a;padding:32px 40px 24px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td>
+              <span style="display:inline-block;background:#e07b2e;border-radius:4px;padding:4px 12px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#ffffff;">${headerTag}</span>
+            </td>
+          </tr>
+          <tr><td style="height:8px;"></td></tr>
+          <tr>
+            <td>
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-top:2px solid #e07b2e;width:40px;"></td>
+                  <td style="border-top:1px solid rgba(255,255,255,0.1);width:200px;padding-left:8px;"></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </td></tr>
 
       <!-- Body -->
-      <tr><td style="padding:40px 48px;">${body}</td></tr>
+      <tr><td style="padding:36px 40px;">${body}</td></tr>
 
       <!-- Footer -->
-      <tr><td style="background:#f8f9fb;border-top:1px solid #f0f0f0;padding:24px 48px;text-align:center;">
-        <p style="margin:0 0 6px;font-size:12px;color:#9ca3af;">
-          © ${new Date().getFullYear()} Social Padu · <a href="${BASE_URL}" style="color:#e07b2e;text-decoration:none;">socialpadu.my</a>
+      <tr><td style="background:#f8f9fb;border-top:1px solid #f0f0f0;padding:20px 40px;text-align:center;">
+        <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">
+          &copy; ${new Date().getFullYear()} Social Padu &middot; <a href="${BASE_URL}" style="color:#e07b2e;text-decoration:none;">socialpadu.my</a>
         </p>
         <p style="margin:0;font-size:11px;color:#d1d5db;">You received this because you have a Social Padu account.</p>
       </td></tr>
 
-    </td></tr>
+    </table>
+  </td></tr>
 
-  </table>
-
+</table>
 </td></tr>
 </table>
 </body>
