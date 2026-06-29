@@ -31,6 +31,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
     return {
       ...(profile ?? { id: context.userId, username: null, full_name: null, balance: 0 }),
       isAdmin: isAdminByEmail || isAdminByRole,
+      email: (context as { email?: string }).email ?? null,
     };
   });
 

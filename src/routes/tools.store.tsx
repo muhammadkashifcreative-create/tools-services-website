@@ -38,7 +38,10 @@ function ToolsStorePublicPage() {
   const fetchCurrency = useServerFn(getUserCurrency);
 
   const [authed, setAuthed] = useState<boolean | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("product");
+  });
   useEffect(() => {
     // Use the session cookie check via /api/auth/me instead of Supabase client
     // (Supabase client may not be configured client-side without VITE_ env vars)

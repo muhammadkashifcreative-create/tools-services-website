@@ -453,6 +453,17 @@ function ServicesPage() {
                           >
                             {isSelected ? "✓ Selected" : "Order →"}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = `${window.location.origin}/services?service=${s.id}`;
+                              navigator.clipboard?.writeText(url);
+                              toast.success("Link copied!");
+                            }}
+                            className="mt-1.5 w-full flex items-center justify-center gap-1 rounded-lg py-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/60 transition"
+                          >
+                            <Copy className="h-2.5 w-2.5" /> Copy link
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -800,6 +811,17 @@ function ServicesPage() {
                           >
                             {toolMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
                             {outOfStock ? "Out of stock" : `Buy · ${symbol}${totalLocal.toFixed(2)}`}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = `${window.location.origin}/tools/store?product=${p.id}`;
+                              navigator.clipboard?.writeText(url);
+                              toast.success("Link copied!");
+                            }}
+                            className="mt-1.5 w-full flex items-center justify-center gap-1 rounded-lg py-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/60 transition"
+                          >
+                            <Copy className="h-2.5 w-2.5" /> Copy link
                           </button>
                         </div>
                       </div>

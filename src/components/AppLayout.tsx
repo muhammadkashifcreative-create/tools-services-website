@@ -199,7 +199,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold truncate">{profile?.full_name || profile?.username || "Member"}</p>
-                        <p className="text-xs text-muted-foreground truncate">{fmtBal(Number(profile?.balance ?? 0))}</p>
+                        {profile?.email && <p className="text-xs text-muted-foreground truncate">{profile.email}</p>}
+                        <p className="text-xs text-primary font-semibold tabular-nums">{fmtBal(Number(profile?.balance ?? 0))}</p>
                       </div>
                     </div>
                     {/* Links */}
