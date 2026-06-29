@@ -23,18 +23,26 @@ import { Route as ToolsIndexRouteImport } from './routes/tools.index'
 import { Route as ToolsStoreRouteImport } from './routes/tools.store'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
-import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
-import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
-import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
-import { Route as AuthenticatedNewOrderRouteImport } from './routes/_authenticated/new-order'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as ApiAuthVerifyEmailRouteImport } from './routes/api/auth/verify-email'
+import { Route as ApiAuthResetPasswordRouteImport } from './routes/api/auth/reset-password'
+import { Route as ApiAuthRegisterRouteImport } from './routes/api/auth/register'
 import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
+import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api/auth/google'
-import { Route as AuthenticatedSupportCaseIdRouteImport } from './routes/_authenticated/support.$caseId'
+import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api/auth/forgot-password'
+import { Route as AuthenticatedDashboardWalletRouteImport } from './routes/_authenticated/dashboard.wallet'
+import { Route as AuthenticatedDashboardSupportRouteImport } from './routes/_authenticated/dashboard.support'
+import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
+import { Route as AuthenticatedDashboardNewOrderRouteImport } from './routes/_authenticated/dashboard.new-order'
+import { Route as AuthenticatedAdminCasesRouteImport } from './routes/_authenticated/admin.cases'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
+import { Route as AuthenticatedDashboardSupportCaseIdRouteImport } from './routes/_authenticated/dashboard.support.$caseId'
 
 const ToolsRoute = ToolsRouteImport.update({
   id: '/tools',
@@ -105,26 +113,6 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => BlogRoute,
 } as any)
-const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
-  id: '/wallet',
-  path: '/wallet',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSupportRoute = AuthenticatedSupportRouteImport.update({
-  id: '/support',
-  path: '/support',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedNewOrderRoute = AuthenticatedNewOrderRouteImport.update({
-  id: '/new-order',
-  path: '/new-order',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -134,6 +122,32 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDashboardIndexRoute =
+  AuthenticatedDashboardIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const ApiAuthVerifyEmailRoute = ApiAuthVerifyEmailRouteImport.update({
+  id: '/api/auth/verify-email',
+  path: '/api/auth/verify-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthResetPasswordRoute = ApiAuthResetPasswordRouteImport.update({
+  id: '/api/auth/reset-password',
+  path: '/api/auth/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthRegisterRoute = ApiAuthRegisterRouteImport.update({
+  id: '/api/auth/register',
+  path: '/api/auth/register',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
   id: '/api/auth/me',
@@ -145,17 +159,50 @@ const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
   path: '/api/auth/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
+  id: '/api/auth/login',
+  path: '/api/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
   id: '/api/auth/google',
   path: '/api/auth/google',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedSupportCaseIdRoute =
-  AuthenticatedSupportCaseIdRouteImport.update({
-    id: '/$caseId',
-    path: '/$caseId',
-    getParentRoute: () => AuthenticatedSupportRoute,
+const ApiAuthForgotPasswordRoute = ApiAuthForgotPasswordRouteImport.update({
+  id: '/api/auth/forgot-password',
+  path: '/api/auth/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedDashboardWalletRoute =
+  AuthenticatedDashboardWalletRouteImport.update({
+    id: '/wallet',
+    path: '/wallet',
+    getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const AuthenticatedDashboardSupportRoute =
+  AuthenticatedDashboardSupportRouteImport.update({
+    id: '/support',
+    path: '/support',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardOrdersRoute =
+  AuthenticatedDashboardOrdersRouteImport.update({
+    id: '/orders',
+    path: '/orders',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardNewOrderRoute =
+  AuthenticatedDashboardNewOrderRouteImport.update({
+    id: '/new-order',
+    path: '/new-order',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedAdminCasesRoute = AuthenticatedAdminCasesRouteImport.update({
+  id: '/cases',
+  path: '/cases',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -167,6 +214,12 @@ const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
   path: '/callback',
   getParentRoute: () => ApiAuthGoogleRoute,
 } as any)
+const AuthenticatedDashboardSupportCaseIdRoute =
+  AuthenticatedDashboardSupportCaseIdRouteImport.update({
+    id: '/$caseId',
+    path: '/$caseId',
+    getParentRoute: () => AuthenticatedDashboardSupportRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -178,20 +231,28 @@ export interface FileRoutesByFullPath {
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
-  '/admin': typeof AuthenticatedAdminRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
-  '/new-order': typeof AuthenticatedNewOrderRoute
-  '/orders': typeof AuthenticatedOrdersRoute
-  '/support': typeof AuthenticatedSupportRouteWithChildren
-  '/wallet': typeof AuthenticatedWalletRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/tools/store': typeof ToolsStoreRoute
   '/tools/': typeof ToolsIndexRoute
-  '/support/$caseId': typeof AuthenticatedSupportCaseIdRoute
+  '/admin/cases': typeof AuthenticatedAdminCasesRoute
+  '/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
+  '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
+  '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
+  '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
+  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/register': typeof ApiAuthRegisterRoute
+  '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
+  '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/dashboard/support/$caseId': typeof AuthenticatedDashboardSupportCaseIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
@@ -204,20 +265,26 @@ export interface FileRoutesByTo {
   '/refund': typeof RefundRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
-  '/admin': typeof AuthenticatedAdminRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
-  '/new-order': typeof AuthenticatedNewOrderRoute
-  '/orders': typeof AuthenticatedOrdersRoute
-  '/support': typeof AuthenticatedSupportRouteWithChildren
-  '/wallet': typeof AuthenticatedWalletRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/tools/store': typeof ToolsStoreRoute
   '/tools': typeof ToolsIndexRoute
-  '/support/$caseId': typeof AuthenticatedSupportCaseIdRoute
+  '/admin/cases': typeof AuthenticatedAdminCasesRoute
+  '/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
+  '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
+  '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
+  '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
+  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/register': typeof ApiAuthRegisterRoute
+  '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
+  '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
+  '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/dashboard/support/$caseId': typeof AuthenticatedDashboardSupportCaseIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
@@ -233,20 +300,28 @@ export interface FileRoutesById {
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
-  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/new-order': typeof AuthenticatedNewOrderRoute
-  '/_authenticated/orders': typeof AuthenticatedOrdersRoute
-  '/_authenticated/support': typeof AuthenticatedSupportRouteWithChildren
-  '/_authenticated/wallet': typeof AuthenticatedWalletRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/tools/store': typeof ToolsStoreRoute
   '/tools/': typeof ToolsIndexRoute
-  '/_authenticated/support/$caseId': typeof AuthenticatedSupportCaseIdRoute
+  '/_authenticated/admin/cases': typeof AuthenticatedAdminCasesRoute
+  '/_authenticated/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
+  '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
+  '/_authenticated/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
+  '/_authenticated/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
+  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/register': typeof ApiAuthRegisterRoute
+  '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
+  '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/_authenticated/dashboard/support/$caseId': typeof AuthenticatedDashboardSupportCaseIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
@@ -264,18 +339,26 @@ export interface FileRouteTypes {
     | '/tools'
     | '/admin'
     | '/dashboard'
-    | '/new-order'
-    | '/orders'
-    | '/support'
-    | '/wallet'
     | '/blog/$slug'
     | '/checkout/return'
     | '/tools/store'
     | '/tools/'
-    | '/support/$caseId'
+    | '/admin/cases'
+    | '/dashboard/new-order'
+    | '/dashboard/orders'
+    | '/dashboard/support'
+    | '/dashboard/wallet'
+    | '/api/auth/forgot-password'
     | '/api/auth/google'
+    | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/register'
+    | '/api/auth/reset-password'
+    | '/api/auth/verify-email'
+    | '/admin/'
+    | '/dashboard/'
+    | '/dashboard/support/$caseId'
     | '/api/auth/google/callback'
     | '/api/public/payments/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -288,20 +371,26 @@ export interface FileRouteTypes {
     | '/refund'
     | '/services'
     | '/terms'
-    | '/admin'
-    | '/dashboard'
-    | '/new-order'
-    | '/orders'
-    | '/support'
-    | '/wallet'
     | '/blog/$slug'
     | '/checkout/return'
     | '/tools/store'
     | '/tools'
-    | '/support/$caseId'
+    | '/admin/cases'
+    | '/dashboard/new-order'
+    | '/dashboard/orders'
+    | '/dashboard/support'
+    | '/dashboard/wallet'
+    | '/api/auth/forgot-password'
     | '/api/auth/google'
+    | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/register'
+    | '/api/auth/reset-password'
+    | '/api/auth/verify-email'
+    | '/admin'
+    | '/dashboard'
+    | '/dashboard/support/$caseId'
     | '/api/auth/google/callback'
     | '/api/public/payments/webhook'
   id:
@@ -318,18 +407,26 @@ export interface FileRouteTypes {
     | '/tools'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
-    | '/_authenticated/new-order'
-    | '/_authenticated/orders'
-    | '/_authenticated/support'
-    | '/_authenticated/wallet'
     | '/blog/$slug'
     | '/checkout/return'
     | '/tools/store'
     | '/tools/'
-    | '/_authenticated/support/$caseId'
+    | '/_authenticated/admin/cases'
+    | '/_authenticated/dashboard/new-order'
+    | '/_authenticated/dashboard/orders'
+    | '/_authenticated/dashboard/support'
+    | '/_authenticated/dashboard/wallet'
+    | '/api/auth/forgot-password'
     | '/api/auth/google'
+    | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/register'
+    | '/api/auth/reset-password'
+    | '/api/auth/verify-email'
+    | '/_authenticated/admin/'
+    | '/_authenticated/dashboard/'
+    | '/_authenticated/dashboard/support/$caseId'
     | '/api/auth/google/callback'
     | '/api/public/payments/webhook'
   fileRoutesById: FileRoutesById
@@ -346,9 +443,14 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
   CheckoutReturnRoute: typeof CheckoutReturnRoute
+  ApiAuthForgotPasswordRoute: typeof ApiAuthForgotPasswordRoute
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
+  ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiAuthMeRoute: typeof ApiAuthMeRoute
+  ApiAuthRegisterRoute: typeof ApiAuthRegisterRoute
+  ApiAuthResetPasswordRoute: typeof ApiAuthResetPasswordRoute
+  ApiAuthVerifyEmailRoute: typeof ApiAuthVerifyEmailRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
 }
 
@@ -452,34 +554,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof BlogRoute
     }
-    '/_authenticated/wallet': {
-      id: '/_authenticated/wallet'
-      path: '/wallet'
-      fullPath: '/wallet'
-      preLoaderRoute: typeof AuthenticatedWalletRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/support': {
-      id: '/_authenticated/support'
-      path: '/support'
-      fullPath: '/support'
-      preLoaderRoute: typeof AuthenticatedSupportRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/orders': {
-      id: '/_authenticated/orders'
-      path: '/orders'
-      fullPath: '/orders'
-      preLoaderRoute: typeof AuthenticatedOrdersRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/new-order': {
-      id: '/_authenticated/new-order'
-      path: '/new-order'
-      fullPath: '/new-order'
-      preLoaderRoute: typeof AuthenticatedNewOrderRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -493,6 +567,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard/': {
+      id: '/_authenticated/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/api/auth/verify-email': {
+      id: '/api/auth/verify-email'
+      path: '/api/auth/verify-email'
+      fullPath: '/api/auth/verify-email'
+      preLoaderRoute: typeof ApiAuthVerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/reset-password': {
+      id: '/api/auth/reset-password'
+      path: '/api/auth/reset-password'
+      fullPath: '/api/auth/reset-password'
+      preLoaderRoute: typeof ApiAuthResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/register': {
+      id: '/api/auth/register'
+      path: '/api/auth/register'
+      fullPath: '/api/auth/register'
+      preLoaderRoute: typeof ApiAuthRegisterRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/me': {
       id: '/api/auth/me'
@@ -508,6 +617,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/login': {
+      id: '/api/auth/login'
+      path: '/api/auth/login'
+      fullPath: '/api/auth/login'
+      preLoaderRoute: typeof ApiAuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/google': {
       id: '/api/auth/google'
       path: '/api/auth/google'
@@ -515,12 +631,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthGoogleRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/support/$caseId': {
-      id: '/_authenticated/support/$caseId'
-      path: '/$caseId'
-      fullPath: '/support/$caseId'
-      preLoaderRoute: typeof AuthenticatedSupportCaseIdRouteImport
-      parentRoute: typeof AuthenticatedSupportRoute
+    '/api/auth/forgot-password': {
+      id: '/api/auth/forgot-password'
+      path: '/api/auth/forgot-password'
+      fullPath: '/api/auth/forgot-password'
+      preLoaderRoute: typeof ApiAuthForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/dashboard/wallet': {
+      id: '/_authenticated/dashboard/wallet'
+      path: '/wallet'
+      fullPath: '/dashboard/wallet'
+      preLoaderRoute: typeof AuthenticatedDashboardWalletRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/support': {
+      id: '/_authenticated/dashboard/support'
+      path: '/support'
+      fullPath: '/dashboard/support'
+      preLoaderRoute: typeof AuthenticatedDashboardSupportRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/orders': {
+      id: '/_authenticated/dashboard/orders'
+      path: '/orders'
+      fullPath: '/dashboard/orders'
+      preLoaderRoute: typeof AuthenticatedDashboardOrdersRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/new-order': {
+      id: '/_authenticated/dashboard/new-order'
+      path: '/new-order'
+      fullPath: '/dashboard/new-order'
+      preLoaderRoute: typeof AuthenticatedDashboardNewOrderRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/admin/cases': {
+      id: '/_authenticated/admin/cases'
+      path: '/cases'
+      fullPath: '/admin/cases'
+      preLoaderRoute: typeof AuthenticatedAdminCasesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
     }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
@@ -536,36 +687,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthGoogleCallbackRouteImport
       parentRoute: typeof ApiAuthGoogleRoute
     }
+    '/_authenticated/dashboard/support/$caseId': {
+      id: '/_authenticated/dashboard/support/$caseId'
+      path: '/$caseId'
+      fullPath: '/dashboard/support/$caseId'
+      preLoaderRoute: typeof AuthenticatedDashboardSupportCaseIdRouteImport
+      parentRoute: typeof AuthenticatedDashboardSupportRoute
+    }
   }
 }
 
-interface AuthenticatedSupportRouteChildren {
-  AuthenticatedSupportCaseIdRoute: typeof AuthenticatedSupportCaseIdRoute
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminCasesRoute: typeof AuthenticatedAdminCasesRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
-const AuthenticatedSupportRouteChildren: AuthenticatedSupportRouteChildren = {
-  AuthenticatedSupportCaseIdRoute: AuthenticatedSupportCaseIdRoute,
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminCasesRoute: AuthenticatedAdminCasesRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
-const AuthenticatedSupportRouteWithChildren =
-  AuthenticatedSupportRoute._addFileChildren(AuthenticatedSupportRouteChildren)
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
+interface AuthenticatedDashboardSupportRouteChildren {
+  AuthenticatedDashboardSupportCaseIdRoute: typeof AuthenticatedDashboardSupportCaseIdRoute
+}
+
+const AuthenticatedDashboardSupportRouteChildren: AuthenticatedDashboardSupportRouteChildren =
+  {
+    AuthenticatedDashboardSupportCaseIdRoute:
+      AuthenticatedDashboardSupportCaseIdRoute,
+  }
+
+const AuthenticatedDashboardSupportRouteWithChildren =
+  AuthenticatedDashboardSupportRoute._addFileChildren(
+    AuthenticatedDashboardSupportRouteChildren,
+  )
+
+interface AuthenticatedDashboardRouteChildren {
+  AuthenticatedDashboardNewOrderRoute: typeof AuthenticatedDashboardNewOrderRoute
+  AuthenticatedDashboardOrdersRoute: typeof AuthenticatedDashboardOrdersRoute
+  AuthenticatedDashboardSupportRoute: typeof AuthenticatedDashboardSupportRouteWithChildren
+  AuthenticatedDashboardWalletRoute: typeof AuthenticatedDashboardWalletRoute
+  AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
+}
+
+const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
+  {
+    AuthenticatedDashboardNewOrderRoute: AuthenticatedDashboardNewOrderRoute,
+    AuthenticatedDashboardOrdersRoute: AuthenticatedDashboardOrdersRoute,
+    AuthenticatedDashboardSupportRoute:
+      AuthenticatedDashboardSupportRouteWithChildren,
+    AuthenticatedDashboardWalletRoute: AuthenticatedDashboardWalletRoute,
+    AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
+  }
+
+const AuthenticatedDashboardRouteWithChildren =
+  AuthenticatedDashboardRoute._addFileChildren(
+    AuthenticatedDashboardRouteChildren,
+  )
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedNewOrderRoute: typeof AuthenticatedNewOrderRoute
-  AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
-  AuthenticatedSupportRoute: typeof AuthenticatedSupportRouteWithChildren
-  AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
-  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedNewOrderRoute: AuthenticatedNewOrderRoute,
-  AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
-  AuthenticatedSupportRoute: AuthenticatedSupportRouteWithChildren,
-  AuthenticatedWalletRoute: AuthenticatedWalletRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -617,9 +807,14 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
   CheckoutReturnRoute: CheckoutReturnRoute,
+  ApiAuthForgotPasswordRoute: ApiAuthForgotPasswordRoute,
   ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
+  ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiAuthMeRoute: ApiAuthMeRoute,
+  ApiAuthRegisterRoute: ApiAuthRegisterRoute,
+  ApiAuthResetPasswordRoute: ApiAuthResetPasswordRoute,
+  ApiAuthVerifyEmailRoute: ApiAuthVerifyEmailRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
 }
 export const routeTree = rootRouteImport

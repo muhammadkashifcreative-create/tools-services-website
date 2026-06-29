@@ -12,7 +12,10 @@ export const Route = createFileRoute("/api/auth/forgot-password")({
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
           // Find user — always return success to prevent email enumeration
-          const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const { data: list } = await supabaseAdmin.auth.admin.listUsers({
+            page: 1,
+            perPage: 1000,
+          });
           const user = list?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
 
           if (user) {
@@ -23,16 +26,22 @@ export const Route = createFileRoute("/api/auth/forgot-password")({
             const resetUrl = `${origin}/auth?mode=reset&token=${token}`;
             const name = (user.user_metadata?.name as string | undefined) ?? email.split("@")[0];
 
-            import("@/lib/email.server").then(({ sendPasswordResetEmail }) => {
-              sendPasswordResetEmail(user.email!, name, resetUrl).catch(console.error);
-            });
+            try {
+              const { sendPasswordResetEmail } = await import("@/lib/email.server");
+              await sendPasswordResetEmail(user.email!, name, resetUrl);
+            } catch (sendError) {
+              console.error("password reset email send error", sendError);
+            }
           }
 
           // Always return ok (don't reveal if email exists)
           return Response.json({ ok: true });
         } catch (e) {
           console.error("forgot-password error", e);
-          return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+          return Response.json(
+            { error: "Something went wrong. Please try again." },
+            { status: 500 },
+          );
         }
       },
     },
