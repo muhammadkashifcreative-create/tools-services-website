@@ -99,6 +99,23 @@ export const confirmDeposit = createServerFn({ method: "POST" })
       description: `stripe:${pi.id} — top-up (${pi.metadata?.localAmount ?? ""} ${pi.metadata?.localCurrency ?? ""})`,
     });
 
+    // Send payment confirmation email (non-blocking)
+    const { data: prof } = await supabaseAdmin.from("profiles").select("full_name").eq("id", context.userId).maybeSingle();
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    const toEmail = authUser?.user?.email;
+    if (toEmail) {
+      import("@/lib/email.server").then(({ sendPaymentConfirmationEmail }) => {
+        sendPaymentConfirmationEmail(
+          toEmail,
+          prof?.full_name ?? "",
+          usdAmount,
+          pi.metadata?.localAmount ?? usdAmount.toFixed(2),
+          pi.metadata?.localCurrency ?? "USD",
+          newBal,
+        ).catch(console.error);
+      });
+    }
+
     return { ok: true, newBalance: newBal };
   });
 

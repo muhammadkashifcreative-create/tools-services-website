@@ -70,6 +70,18 @@ export const createCase = createServerFn({ method: "POST" })
       .from("case_messages")
       .insert({ case_id: c.id, user_id: context.userId, is_staff: false, body: data.body });
     if (mErr) throw new Error(mErr.message);
+
+    // Send case opened email (non-blocking)
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: prof } = await supabaseAdmin.from("profiles").select("full_name").eq("id", context.userId).maybeSingle();
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    const toEmail = authUser?.user?.email;
+    if (toEmail) {
+      import("@/lib/email.server").then(({ sendCaseOpenedEmail }) => {
+        sendCaseOpenedEmail(toEmail, prof?.full_name ?? "", c.id, data.subject).catch(console.error);
+      });
+    }
+
     return { id: c.id };
   });
 
@@ -84,6 +96,24 @@ export const addCaseMessage = createServerFn({ method: "POST" })
       .from("case_messages")
       .insert({ case_id: data.caseId, user_id: context.userId, is_staff: admin, body: data.body });
     if (error) throw new Error(error.message);
+
+    // If admin replied, notify the customer
+    if (admin) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: caseRow } = await supabaseAdmin
+        .from("cases").select("user_id, subject").eq("id", data.caseId).maybeSingle();
+      if (caseRow) {
+        const { data: prof } = await supabaseAdmin.from("profiles").select("full_name").eq("id", caseRow.user_id).maybeSingle();
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(caseRow.user_id);
+        const toEmail = authUser?.user?.email;
+        if (toEmail) {
+          import("@/lib/email.server").then(({ sendCaseReplyEmail }) => {
+            sendCaseReplyEmail(toEmail, prof?.full_name ?? "", data.caseId, caseRow.subject, data.body).catch(console.error);
+          });
+        }
+      }
+    }
+
     return { ok: true };
   });
 
