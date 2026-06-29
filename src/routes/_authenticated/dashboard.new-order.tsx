@@ -332,7 +332,6 @@ function ServicesPage() {
             </p>
           </div>
         ) : (
-          {/* Mobile: add bottom padding so sticky bar doesn't cover content */}
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] pb-24 lg:pb-0">
             <div>
               {/* Platform pill bar */}
