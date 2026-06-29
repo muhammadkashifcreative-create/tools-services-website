@@ -71,15 +71,21 @@ export const adminListUsers = createServerFn({ method: "GET" })
     const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const emailMap = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? ""]));
 
-    const { data: orderAgg } = await supabaseAdmin
-      .from("orders")
-      .select("user_id, charge")
-      .in("user_id", ids);
+    const [{ data: orderAgg }, { data: toolAgg }] = await Promise.all([
+      supabaseAdmin.from("orders").select("user_id, charge").in("user_id", ids),
+      supabaseAdmin.from("tool_orders").select("user_id, total_price").in("user_id", ids),
+    ]);
     const agg = new Map<string, { count: number; spent: number }>();
     for (const o of orderAgg ?? []) {
       const cur = agg.get(o.user_id) ?? { count: 0, spent: 0 };
       cur.count += 1;
       cur.spent += Number(o.charge ?? 0);
+      agg.set(o.user_id, cur);
+    }
+    for (const o of toolAgg ?? []) {
+      const cur = agg.get(o.user_id) ?? { count: 0, spent: 0 };
+      cur.count += 1;
+      cur.spent += Number(o.total_price ?? 0);
       agg.set(o.user_id, cur);
     }
     return (profiles ?? []).map((p) => ({
@@ -96,14 +102,49 @@ export const adminUserOrders = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     await assertAdmin(context as never);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await supabaseAdmin
-      .from("orders")
-      .select("id, link, quantity, charge, status, created_at, services(name, platform)")
-      .eq("user_id", data.userId)
-      .order("created_at", { ascending: false })
-      .limit(100);
+    const [{ data: smmRows, error }, { data: toolRows }] = await Promise.all([
+      supabaseAdmin
+        .from("orders")
+        .select("id, link, quantity, charge, status, created_at, services(name, platform)")
+        .eq("user_id", data.userId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabaseAdmin
+        .from("tool_orders")
+        .select("id, product_name, qty, total_price, status, created_at")
+        .eq("user_id", data.userId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
     if (error) throw new Error(error.message);
-    return rows ?? [];
+
+    const smm = (smmRows ?? []).map((o) => ({
+      id: o.id,
+      type: "smm" as const,
+      name: o.services?.name ?? "—",
+      platform: (o.services as { platform?: string } | null)?.platform ?? "",
+      link: o.link,
+      quantity: o.quantity,
+      charge: Number(o.charge),
+      status: o.status,
+      created_at: o.created_at,
+    }));
+
+    const tools = (toolRows ?? []).map((o) => ({
+      id: o.id,
+      type: "tool" as const,
+      name: o.product_name,
+      platform: "Tools Store",
+      link: null as string | null,
+      quantity: o.qty,
+      charge: Number(o.total_price),
+      status: o.status,
+      created_at: o.created_at,
+    }));
+
+    return [...smm, ...tools].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
   });
 
 // Bootstrap: lets the first signed-in user claim admin if no admin exists yet.

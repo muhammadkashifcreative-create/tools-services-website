@@ -501,9 +501,16 @@ function AdminBody() {
                     <tbody className="divide-y">
                       {(userOrders ?? []).map((o) => (
                         <tr key={o.id}>
-                          <td className="px-5 py-3">{o.services?.name ?? "—"}</td>
+                          <td className="px-5 py-3">
+                            <div className="font-medium">{o.name}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${o.type === "tool" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"}`}>
+                                {o.type === "tool" ? "Tool" : o.platform || "SMM"}
+                              </span>
+                            </div>
+                          </td>
                           <td className="px-5 py-3 text-right tabular-nums">{o.quantity.toLocaleString()}</td>
-                          <td className="px-5 py-3 text-right tabular-nums">${Number(o.charge).toFixed(2)}</td>
+                          <td className="px-5 py-3 text-right tabular-nums">${o.charge.toFixed(2)}</td>
                           <td className="px-5 py-3 capitalize">{o.status}</td>
                         </tr>
                       ))}
