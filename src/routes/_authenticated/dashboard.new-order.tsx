@@ -800,9 +800,7 @@ function ServicesPage() {
                 {(toolData!.products as ToolProduct[]).map((p) => {
                   const outOfStock = p.in_stock === false || p.stock === 0;
                   const ps = toolPaletteFor(p.id);
-                  const qty = toolQtyMap[p.id] ?? 1;
                   const priceLocal = +(Number(p.your_price) * fx).toFixed(2);
-                  const totalLocal = +(priceLocal * qty).toFixed(2);
                   return (
                     <TiltCard key={p.id} className="h-full">
                       <div
