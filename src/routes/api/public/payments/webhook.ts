@@ -19,11 +19,11 @@ async function handlePaymentIntent(pi: any) {
     return;
   }
 
-  // Idempotency — skip if already processed
+  // Idempotency — skip if already processed (prefix match to catch all description formats)
   const { data: existing } = await supabaseAdmin
     .from("transactions")
     .select("id")
-    .eq("description", `stripe:${piId}`)
+    .like("description", `stripe:${piId}%`)
     .limit(1)
     .maybeSingle();
   if (existing) return;
@@ -87,7 +87,7 @@ async function handlePaymentIntent(pi: any) {
   await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", userId);
   await supabaseAdmin.from("transactions").insert({
     user_id: userId, amount: usdAmount, type: "deposit",
-    description: `stripe:${piId} — top-up (${meta.localAmount ?? ""} ${meta.localCurrency ?? ""})`,
+    description: `stripe:${piId} Wallet top-up · ${meta.localAmount ?? ""} ${meta.localCurrency ?? "MYR"}`,
   });
 }
 

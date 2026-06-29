@@ -82,11 +82,14 @@ export const confirmDeposit = createServerFn({ method: "POST" })
 
     // Idempotency — skip if already credited (webhook may have fired first)
     const { data: existing } = await supabaseAdmin
-      .from("transactions").select("id").eq("description", `stripe:${pi.id}`).limit(1).maybeSingle();
+      .from("transactions").select("id").like("description", `stripe:${pi.id}%`).limit(1).maybeSingle();
     if (existing) return { ok: true, alreadyCredited: true };
 
     const usdAmount = Number(pi.metadata?.usdAmount ?? 0);
     if (!usdAmount) throw new Error("Missing usdAmount in payment metadata");
+
+    const localAmount = pi.metadata?.localAmount ?? "";
+    const localCurrency = pi.metadata?.localCurrency ?? "MYR";
 
     const { data: profile } = await supabaseAdmin.from("profiles").select("balance").eq("id", context.userId).maybeSingle();
     const newBal = +(Number(profile?.balance ?? 0) + usdAmount).toFixed(4);
@@ -96,7 +99,7 @@ export const confirmDeposit = createServerFn({ method: "POST" })
       user_id: context.userId,
       amount: usdAmount,
       type: "deposit",
-      description: `stripe:${pi.id} — top-up (${pi.metadata?.localAmount ?? ""} ${pi.metadata?.localCurrency ?? ""})`,
+      description: `stripe:${pi.id} Wallet top-up · ${localAmount} ${localCurrency}`,
     });
 
     // Send payment confirmation email (non-blocking)
