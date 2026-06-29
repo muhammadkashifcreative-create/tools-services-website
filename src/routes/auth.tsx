@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Sign in — Social Padu" }] }),
+  head: () => ({ meta: [{ title: "Login — Social Padu" }] }),
   component: AuthPage,
 });
 
@@ -123,7 +123,7 @@ function AuthPage() {
           If an account exists for <strong>{form.email}</strong>, we've sent a password reset link. Check your inbox — it expires in 1 hour.
         </p>
         <button onClick={() => switchMode("signin")} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-semibold hover:bg-accent transition">
-          <ArrowLeft className="h-4 w-4" /> Back to Sign In
+          <ArrowLeft className="h-4 w-4" /> Back to Login
         </button>
       </Card>
     </Page>
@@ -155,7 +155,7 @@ function AuthPage() {
             {mode === "forgot" && (
               <div className="mb-6">
                 <button onClick={() => switchMode("signin")} className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition">
-                  <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back to Login
                 </button>
                 <h1 className="text-2xl font-bold">Forgot password?</h1>
                 <p className="mt-1 text-sm text-muted-foreground">Enter your email and we'll send a reset link.</p>
