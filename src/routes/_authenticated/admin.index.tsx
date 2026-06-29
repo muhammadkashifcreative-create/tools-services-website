@@ -84,10 +84,10 @@ function AdminBody() {
   const saveServicesConn = useServerFn(saveServicesConnection);
   const fetchServicesStatus = useServerFn(getServicesConnectionStatus);
 
-  const { data: stats } = useQuery({ queryKey: ["adminStats"], queryFn: () => fetchStats() });
-  const { data: orders } = useQuery({ queryKey: ["adminOrders"], queryFn: () => fetchOrders() });
-  const { data: users } = useQuery({ queryKey: ["adminUsers"], queryFn: () => fetchUsers() });
-  const { data: cases } = useQuery({ queryKey: ["adminCases"], queryFn: () => fetchCases() });
+  const { data: stats } = useQuery({ queryKey: ["adminStats"], queryFn: () => fetchStats(), staleTime: 0, refetchOnWindowFocus: true });
+  const { data: orders } = useQuery({ queryKey: ["adminOrders"], queryFn: () => fetchOrders(), staleTime: 0, refetchOnWindowFocus: true });
+  const { data: users } = useQuery({ queryKey: ["adminUsers"], queryFn: () => fetchUsers(), staleTime: 0, refetchOnWindowFocus: true });
+  const { data: cases } = useQuery({ queryKey: ["adminCases"], queryFn: () => fetchCases(), staleTime: 0, refetchOnWindowFocus: true });
   const { data: markup } = useQuery({ queryKey: ["markup"], queryFn: () => fetchMarkup() });
   const { data: toolStatus } = useQuery({ queryKey: ["toolStoreStatus"], queryFn: () => fetchToolStatus() });
   const { data: servicesStatus } = useQuery({ queryKey: ["servicesConnStatus"], queryFn: () => fetchServicesStatus() });
@@ -194,11 +194,11 @@ function AdminBody() {
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
-                <p className="text-2xl font-bold text-white tabular-nums">${(stats?.revenue ?? 0).toFixed(0)}</p>
+                <p className="text-2xl font-bold text-white tabular-nums">${(stats?.revenue ?? 0).toFixed(2)}</p>
                 <p className="text-[10px] uppercase tracking-wider text-slate-400">Total Revenue</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
-                <p className="text-2xl font-bold text-emerald-400 tabular-nums">${(stats?.profit ?? 0).toFixed(0)}</p>
+                <p className="text-2xl font-bold text-emerald-400 tabular-nums">${(stats?.profit ?? 0).toFixed(2)}</p>
                 <p className="text-[10px] uppercase tracking-wider text-slate-400">Net Profit</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
