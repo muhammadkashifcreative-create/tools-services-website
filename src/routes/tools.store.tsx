@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { Loader2, ShoppingBag, Wrench, LogIn, Copy, Sparkles, ShieldCheck, Zap, Package, Star } from "lucide-react";
+import { Loader2, ShoppingBag, Wrench, LogIn, Copy, Sparkles, ShieldCheck, Zap, Package, Star, X, Clock, Boxes, Tag, ChevronRight } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Toaster } from "@/components/ui/sonner";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   listToolProductsPublic,
   getToolStoreStatusPublic,
+  getToolProductDetail,
   purchaseToolProduct,
   type ToolProduct,
 } from "@/lib/toolstore.functions";
@@ -37,6 +38,7 @@ function ToolsStorePublicPage() {
   const fetchCurrency = useServerFn(getUserCurrency);
 
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   useEffect(() => {
     // Use the session cookie check via /api/auth/me instead of Supabase client
     // (Supabase client may not be configured client-side without VITE_ env vars)
@@ -127,11 +129,21 @@ function ToolsStorePublicPage() {
                   onPurchased={() => refetch()}
                   fxSymbol={fxSymbol}
                   fxRate={fxRate}
+                  onViewDetail={() => setSelectedProductId(p.id)}
                 />
               ))}
             </div>
           )}
       </div>
+      {selectedProductId && (
+        <ProductDetailModal
+          productId={selectedProductId}
+          authed={authed === true}
+          fxSymbol={fxSymbol}
+          fxRate={fxRate}
+          onClose={() => setSelectedProductId(null)}
+        />
+      )}
       <SiteFooter />
     </div>
   );
@@ -164,7 +176,7 @@ function paletteFor(id: string) {
   return PALETTES[h % PALETTES.length];
 }
 
-function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fxRate }: { product: ToolProduct; authed: boolean; walletBalance: number; onPurchased: () => void; fxSymbol: string; fxRate: number }) {
+function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fxRate, onViewDetail }: { product: ToolProduct; authed: boolean; walletBalance: number; onPurchased: () => void; fxSymbol: string; fxRate: number; onViewDetail: () => void }) {
   const [qty, setQty] = useState(1);
   const purchase = useServerFn(purchaseToolProduct);
   const qc = useQueryClient();
@@ -211,7 +223,7 @@ function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fx
         />
 
         <div className="relative p-5">
-          <div className="flex items-start gap-3">
+          <button onClick={onViewDetail} className="flex w-full items-start gap-3 text-left">
             <div
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-soft text-2xl"
               style={{ background: `linear-gradient(135deg, ${ps.from}, ${ps.to})` }}
@@ -221,32 +233,25 @@ function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fx
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span
-                  className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
-                  style={{ background: `linear-gradient(135deg, ${ps.from}, ${ps.to})` }}
-                >
+                <span className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                  style={{ background: `linear-gradient(135deg, ${ps.from}, ${ps.to})` }}>
                   Tool
                 </span>
-                <span
-                  className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
-                    outOfStock
-                      ? "bg-destructive/15 text-destructive"
-                      : "border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                  }`}
-                >
+                <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                  outOfStock ? "bg-destructive/15 text-destructive" : "border border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                }`}>
                   {outOfStock ? "Out of stock" : product.stock > 0 ? `${product.stock} left` : "In stock"}
                 </span>
               </div>
-              <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">
-                {product.name_en}
-              </h3>
+              <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{product.name_en}</h3>
               {product.desc_en && (
-                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                  {stripTags(product.desc_en)}
-                </p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{stripTags(product.desc_en)}</p>
               )}
+              <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-primary font-medium">
+                View details <ChevronRight className="h-3 w-3" />
+              </span>
             </div>
-          </div>
+          </button>
 
           <div className="mt-4 flex items-end justify-between border-t border-border/60 pt-3">
             <div>
@@ -278,5 +283,148 @@ function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fx
 }
 
 function stripTags(s: string) { return s.replace(/<[^>]+>/g, ""); }
+
+function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
+  productId: string; authed: boolean; fxSymbol: string; fxRate: number; onClose: () => void;
+}) {
+  const fetchDetail = useServerFn(getToolProductDetail);
+  const [qty, setQty] = useState(1);
+  const qc = useQueryClient();
+  const purchase = useServerFn(purchaseToolProduct);
+
+  const { data: product, isLoading } = useQuery({
+    queryKey: ["toolProductDetail", productId],
+    queryFn: () => fetchDetail({ data: { productId } }),
+  });
+
+  const mut = useMutation({
+    mutationFn: () => purchase({ data: { productId, qty } }),
+    onSuccess: (r) => {
+      toast.success(`Purchased! ${r.codes.length} code(s) delivered.`);
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      if (r.codes?.length) navigator.clipboard?.writeText(r.codes.join("\n")).catch(() => {});
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const ps = paletteFor(productId);
+  const priceLocal = product ? +(Number(product.your_price) * fxRate).toFixed(2) : 0;
+  const totalLocal = +(priceLocal * qty).toFixed(2);
+  const outOfStock = product ? (product.in_stock === false || product.stock === 0) : false;
+  const deliveryLabel: Record<string, string> = {
+    LINK: "Instant link delivery",
+    COUPON: "Coupon / activation code",
+    READY_ACCOUNT: "Ready-to-use account",
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-card border border-border shadow-2xl"
+        onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 p-5 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl"
+              style={{ background: `linear-gradient(135deg, ${ps.from}, ${ps.to})` }}>
+              {product?.emoji ?? <Package className="h-5 w-5 text-white" />}
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Product Detail</p>
+              {isLoading ? <div className="h-4 w-40 rounded bg-muted animate-pulse mt-1" /> :
+                <p className="font-bold text-sm leading-snug">{product?.name_en}</p>}
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg border border-border p-1.5 hover:bg-accent transition">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : !product ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">Product not found.</div>
+        ) : (
+          <div className="p-5 space-y-4">
+            {/* Badges */}
+            <div className="flex flex-wrap gap-2">
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${outOfStock ? "bg-destructive/15 text-destructive" : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"}`}>
+                {outOfStock ? "Out of stock" : product.stock > 0 ? `${product.stock} in stock` : "In stock"}
+              </span>
+              {product.delivery_type && (
+                <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+                  {deliveryLabel[product.delivery_type] ?? product.delivery_type}
+                </span>
+              )}
+              {product.duration_days && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+                  <Clock className="h-3 w-3" /> {product.duration_days} days
+                </span>
+              )}
+              {product.provider_name && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+                  <Tag className="h-3 w-3" /> {product.provider_name}
+                </span>
+              )}
+            </div>
+
+            {/* Full name */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Product Name</p>
+              <p className="text-sm font-medium leading-relaxed">{product.name_en}</p>
+            </div>
+
+            {/* Description */}
+            {product.desc_en && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Description</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{stripTags(product.desc_en)}</p>
+              </div>
+            )}
+
+            {/* Price */}
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Price per unit</p>
+                  <p className="text-2xl font-bold tabular-nums text-gradient">{fxSymbol}{priceLocal.toFixed(2)}</p>
+                </div>
+                {!outOfStock && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground">Qty</label>
+                    <input type="number" min={1} max={Math.max(1, product.stock)} value={qty}
+                      onChange={(e) => setQty(Math.max(1, Math.min(product.stock || 1, Number(e.target.value || 1))))}
+                      className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-right text-sm text-foreground" />
+                  </div>
+                )}
+              </div>
+              {!outOfStock && qty > 1 && (
+                <p className="mt-2 text-xs text-muted-foreground">Total: <span className="font-bold text-foreground">{fxSymbol}{totalLocal.toFixed(2)}</span></p>
+              )}
+            </div>
+
+            {/* CTA */}
+            {authed ? (
+              <button disabled={outOfStock || mut.isPending} onClick={() => mut.mutate()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90 disabled:opacity-50"
+                style={{ background: "var(--gradient-accent)" }}>
+                {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {outOfStock ? "Out of stock" : `Buy · ${fxSymbol}${totalLocal.toFixed(2)}`}
+              </button>
+            ) : (
+              <Link to="/auth"
+                className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow"
+                style={{ background: "var(--gradient-accent)" }}>
+                <LogIn className="h-4 w-4" /> Login to purchase · {fxSymbol}{totalLocal.toFixed(2)}
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Copy icon kept available for future use
 void Copy;

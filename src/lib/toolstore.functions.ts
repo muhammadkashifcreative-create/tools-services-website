@@ -173,6 +173,43 @@ export const getToolStoreStatusPublic = createServerFn({ method: "GET" })
     return { connected: Boolean(conn) };
   });
 
+// ---------- Single product detail (public) ----------
+export const getToolProductDetail = createServerFn({ method: "GET" })
+  .inputValidator((d: { productId: string }) => z.object({ productId: z.string().min(1) }).parse(d))
+  .handler(async ({ data }) => {
+    const conn = await loadConn();
+    if (!conn) return null;
+    const markup = await loadMarkupPercent();
+    // Try single product endpoint first, fall back to catalog filter
+    try {
+      const r = await callStore<{ data?: GgsomaProduct }>(conn, `/catalog/products/${data.productId}`);
+      if (r.data) {
+        const factor = 1 + markup / 100;
+        const p = r.data;
+        return {
+          id: String(p.id),
+          slug: p.slug,
+          name_en: p.name,
+          desc_en: undefined as string | undefined,
+          your_price: +((Number(p.yourPrice) * factor) || 0).toFixed(4),
+          stock: p.stock?.count ?? 0,
+          max_qty: p.stock?.maxQuantity ?? 0,
+          in_stock: p.stock?.inStock ?? false,
+          emoji: p.emoji?.normal ?? p.provider?.emoji?.normal,
+          provider_name: p.provider?.name,
+          delivery_type: p.deliveryType,
+          duration_days: p.durationDays,
+          sensitive: p.flags?.sensitiveDelivery ?? false,
+        };
+      }
+    } catch { /* fall through to catalog filter */ }
+    // Fallback: filter from catalog
+    const r = await fetchProducts(conn);
+    const products = mapProducts(r.data ?? [], markup);
+    const found = products.find((p) => p.id === data.productId);
+    return found ? { ...found, max_qty: found.stock, sensitive: false } : null;
+  });
+
 // ---------- Purchase ----------
 type GgsomaOrderResp = {
   ok: boolean;

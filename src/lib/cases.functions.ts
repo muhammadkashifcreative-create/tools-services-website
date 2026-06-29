@@ -16,6 +16,7 @@ export const listMyCases = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("cases")
       .select("id, subject, category, priority, status, order_id, last_activity_at, created_at")
+      .eq("user_id", context.userId)
       .order("last_activity_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);
@@ -26,11 +27,14 @@ export const getCase = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { caseId: string }) => z.object({ caseId: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const { data: c, error } = await context.supabase
+    const admin = isAdmin(context as never);
+    const query = context.supabase
       .from("cases")
       .select("id, user_id, subject, category, priority, status, order_id, last_activity_at, created_at")
-      .eq("id", data.caseId)
-      .maybeSingle();
+      .eq("id", data.caseId);
+    // Non-admins can only read their own cases
+    if (!admin) query.eq("user_id", context.userId);
+    const { data: c, error } = await query.maybeSingle();
     if (error) throw new Error(error.message);
     if (!c) throw new Error("Case not found");
     const { data: msgs, error: mErr } = await context.supabase
