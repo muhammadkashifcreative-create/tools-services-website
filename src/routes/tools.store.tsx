@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { Loader2, ShoppingBag, Wrench, LogIn, Copy, Sparkles, ShieldCheck, Zap, Package, Star, X, Clock, Boxes, Tag, ChevronRight } from "lucide-react";
+import { Loader2, ShoppingBag, Wrench, LogIn, Copy, Sparkles, ShieldCheck, Zap, Package, Star, X, Clock, Boxes, Tag, ChevronRight, Check, Wallet, CreditCard, Lock, CheckCircle2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Toaster } from "@/components/ui/sonner";
@@ -15,6 +15,16 @@ import {
   purchaseToolProduct,
   type ToolProduct,
 } from "@/lib/toolstore.functions";
+import { getStripe, getStripeEnvironment, isStripeConfigured } from "@/lib/stripe";
+import { createDepositCheckout } from "@/lib/payments.functions";
+import {
+  Elements,
+  CardNumberElement,
+  CardExpiryElement,
+  CardCvcElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
 import { getMyProfile } from "@/lib/wallet.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 
@@ -287,11 +297,25 @@ function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fx
 
 function stripTags(s: string) { return s.replace(/<[^>]+>/g, ""); }
 
+const ELEMENT_STYLE = {
+  base: { color: "#0f172a", fontFamily: "Arial,sans-serif", fontSize: "14px", "::placeholder": { color: "#94a3b8" } },
+  invalid: { color: "#ef4444" },
+};
+
 function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
   productId: string; authed: boolean; fxSymbol: string; fxRate: number; onClose: () => void;
 }) {
   const fetchDetail = useServerFn(getToolProductDetail);
+  const startCheckout = useServerFn(createDepositCheckout);
   const [qty, setQty] = useState(1);
+  const [coupon, setCoupon] = useState("");
+  const [couponApplied, setCouponApplied] = useState<{ code: string; percent: number } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [payMode, setPayMode] = useState<"wallet" | "card" | null>(null);
+  const [cardSecret, setCardSecret] = useState<string | null>(null);
+  const [cardLoading, setCardLoading] = useState(false);
+  const [success, setSuccess] = useState<string[]>([]);
+  const [copiedCodes, setCopiedCodes] = useState(false);
   const qc = useQueryClient();
   const purchase = useServerFn(purchaseToolProduct);
 
@@ -300,31 +324,69 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
     queryFn: () => fetchDetail({ data: { productId } }),
   });
 
-  const mut = useMutation({
-    mutationFn: () => purchase({ data: { productId, qty } }),
+  const walletMut = useMutation({
+    mutationFn: () => purchase({ data: { productId, qty, coupon: couponApplied?.code } }),
     onSuccess: (r) => {
-      toast.success(`Purchased! ${r.codes.length} code(s) delivered.`);
+      setSuccess(r.codes);
       qc.invalidateQueries({ queryKey: ["profile"] });
-      if (r.codes?.length) navigator.clipboard?.writeText(r.codes.join("\n")).catch(() => {});
-      onClose();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const ps = paletteFor(productId);
   const priceLocal = product ? +(Number(product.your_price) * fxRate).toFixed(2) : 0;
-  const totalLocal = +(priceLocal * qty).toFixed(2);
+  const discount = couponApplied ? +(priceLocal * qty * (couponApplied.percent / 100)).toFixed(2) : 0;
+  const totalLocal = +(priceLocal * qty - discount).toFixed(2);
   const outOfStock = product ? (product.in_stock === false || product.stock === 0) : false;
-  const deliveryLabel: Record<string, string> = {
-    LINK: "Instant link delivery",
-    COUPON: "Coupon / activation code",
-    READY_ACCOUNT: "Ready-to-use account",
+
+  const applyCoupon = () => {
+    const c = coupon.trim().toUpperCase();
+    if (c === "WELCOME5") { setCouponApplied({ code: c, percent: 5 }); setCouponError(null); }
+    else { setCouponApplied(null); setCouponError("Invalid coupon code"); }
   };
+
+  const openCardPayment = async () => {
+    if (!isStripeConfigured()) { toast.error("Card payments not configured"); return; }
+    setCardLoading(true);
+    try {
+      const res = await startCheckout({ data: { usdAmount: totalLocal / fxRate, environment: getStripeEnvironment() } });
+      if ("error" in res) { toast.error(res.error); return; }
+      setCardSecret(res.clientSecret ?? "");
+      setPayMode("card");
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    finally { setCardLoading(false); }
+  };
+
+  const deliveryLabel: Record<string, string> = {
+    LINK: "Instant link delivery", COUPON: "Coupon / activation code", READY_ACCOUNT: "Ready-to-use account",
+  };
+
+  // ── Success screen ──
+  if (success.length > 0) return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl bg-card border border-border shadow-2xl p-6">
+        <div className="flex justify-center mb-4"><div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center"><CheckCircle2 className="h-7 w-7 text-emerald-600" /></div></div>
+        <h2 className="text-center font-bold text-lg mb-1">Purchase successful!</h2>
+        <p className="text-center text-sm text-muted-foreground mb-4">Your code(s) are ready.</p>
+        <div className="rounded-xl bg-muted/40 border border-border p-4 space-y-1.5">
+          {success.map((c, i) => <p key={i} className="font-mono text-sm break-all">{c}</p>)}
+        </div>
+        <button onClick={() => { navigator.clipboard?.writeText(success.join("\n")); setCopiedCodes(true); }}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:bg-accent transition">
+          {copiedCodes ? <><Check className="h-4 w-4 text-emerald-500" /> Copied!</> : <><Copy className="h-4 w-4" /> Copy code(s)</>}
+        </button>
+        <button onClick={onClose} className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground text-center py-2 transition">Close</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-card border border-border shadow-2xl"
         onClick={(e) => e.stopPropagation()}>
+
+        {/* Drag handle mobile */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="h-1 w-10 rounded-full bg-border" /></div>
 
         {/* Header */}
         <div className="flex items-center justify-between gap-3 p-5 border-b border-border">
@@ -339,9 +401,7 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
                 <p className="font-bold text-sm leading-snug">{product?.name_en}</p>}
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg border border-border p-1.5 hover:bg-accent transition">
-            <X className="h-4 w-4" />
-          </button>
+          <button onClick={onClose} className="rounded-lg border border-border p-1.5 hover:bg-accent transition"><X className="h-4 w-4" /></button>
         </div>
 
         {isLoading ? (
@@ -355,24 +415,12 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${outOfStock ? "bg-destructive/15 text-destructive" : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"}`}>
                 {outOfStock ? "Out of stock" : product.stock > 0 ? `${product.stock} in stock` : "In stock"}
               </span>
-              {product.delivery_type && (
-                <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
-                  {deliveryLabel[product.delivery_type] ?? product.delivery_type}
-                </span>
-              )}
-              {product.duration_days && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
-                  <Clock className="h-3 w-3" /> {product.duration_days} days
-                </span>
-              )}
-              {product.provider_name && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
-                  <Tag className="h-3 w-3" /> {product.provider_name}
-                </span>
-              )}
+              {product.delivery_type && <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">{deliveryLabel[product.delivery_type] ?? product.delivery_type}</span>}
+              {product.duration_days && <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"><Clock className="h-3 w-3" /> {product.duration_days} days</span>}
+              {product.provider_name && <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"><Tag className="h-3 w-3" /> {product.provider_name}</span>}
             </div>
 
-            {/* Full name */}
+            {/* Name */}
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Product Name</p>
               <p className="text-sm font-medium leading-relaxed">{product.name_en}</p>
@@ -386,7 +434,7 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
               </div>
             )}
 
-            {/* Price */}
+            {/* Price + Qty */}
             <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -398,34 +446,131 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
                     <label className="text-xs text-muted-foreground">Qty</label>
                     <input type="number" min={1} max={Math.max(1, product.stock)} value={qty}
                       onChange={(e) => setQty(Math.max(1, Math.min(product.stock || 1, Number(e.target.value || 1))))}
-                      className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-right text-sm text-foreground" />
+                      className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-right text-sm text-foreground outline-none focus:ring-2 ring-primary/30" />
                   </div>
                 )}
               </div>
-              {!outOfStock && qty > 1 && (
-                <p className="mt-2 text-xs text-muted-foreground">Total: <span className="font-bold text-foreground">{fxSymbol}{totalLocal.toFixed(2)}</span></p>
-              )}
+              {couponApplied && <div className="flex justify-between text-sm mt-2 text-emerald-600"><span>Coupon {couponApplied.code} (−{couponApplied.percent}%)</span><span>−{fxSymbol}{discount.toFixed(2)}</span></div>}
+              {!outOfStock && <div className="flex justify-between mt-2 pt-2 border-t border-border/60 text-sm"><span className="font-semibold">Total</span><span className="font-bold text-gradient tabular-nums">{fxSymbol}{totalLocal.toFixed(2)}</span></div>}
             </div>
 
-            {/* CTA */}
-            {authed ? (
-              <button disabled={outOfStock || mut.isPending} onClick={() => mut.mutate()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90 disabled:opacity-50"
-                style={{ background: "var(--gradient-accent)" }}>
-                {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {outOfStock ? "Out of stock" : `Buy · ${fxSymbol}${totalLocal.toFixed(2)}`}
-              </button>
-            ) : (
-              <Link to="/auth"
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow"
-                style={{ background: "var(--gradient-accent)" }}>
-                <LogIn className="h-4 w-4" /> Login to purchase · {fxSymbol}{totalLocal.toFixed(2)}
-              </Link>
+            {/* Coupon */}
+            {authed && !outOfStock && (
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coupon code</label>
+                {couponApplied ? (
+                  <div className="mt-1.5 flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2.5 text-sm">
+                    <span className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-emerald-500" /><span className="font-mono font-bold">{couponApplied.code}</span><span className="text-xs text-muted-foreground">{couponApplied.percent}% off</span></span>
+                    <button type="button" onClick={() => { setCouponApplied(null); setCoupon(""); }} className="text-xs text-muted-foreground hover:text-foreground">Remove</button>
+                  </div>
+                ) : (
+                  <div className="mt-1.5 flex gap-2">
+                    <input type="text" placeholder="WELCOME5" value={coupon}
+                      onChange={(e) => { setCoupon(e.target.value); setCouponError(null); }}
+                      className="flex-1 rounded-xl border border-border bg-background px-3 py-2.5 text-sm uppercase outline-none focus:ring-2 ring-primary/30 text-foreground placeholder:text-muted-foreground" />
+                    <button type="button" onClick={applyCoupon} className="rounded-xl border border-border/60 bg-card px-3 py-2 text-xs font-semibold hover:bg-accent transition">Apply</button>
+                  </div>
+                )}
+                {couponError && <p className="mt-1 text-[11px] text-destructive">{couponError}</p>}
+              </div>
+            )}
+
+            {/* Card form */}
+            {payMode === "card" && cardSecret && authed && (
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Card details</p>
+                <Elements stripe={getStripe()}>
+                  <ToolCardForm clientSecret={cardSecret} onSuccess={(codes) => { setCardSecret(null); setPayMode(null); setSuccess(codes); qc.invalidateQueries({ queryKey: ["profile"] }); }} onCancel={() => { setPayMode(null); setCardSecret(null); }} productId={productId} qty={qty} coupon={couponApplied?.code} />
+                </Elements>
+              </div>
+            )}
+
+            {/* CTAs */}
+            {!outOfStock && payMode !== "card" && (
+              authed ? (
+                <div className="space-y-2">
+                  <button disabled={walletMut.isPending} onClick={() => walletMut.mutate()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90 disabled:opacity-50"
+                    style={{ background: "var(--gradient-accent)" }}>
+                    {walletMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+                    Pay from wallet · {fxSymbol}{totalLocal.toFixed(2)}
+                  </button>
+                  <button disabled={cardLoading} onClick={openCardPayment}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-background px-4 py-3 text-sm font-semibold transition hover:bg-accent disabled:opacity-60">
+                    {cardLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                    Pay with card
+                  </button>
+                </div>
+              ) : (
+                <Link to="/auth" className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow" style={{ background: "var(--gradient-accent)" }}>
+                  <LogIn className="h-4 w-4" /> Login to purchase · {fxSymbol}{totalLocal.toFixed(2)}
+                </Link>
+              )
             )}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function ToolCardForm({ clientSecret, onSuccess, onCancel, productId, qty, coupon }: {
+  clientSecret: string; onSuccess: (codes: string[]) => void; onCancel: () => void;
+  productId: string; qty: number; coupon?: string;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const purchase = useServerFn(purchaseToolProduct);
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setLoading(true); setError(null);
+    const cardNumber = elements.getElement(CardNumberElement);
+    if (!cardNumber) { setLoading(false); return; }
+    const { error: stripeErr, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: { card: cardNumber, billing_details: { name: name.trim() || undefined } },
+      return_url: window.location.href,
+    });
+    if (stripeErr) { setError(stripeErr.message ?? "Payment failed"); setLoading(false); return; }
+    if (paymentIntent?.status === "succeeded") {
+      try {
+        const r = await purchase({ data: { productId, qty, coupon } });
+        onSuccess(r.codes);
+      } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to deliver codes"); setLoading(false); }
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div>
+        <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Card number</label>
+        <div className="rounded-xl border border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/30"><CardNumberElement options={{ style: ELEMENT_STYLE, showIcon: true }} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Expiry</label>
+          <div className="rounded-xl border border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/30"><CardExpiryElement options={{ style: ELEMENT_STYLE }} /></div>
+        </div>
+        <div>
+          <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">CVC</label>
+          <div className="rounded-xl border border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/30"><CardCvcElement options={{ style: ELEMENT_STYLE }} /></div>
+        </div>
+      </div>
+      <input type="text" placeholder="Name on card" value={name} onChange={(e) => setName(e.target.value)}
+        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 ring-primary/30" />
+      {error && <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
+      <button type="submit" disabled={!stripe || loading}
+        className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow disabled:opacity-60"
+        style={{ background: "var(--gradient-accent)" }}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+        {loading ? "Processing…" : "Pay & Get Codes"}
+      </button>
+      <button type="button" onClick={onCancel} className="w-full text-xs text-muted-foreground hover:text-foreground text-center py-1 transition">Cancel</button>
+    </form>
   );
 }
 
