@@ -358,36 +358,32 @@ function ServicesPage() {
                 })}
               </div>
 
-              <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-soft sm:p-4">
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-                <div className="relative col-span-2 sm:flex-1">
+              <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-soft">
+                {/* Search — full width */}
+                <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
-                    placeholder="Search by ID, name, type, description..."
+                    placeholder="Search services..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="w-full rounded-lg border border-border/60 bg-background pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
+                    className="w-full rounded-lg border border-border/60 bg-background pl-9 pr-3 py-2.5 text-sm outline-none focus:ring-2 ring-ring text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="min-w-0 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
-                >
-                  {categories.map((c) => <option key={c}>{c === "All" ? "All categories" : c}</option>)}
-                </select>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as typeof sort)}
-                  className="min-w-0 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
-                >
-                  <option value="name">Sort: A–Z</option>
-                  <option value="price-asc">Price: low → high</option>
-                  <option value="price-desc">Price: high → low</option>
-                </select>
+                {/* Category + Sort — side by side */}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <select value={category} onChange={(e) => setCategory(e.target.value)}
+                    className="rounded-lg border border-border/60 bg-card text-foreground px-3 py-2.5 text-xs outline-none focus:ring-2 ring-ring">
+                    {categories.map((c) => <option key={c}>{c === "All" ? "All categories" : c}</option>)}
+                  </select>
+                  <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}
+                    className="rounded-lg border border-border/60 bg-card text-foreground px-3 py-2.5 text-xs outline-none focus:ring-2 ring-ring">
+                    <option value="name">A–Z</option>
+                    <option value="price-asc">Price ↑</option>
+                    <option value="price-desc">Price ↓</option>
+                  </select>
                 </div>
-                <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Filter className="h-3 w-3" /> {filtered.length.toLocaleString()} match
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Filter className="h-3 w-3" /> {filtered.length.toLocaleString()} services
                 </p>
               </div>
 
@@ -415,75 +411,74 @@ function ServicesPage() {
                     >
                       {/* Accent stripe */}
                       <div className="absolute inset-y-0 left-0 w-1" style={{ background: `linear-gradient(180deg, ${ps.from}, ${ps.to})` }} aria-hidden />
-                      <div className="flex flex-col gap-4 p-4 pl-5 sm:p-5 sm:pl-6 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex min-w-0 flex-1 gap-4">
+                      <div className="p-4 pl-5">
+                        {/* Top: icon + info */}
+                        <div className="flex gap-3">
                           <div
-                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-soft"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-soft"
                             style={{ background: `linear-gradient(135deg, ${ps.from}, ${ps.to})` }}
                             aria-hidden
                           >
-                            <PIcon className="h-5 w-5" />
+                            <PIcon className="h-4 w-4" />
                           </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground">
-                                ID {s.provider_service_id}
-                              </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <span
-                                className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                                className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
                                 style={{ background: `linear-gradient(135deg, ${ps.from}, ${ps.to})` }}
                               >
                                 {s.platform ?? "Other"}
                               </span>
                               {s.type && (
-                                <span className="rounded-md border border-border/60 px-2 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                                <span className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
                                   {s.type}
                                 </span>
                               )}
-                              {s.category && (
-                                <span className="truncate text-[11px] text-muted-foreground">{s.category}</span>
-                              )}
+                              <span className="font-mono text-[10px] text-muted-foreground">#{s.provider_service_id}</span>
                             </div>
-                            <h3 className="mt-2 font-semibold leading-snug">{s.name}</h3>
-                          {desc && (
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              <p className={longDesc && !isExpanded ? "line-clamp-2" : ""}>{desc}</p>
-                              {longDesc && (
-                                <button
-                                  onClick={() => toggleDesc(s.id)}
-                                  className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                                >
-                                  {isExpanded ? <><ChevronUp className="h-3 w-3" /> Less</> : <><ChevronDown className="h-3 w-3" /> Full description</>}
-                                </button>
-                              )}
-                            </div>
-                          )}
-                            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                              <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5">
-                                Min <span className="font-semibold text-foreground tabular-nums">{s.min_quantity.toLocaleString()}</span>
-                              </span>
-                              <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5">
-                                Max <span className="font-semibold text-foreground tabular-nums">{s.max_quantity.toLocaleString()}</span>
-                              </span>
-                              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                <Zap className="h-3 w-3" /> instant
-                              </span>
-                            </div>
+                            <h3 className="mt-1.5 text-sm font-semibold leading-snug line-clamp-2">{s.name}</h3>
                           </div>
                         </div>
-                        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/60 pt-3 sm:flex-col sm:items-end sm:border-0 sm:pt-0 sm:w-auto">
-                          <div className="min-w-0 text-left sm:text-right">
-                            <p className="truncate text-lg font-bold tabular-nums text-gradient sm:text-xl">{fmt(Number(s.rate))}</p>
-                            <p className="text-[11px] text-muted-foreground">per 1,000 · {code}</p>
+
+                        {/* Description */}
+                        {desc && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            <p className={longDesc && !isExpanded ? "line-clamp-2" : ""}>{desc}</p>
+                            {longDesc && (
+                              <button onClick={() => toggleDesc(s.id)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
+                                {isExpanded ? <><ChevronUp className="h-3 w-3" /> Less</> : <><ChevronDown className="h-3 w-3" /> More</>}
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Min/Max */}
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5">
+                            Min <span className="font-semibold text-foreground">{s.min_quantity.toLocaleString()}</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5">
+                            Max <span className="font-semibold text-foreground">{s.max_quantity.toLocaleString()}</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-emerald-600">
+                            <Zap className="h-3 w-3" /> instant
+                          </span>
+                        </div>
+
+                        {/* Price + CTA — always full width, always visible */}
+                        <div className="mt-3 flex w-full items-center justify-between gap-2 border-t border-border/60 pt-3">
+                          <div>
+                            <p className="text-base font-bold tabular-nums text-gradient sm:text-lg">{fmt(Number(s.rate))}</p>
+                            <p className="text-[10px] text-muted-foreground">per 1,000 · {code}</p>
                           </div>
                           <button
                             onClick={() => { setSelectedId(s.id); setQty(s.min_quantity); }}
-                            className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
-                              isSelected ? "bg-primary/10 text-primary" : "text-primary-foreground shadow-glow hover:opacity-90"
+                            className={`shrink-0 rounded-lg px-4 py-2 text-xs font-bold transition active:scale-95 ${
+                              isSelected ? "bg-primary/10 text-primary" : "text-white shadow-glow"
                             }`}
                             style={isSelected ? undefined : { background: "var(--gradient-accent)" }}
                           >
-                            {isSelected ? "Selected" : "Order now"}
+                            {isSelected ? "✓ Selected" : "Order →"}
                           </button>
                         </div>
                       </div>
