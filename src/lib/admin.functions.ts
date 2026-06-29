@@ -70,14 +70,16 @@ export const adminStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context as never);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [users, services, smmCount, toolCount, smmFull, toolFull] = await Promise.all([
+    const [users, services, smmCount, toolCount, smmFull, toolFull, markupSetting] = await Promise.all([
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("services").select("id", { count: "exact", head: true }).eq("is_active", true),
       supabaseAdmin.from("orders").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("tool_orders").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("orders").select("charge, quantity, services(provider_rate)"),
       supabaseAdmin.from("tool_orders").select("total_price"),
+      supabaseAdmin.from("app_settings").select("value").eq("key", "markup_percent").maybeSingle(),
     ]);
+
     type SmmRow = { charge: number | string; quantity: number; services: { provider_rate: number | string } | null };
     const smmRows = (smmFull.data ?? []) as unknown as SmmRow[];
     const smmEarned = smmRows.reduce((s, r) => s + Number(r.charge ?? 0), 0);
@@ -85,15 +87,22 @@ export const adminStats = createServerFn({ method: "GET" })
       const rate = Number(r.services?.provider_rate ?? 0);
       return s + (Number(r.quantity) / 1000) * rate;
     }, 0);
+
+    // Tool provider cost = what we paid ggsoma = total_price / (1 + markup%)
+    const markupPct = Number((markupSetting.data?.value as number | null) ?? 25);
+    const markupFactor = 1 + markupPct / 100;
     const toolEarned = (toolFull.data ?? []).reduce((s, r) => s + Number(r.total_price ?? 0), 0);
+    const toolCost = toolEarned / markupFactor;
+
     const totalEarned = smmEarned + toolEarned;
+    const totalCost = smmCost + toolCost;
     return {
       users: users.count ?? 0,
       services: services.count ?? 0,
       orders: (smmCount.count ?? 0) + (toolCount.count ?? 0),
       revenue: +totalEarned.toFixed(2),
-      spent: +smmCost.toFixed(2),
-      profit: +(totalEarned - smmCost).toFixed(2),
+      spent: +totalCost.toFixed(2),
+      profit: +(totalEarned - totalCost).toFixed(2),
     };
   });
 
