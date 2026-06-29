@@ -8,6 +8,7 @@ export const listMyOrders = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("orders")
       .select("id, link, quantity, charge, status, provider_order_id, start_count, remains, created_at, services(name, platform)")
+      .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);
@@ -115,6 +116,7 @@ export const refreshOrderStatus = createServerFn({ method: "POST" })
       .from("orders")
       .select("id, provider_order_id, user_id")
       .eq("id", data.orderId)
+      .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order || !order.provider_order_id) throw new Error("Order not found");
