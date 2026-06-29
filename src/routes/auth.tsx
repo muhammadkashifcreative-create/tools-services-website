@@ -245,30 +245,6 @@ function AuthPage() {
               </button>
             </form>
 
-            {/* Signup features */}
-            {mode === "signup" && (
-              <>
-                <div className="mt-6 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">What you get</span>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-                <div className="mt-4 space-y-2">
-                  {[
-                    { icon: Zap, text: "Orders start in under 60 seconds" },
-                    { icon: ShieldCheck, text: "Secure wallet, pay as you go" },
-                    { icon: BarChart3, text: "Real-time order tracking" },
-                    { icon: Star, text: "5,786+ services across 16 platforms" },
-                  ].map(({ icon: Icon, text }) => (
-                    <div key={text} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3.5 py-2.5">
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: "var(--gradient-accent)" }}>
-                        <Icon className="h-3 w-3" />
-                      </div>
-                      <p className="text-xs font-medium">{text}</p>
-                    </div>
-                  ))}
-                </div>
-              </>
             )}
 
             <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground">
