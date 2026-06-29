@@ -213,3 +213,76 @@ export async function sendCaseReplyEmail(to: string, name: string, caseId: strin
     html,
   });
 }
+
+export async function sendVerificationEmail(to: string, name: string, verifyUrl: string) {
+  const html = base(`
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">Verify your email</h1>
+    <p style="margin:0 0 20px;color:#6b7280;font-size:14px;">Hi ${name || "there"}, welcome! Please verify your email address to activate your Social Padu account.</p>
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:20px;text-align:center;margin:20px 0;">
+      <p style="margin:0 0 4px;font-size:13px;color:#92400e;font-weight:600;">Click the button below to verify</p>
+      <p style="margin:0;font-size:12px;color:#b45309;">This link expires in 24 hours</p>
+    </div>
+    <div style="text-align:center;">${btn("✓ Verify Email Address", verifyUrl)}</div>
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">If you didn't create an account, you can safely ignore this email.</p>
+  `, "Verify your email to get started");
+
+  await getTransporter().sendMail({
+    from: `"Social Padu" <${process.env.GMAIL_USER}>`,
+    to,
+    subject: "Verify your Social Padu email address",
+    html,
+  });
+}
+
+export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string) {
+  const html = base(`
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="display:inline-block;background:#fee2e2;border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;">🔑</div>
+    </div>
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;text-align:center;">Reset your password</h1>
+    <p style="margin:0 0 20px;color:#6b7280;font-size:14px;text-align:center;">Hi ${name || "there"}, we received a request to reset your password.</p>
+    <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:12px;padding:16px;text-align:center;margin:0 0 20px;">
+      <p style="margin:0;font-size:12px;color:#92400e;font-weight:600;">⏰ This link expires in <strong>1 hour</strong></p>
+    </div>
+    <div style="text-align:center;">${btn("Reset Password →", resetUrl)}</div>
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">If you didn't request a password reset, you can safely ignore this email. Your password will not change.</p>
+  `, "Reset your Social Padu password");
+
+  await getTransporter().sendMail({
+    from: `"Social Padu" <${process.env.GMAIL_USER}>`,
+    to,
+    subject: "Reset your Social Padu password",
+    html,
+  });
+}
+
+export async function sendOrderConfirmationEmail(to: string, name: string, orderId: string, serviceName: string, quantity: number, charge: number, link: string) {
+  const html = base(`
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;background:#dbeafe;border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;">🚀</div>
+    </div>
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;text-align:center;">Order Placed!</h1>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;text-align:center;">Hi ${name || "there"}, your order is being processed and will start shortly.</p>
+    ${divider()}
+    <table width="100%" cellpadding="0" cellspacing="0">
+      ${row("Order ID", `#${orderId.slice(0, 8).toUpperCase()}`)}
+      ${row("Service", serviceName)}
+      ${row("Quantity", quantity.toLocaleString())}
+      ${row("Charged", `$${charge.toFixed(2)} USD`)}
+      ${row("Link", `<span style="word-break:break-all;font-size:11px;">${link}</span>`)}
+      ${row("Status", `<span style="color:#2563eb;font-weight:700;">Processing</span>`)}
+    </table>
+    ${divider()}
+    <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Orders typically start within 60 seconds and complete within 72 hours.</p>
+    <div style="text-align:center;">${btn("Track Order →", "https://www.socialpadu.my/dashboard/orders")}</div>
+  `, `Your order for ${serviceName} is processing`);
+
+  await getTransporter().sendMail({
+    from: `"Social Padu" <${process.env.GMAIL_USER}>`,
+    to,
+    subject: `🚀 Order placed — ${serviceName}`,
+    html,
+  });
+}

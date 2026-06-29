@@ -327,38 +327,84 @@ function Landing() {
       </section>
 
       {/* How it works */}
-      <section id="how" className="border-t border-border/60 py-16 sm:py-24">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <div className="mb-10 text-center sm:mb-16">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">How it works</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Live in four steps.</h2>
+      <section id="how" className="relative border-t border-border/60 py-16 sm:py-28 overflow-hidden">
+        {/* Background accent */}
+        <div className="pointer-events-none absolute inset-0" aria-hidden>
+          <div className="absolute left-1/2 top-0 h-px w-3/4 -translate-x-1/2" style={{ background: "linear-gradient(90deg, transparent, oklch(0.72 0.20 50 / 0.4), transparent)" }} />
+          <div className="absolute left-0 top-1/2 h-96 w-96 -translate-y-1/2 rounded-full opacity-10 blur-3xl" style={{ background: "oklch(0.78 0.20 50)" }} />
+          <div className="absolute right-0 top-1/2 h-96 w-96 -translate-y-1/2 rounded-full opacity-10 blur-3xl" style={{ background: "oklch(0.72 0.22 35)" }} />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-14 text-center sm:mb-20">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-primary">
+              <Sparkles className="h-3 w-3" /> How it works
+            </span>
+            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
+              Live in <span className="text-gradient">four steps.</span>
+            </h2>
+            <p className="mt-3 text-muted-foreground text-sm sm:text-base max-w-md mx-auto">
+              From sign-up to seeing results — the whole process takes under 2 minutes.
+            </p>
           </div>
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+
+          <div className="relative grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {/* Connecting line on desktop */}
+            <div className="pointer-events-none absolute top-10 left-0 right-0 hidden lg:block" aria-hidden>
+              <div className="mx-auto h-px max-w-[75%]" style={{ background: "linear-gradient(90deg, transparent 0%, oklch(0.72 0.20 50 / 0.5) 20%, oklch(0.72 0.20 50 / 0.5) 80%, transparent 100%)" }} />
+            </div>
+
             {[
-              { n: "01", t: "Sign up", d: "Free account with email or Google. 30 seconds.", icon: Sparkles },
-              { n: "02", t: "Top up", d: "Add funds to your wallet — pay only for what you use.", icon: Lock },
-              { n: "03", t: "Place order", d: "Pick service, paste link, set quantity. Done.", icon: Globe2 },
-              { n: "04", t: "Watch it grow", d: "Live tracking from start to completion.", icon: Clock4 },
+              { n: "01", t: "Create account", d: "Sign up free with your email in under 30 seconds. No credit card required.", icon: Sparkles, color: "#f09433" },
+              { n: "02", t: "Top up wallet", d: "Add funds securely by card. Pay only for what you use, nothing more.", icon: Lock, color: "#e07b2e" },
+              { n: "03", t: "Place your order", d: "Pick a service, paste your link, set the quantity. One click to confirm.", icon: Globe2, color: "#c8621f" },
+              { n: "04", t: "Watch it grow", d: "Your order starts in under 60 seconds. Track live progress from your dashboard.", icon: Clock4, color: "#a84e18" },
             ].map((s, idx) => {
               const Icon = s.icon;
               return (
                 <motion.div
                   key={s.n}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: idx * 0.08 }}
-                  className="relative rounded-2xl border border-border/60 bg-card p-6 shadow-soft"
+                  transition={{ duration: 0.5, delay: idx * 0.12 }}
+                  className="group relative rounded-2xl border border-border/60 bg-card p-6 shadow-soft transition-all hover:-translate-y-1 hover:shadow-elegant hover:border-primary/40"
                 >
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-xs font-bold tabular-nums text-primary">{s.n}</span>
-                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  {/* Glow on hover */}
+                  <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl -z-10" style={{ background: `${s.color}22` }} />
+
+                  {/* Step number badge */}
+                  <div className="relative mb-5 flex items-center justify-between">
+                    <div className="relative">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white text-sm font-black shadow-glow z-10 relative" style={{ background: `linear-gradient(135deg, ${s.color}, ${s.color}cc)` }}>
+                        {s.n}
+                      </div>
+                      <div className="absolute inset-0 rounded-xl blur-md opacity-60" style={{ background: s.color }} />
+                    </div>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-muted/40 text-muted-foreground group-hover:border-primary/30 group-hover:text-primary transition-colors">
+                      <Icon className="h-4 w-4" />
+                    </div>
                   </div>
-                  <p className="font-semibold">{s.t}</p>
-                  <p className="mt-1.5 text-sm text-muted-foreground">{s.d}</p>
+
+                  <p className="text-base font-bold tracking-tight">{s.t}</p>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{s.d}</p>
+
+                  {/* Bottom accent line */}
+                  <div className="mt-5 h-0.5 w-8 rounded-full transition-all duration-300 group-hover:w-16" style={{ background: `linear-gradient(90deg, ${s.color}, transparent)` }} />
                 </motion.div>
               );
             })}
+          </div>
+
+          {/* CTA */}
+          <div className="mt-12 text-center">
+            <Link
+              to="/auth"
+              className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white shadow-glow transition hover:opacity-90"
+              style={{ background: "var(--gradient-accent)" }}
+            >
+              <Sparkles className="h-4 w-4" /> Get started free — takes 30 seconds
+            </Link>
           </div>
         </div>
       </section>

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createSessionCookie } from "@/lib/direct-google-auth.server";
+import { generateToken, storeToken } from "@/lib/auth-tokens.server";
 
 export const Route = createFileRoute("/api/auth/register")({
   server: {
@@ -14,18 +15,20 @@ export const Route = createFileRoute("/api/auth/register")({
 
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-          // Check if email already exists
-          const { data: existing } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-          if (existing?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase())) {
+          // Check if email exists
+          const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          if (list?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase())) {
             return Response.json({ error: "An account with this email already exists. Please sign in." }, { status: 409 });
           }
 
-          // Create Supabase auth user
+          const displayName = name?.trim() || email.split("@")[0];
+
+          // Create user — NOT yet confirmed (email must be verified)
           const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
             email: email.toLowerCase(),
             password,
-            email_confirm: true,
-            user_metadata: { name: name?.trim() || email.split("@")[0] },
+            email_confirm: false,
+            user_metadata: { name: displayName },
           });
 
           if (createErr || !created?.user) {
@@ -33,7 +36,6 @@ export const Route = createFileRoute("/api/auth/register")({
           }
 
           const userId = created.user.id;
-          const displayName = name?.trim() || email.split("@")[0];
 
           // Create profile
           await supabaseAdmin.from("profiles").upsert({
@@ -42,7 +44,20 @@ export const Route = createFileRoute("/api/auth/register")({
             full_name: displayName,
           }, { onConflict: "id" });
 
-          // Session cookie
+          // Generate verification token & send email
+          const token = generateToken();
+          await storeToken(token, { userId, email: email.toLowerCase(), type: "verify" });
+
+          const origin = new URL(request.url).origin;
+          const verifyUrl = `${origin}/api/auth/verify-email?token=${token}`;
+
+          import("@/lib/email.server").then(({ sendVerificationEmail, sendWelcomeEmail }) => {
+            sendVerificationEmail(email, displayName, verifyUrl).catch(console.error);
+            // Welcome email after verification (sent now as a heads-up)
+            sendWelcomeEmail(email, displayName).catch(console.error);
+          });
+
+          // Sign them in immediately but flag unverified
           const cookie = createSessionCookie({
             sub: userId,
             email: email.toLowerCase(),
@@ -50,12 +65,7 @@ export const Route = createFileRoute("/api/auth/register")({
             supabase_id: userId,
           });
 
-          // Send welcome email (non-blocking)
-          import("@/lib/email.server").then(({ sendWelcomeEmail }) => {
-            sendWelcomeEmail(email, displayName).catch(console.error);
-          });
-
-          return Response.json({ ok: true }, {
+          return Response.json({ ok: true, needsVerification: true }, {
             headers: { "set-cookie": cookie },
           });
         } catch (e) {
