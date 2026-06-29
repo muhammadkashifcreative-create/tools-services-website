@@ -256,12 +256,12 @@ function WalletPage() {
           {/* Balance card */}
           <div className="rounded-xl border bg-card p-6">
             <p className="text-sm text-muted-foreground">Current balance</p>
-            <p className="mt-2 text-4xl font-bold tabular-nums">${Number(profile?.balance ?? 0).toFixed(2)}</p>
-            {ccy && ccy.currency !== "USD" && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                ≈ {symbol}{(Number(profile?.balance ?? 0) * rate).toFixed(2)} {ccy.currency}
-              </p>
-            )}
+            <p className="mt-2 text-4xl font-bold tabular-nums text-gradient">
+              {symbol}{(Number(profile?.balance ?? 0) * rate).toFixed(2)} <span className="text-lg font-semibold text-muted-foreground">{ccy?.currency ?? "USD"}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              ≈ ${Number(profile?.balance ?? 0).toFixed(2)} USD
+            </p>
           </div>
 
           {/* Add funds card */}
@@ -415,9 +415,12 @@ function WalletPage() {
                     <p className="text-sm font-medium capitalize">{t.type}</p>
                     <p className="truncate text-xs text-muted-foreground">{t.description ?? ""} · {new Date(t.created_at).toLocaleString()}</p>
                   </div>
-                  <span className={`shrink-0 tabular-nums text-sm font-semibold ${Number(t.amount) >= 0 ? "text-emerald-600" : "text-foreground"}`}>
-                    {Number(t.amount) >= 0 ? "+" : ""}${Number(t.amount).toFixed(2)}
-                  </span>
+                  <div className="text-right">
+                    <p className={`tabular-nums text-sm font-semibold ${Number(t.amount) >= 0 ? "text-emerald-600" : "text-foreground"}`}>
+                      {Number(t.amount) >= 0 ? "+" : ""}{symbol}{(Number(t.amount) * rate).toFixed(2)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">{Number(t.amount) >= 0 ? "+" : ""}${Number(t.amount).toFixed(2)} USD</p>
+                  </div>
                 </li>
               ))}
             </ul>

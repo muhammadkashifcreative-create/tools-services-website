@@ -5,6 +5,7 @@ import { ArrowRight, Wallet, Receipt, Sparkles, TrendingUp } from "lucide-react"
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile } from "@/lib/wallet.functions";
 import { listMyOrders } from "@/lib/orders.functions";
+import { getUserCurrency } from "@/lib/geo.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard/")({
   head: () => ({ meta: [{ title: "Dashboard — Social Padu" }] }),
@@ -14,9 +15,14 @@ export const Route = createFileRoute("/_authenticated/dashboard/")({
 function Dashboard() {
   const fetchProfile = useServerFn(getMyProfile);
   const fetchOrders = useServerFn(listMyOrders);
+  const fetchCcy = useServerFn(getUserCurrency);
   const { data: profile } = useQuery({ queryKey: ["profile"], queryFn: () => fetchProfile() });
   const { data: orders } = useQuery({ queryKey: ["orders"], queryFn: () => fetchOrders() });
+  const { data: ccy } = useQuery({ queryKey: ["user-currency"], queryFn: () => fetchCcy(), staleTime: 30 * 60 * 1000 });
 
+  const symbol = ccy?.symbol ?? "RM";
+  const rate = ccy?.rate ?? 4.7;
+  const fmt = (usd: number) => `${symbol}${(usd * rate).toFixed(2)}`;
   const totalSpent = (orders ?? []).reduce((s, o) => s + Number(o.charge), 0);
 
   return (
@@ -28,9 +34,9 @@ function Dashboard() {
         <p className="mt-1 text-sm text-muted-foreground sm:text-base">Here's a quick overview of your account.</p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <StatCard icon={Wallet} label="Wallet balance" value={`$${Number(profile?.balance ?? 0).toFixed(2)}`} />
+          <StatCard icon={Wallet} label="Wallet balance" value={fmt(Number(profile?.balance ?? 0))} sub={`$${Number(profile?.balance ?? 0).toFixed(2)} USD`} />
           <StatCard icon={Receipt} label="Total orders" value={String(orders?.length ?? 0)} />
-          <StatCard icon={TrendingUp} label="Total spent" value={`$${totalSpent.toFixed(2)}`} />
+          <StatCard icon={TrendingUp} label="Total spent" value={fmt(totalSpent)} sub={`$${totalSpent.toFixed(2)} USD`} />
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -99,13 +105,14 @@ function Dashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: typeof Wallet; label: string; value: string }) {
+function StatCard({ icon: Icon, label, value, sub }: { icon: typeof Wallet; label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-xl border bg-card p-6">
       <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         <Icon className="h-4 w-4" /> {label}
       </div>
       <p className="mt-3 text-3xl font-bold tabular-nums">{value}</p>
+      {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }
