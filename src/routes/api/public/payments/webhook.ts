@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { type StripeEnv, verifyWebhook } from "@/lib/stripe.server";
+import { deltaBalance } from "@/lib/balance.server";
 
 function detectEnv(): StripeEnv {
   // Use live if live key is configured, otherwise sandbox
@@ -19,7 +20,11 @@ async function handlePaymentIntent(pi: any) {
     return;
   }
 
-  // Idempotency — skip if already processed (prefix match to catch all description formats)
+  // tool_purchase is fulfilled client-side by confirmToolCardPurchase.
+  // Skipping here prevents incorrectly crediting the wallet if the webhook fires first.
+  if (kind === "tool_purchase") return;
+
+  // Idempotency — skip if already processed (prefix match catches all description formats)
   const { data: existing } = await supabaseAdmin
     .from("transactions")
     .select("id")
@@ -69,10 +74,8 @@ async function handlePaymentIntent(pi: any) {
         reference_id: order?.id ?? null,
       });
     } else {
-      // Provider failed — refund to wallet
-      const { data: profile } = await supabaseAdmin.from("profiles").select("balance").eq("id", userId).maybeSingle();
-      const newBal = +(Number(profile?.balance ?? 0) + usdAmount).toFixed(4);
-      await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", userId);
+      // Provider failed — atomically refund to wallet
+      await deltaBalance(userId, usdAmount);
       await supabaseAdmin.from("transactions").insert({
         user_id: userId, amount: usdAmount, type: "deposit",
         description: `stripe:${piId} — order failed, credited to wallet`,
@@ -81,10 +84,8 @@ async function handlePaymentIntent(pi: any) {
     return;
   }
 
-  // wallet_deposit — credit balance
-  const { data: profile } = await supabaseAdmin.from("profiles").select("balance").eq("id", userId).maybeSingle();
-  const newBal = +(Number(profile?.balance ?? 0) + usdAmount).toFixed(4);
-  await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", userId);
+  // wallet_deposit — atomically credit balance
+  await deltaBalance(userId, usdAmount);
   await supabaseAdmin.from("transactions").insert({
     user_id: userId, amount: usdAmount, type: "deposit",
     description: `stripe:${piId} Wallet top-up · ${meta.localAmount ?? ""} ${meta.localCurrency ?? "MYR"}`,

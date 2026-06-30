@@ -5,19 +5,9 @@ import {
   type StripeEnv,
   createStripeClient,
   getStripeErrorMessage,
+  toMinorUnit,
 } from "./stripe.server";
-
-const ZERO_DECIMAL = new Set([
-  "bif","clp","djf","gnf","jpy","kmf","krw","mga","pyg","rwf","ugx","vnd","vuv","xaf","xof","xpf",
-]);
-const THREE_DECIMAL = new Set(["bhd","jod","kwd","omr","tnd"]);
-
-function toMinorUnit(amount: number, currency: string): number {
-  const c = currency.toLowerCase();
-  if (ZERO_DECIMAL.has(c)) return Math.round(amount);
-  if (THREE_DECIMAL.has(c)) return Math.round(amount * 1000);
-  return Math.round(amount * 100);
-}
+import { deltaBalance } from "@/lib/balance.server";
 
 type CheckoutResult = { clientSecret: string } | { error: string };
 
@@ -91,10 +81,8 @@ export const confirmDeposit = createServerFn({ method: "POST" })
     const localAmount = pi.metadata?.localAmount ?? "";
     const localCurrency = pi.metadata?.localCurrency ?? "MYR";
 
-    const { data: profile } = await supabaseAdmin.from("profiles").select("balance").eq("id", context.userId).maybeSingle();
-    const newBal = +(Number(profile?.balance ?? 0) + usdAmount).toFixed(4);
+    const newBal = await deltaBalance(context.userId, usdAmount);
 
-    await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", context.userId);
     await supabaseAdmin.from("transactions").insert({
       user_id: context.userId,
       amount: usdAmount,
@@ -293,16 +281,14 @@ export const confirmOrderCheckout = createServerFn({ method: "POST" })
 
       return { ok: true, orderId: order?.id };
     } else {
-      // Provider failed — refund to wallet
-      const { data: profile } = await supabaseAdmin.from("profiles").select("balance").eq("id", context.userId).maybeSingle();
-      const newBal = +(Number(profile?.balance ?? 0) + usdAmount).toFixed(4);
-      await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", context.userId);
+      // Provider failed — refund to wallet atomically
+      const newBal = await deltaBalance(context.userId, usdAmount);
       await supabaseAdmin.from("transactions").insert({
         user_id: context.userId,
         amount: usdAmount,
         type: "deposit",
         description: `stripe:${piId} — order failed, credited to wallet`,
       });
-      throw new Error("Provider could not process the order. Your payment has been credited to your wallet.");
+      throw new Error(`Provider could not process the order. $${usdAmount.toFixed(2)} has been credited to your wallet.`);
     }
   });

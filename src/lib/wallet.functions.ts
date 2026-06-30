@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
+import { deltaBalance } from "@/lib/balance.server";
 
 export const getMyProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -43,31 +44,24 @@ export const listMyTransactions = createServerFn({ method: "GET" })
       .select("id, amount, type, description, created_at")
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
     if (error) throw new Error(error.message);
     return data ?? [];
   });
 
-// DEV / manual deposit. Until Stripe is wired, admins can grant credit.
-// Self-deposit demo flow: any signed-in user can add funds for testing.
-// Replace with Stripe-backed deposit before production.
+// Admin-only manual credit. Used by admins to grant wallet credit for testing or compensation.
 export const demoDeposit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => z.object({ amount: z.number().positive().max(500) }).parse(data))
   .handler(async ({ data, context }) => {
+    if ((context as { email?: string }).email !== ADMIN_EMAIL) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: profile } = await context.supabase
-      .from("profiles")
-      .select("balance")
-      .eq("id", context.userId)
-      .maybeSingle();
-    const newBal = +(Number(profile?.balance ?? 0) + data.amount).toFixed(4);
-    await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", context.userId);
+    const newBal = await deltaBalance(context.userId, data.amount);
     await supabaseAdmin.from("transactions").insert({
       user_id: context.userId,
       amount: data.amount,
       type: "deposit",
-      description: "Demo deposit (replace with Stripe)",
+      description: "Admin credit",
     });
     return { newBalance: newBal };
   });

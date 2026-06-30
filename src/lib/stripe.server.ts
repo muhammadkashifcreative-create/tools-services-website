@@ -2,6 +2,19 @@ import Stripe from "stripe";
 
 export type StripeEnv = "sandbox" | "live";
 
+// Shared currency helpers — single source of truth used by payments and toolstore.
+const ZERO_DECIMAL = new Set([
+  "bif","clp","djf","gnf","jpy","kmf","krw","mga","pyg","rwf","ugx","vnd","vuv","xaf","xof","xpf",
+]);
+const THREE_DECIMAL = new Set(["bhd","jod","kwd","omr","tnd"]);
+
+export function toMinorUnit(amount: number, currency: string): number {
+  const c = currency.toLowerCase();
+  if (ZERO_DECIMAL.has(c)) return Math.round(amount);
+  if (THREE_DECIMAL.has(c)) return Math.round(amount * 1000);
+  return Math.round(amount * 100);
+}
+
 function getEnv(key: string): string {
   const value = process.env[key];
   if (!value) throw new Error(`${key} is not configured in Vercel environment variables`);

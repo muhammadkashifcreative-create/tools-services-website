@@ -412,7 +412,7 @@ function WalletPage() {
               {(tx ?? []).map((t) => (
                 <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium capitalize">{t.type === "deposit" ? "Wallet top-up" : t.type === "order" ? "Order placed" : t.type}</p>
+                    <p className="text-sm font-medium capitalize">{{ deposit: "Wallet top-up", order: "Order placed", refund: "Order refund", tool_purchase: "Tool purchase" }[t.type] ?? t.type}</p>
                     <p className="truncate text-xs text-muted-foreground">
                       {(t.description ?? "").replace(/^stripe:\S+\s*/, "").trim() || (t.description ?? "")}
                       {" · "}{new Date(t.created_at).toLocaleString("en-MY", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}

@@ -1,11 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
+import { toMinorUnit } from "@/lib/stripe.server";
+import { deltaBalance } from "@/lib/balance.server";
 
 const CONN_KEY = "tool_store_connection";
 
 // ggsoma Partner API base URL
 const DEFAULT_TOOL_STORE_URL = "https://ggsoma.store/api/partner/v1";
+
+// Product ID for "Gemini Pro 18 Months" on the ggsoma catalog.
+// Used to restrict the GEMIPRO10 coupon. Update if ggsoma changes their catalog IDs.
+const GEMIPRO_PRODUCT_ID = "6";
 
 type Conn = { api_url: string; api_key: string };
 
@@ -210,6 +216,26 @@ export const getToolProductDetail = createServerFn({ method: "GET" })
     return found ? { ...found, max_qty: found.stock, sensitive: false } : null;
   });
 
+// ---------- Shared coupon logic ----------
+function applyCoupon(
+  couponCode: string | undefined,
+  productId: string,
+  baseTotal: number,
+): { discountUsd: number } | { error: string } {
+  const code = couponCode?.toUpperCase();
+  if (!code) return { discountUsd: 0 };
+  if (code === "WELCOME5") return { discountUsd: +(baseTotal * 0.05).toFixed(4) };
+  if (code === "GEMIPRO10") {
+    if (productId !== GEMIPRO_PRODUCT_ID) {
+      return { error: "Coupon GEMIPRO10 is only valid for Gemini Pro 18 Months" };
+    }
+    // Fixed RM10 off (converted to USD at ~4.7 rate; capped at 90% of total)
+    const discountUsd = Math.min(+(10 / 4.7).toFixed(4), +(baseTotal * 0.9).toFixed(4));
+    return { discountUsd };
+  }
+  return { error: "Invalid coupon code" };
+}
+
 // ---------- Purchase ----------
 type GgsomaOrderResp = {
   ok: boolean;
@@ -252,22 +278,9 @@ export const purchaseToolProduct = createServerFn({ method: "POST" })
     const baseTotal = +(Number(product.your_price) * data.qty).toFixed(4);
 
     // Apply coupon discount
-    let discountUsd = 0;
-    const couponCode = data.coupon?.toUpperCase();
-    if (couponCode === "WELCOME5") {
-      discountUsd = +(baseTotal * 0.05).toFixed(4);
-    } else if (couponCode === "GEMIPRO10") {
-      // RM10 off — only valid for product 6
-      if (data.productId !== "6") throw new Error("Coupon GEMIPRO10 is only valid for Gemini Pro 18 Months (product #6)");
-      const { getUserCurrency } = await import("./geo.functions");
-      let rate = 4.7;
-      try { const ccy = await getUserCurrency(); rate = ccy.rate || 4.7; } catch { /* use fallback */ }
-      discountUsd = Math.min(+(10 / rate).toFixed(4), baseTotal * 0.9); // RM10 in USD, max 90% off
-    } else if (couponCode) {
-      throw new Error("Invalid coupon code");
-    }
-
-    const total = +(baseTotal - discountUsd).toFixed(4);
+    const couponResult = applyCoupon(data.coupon, data.productId, baseTotal);
+    if ("error" in couponResult) throw new Error(couponResult.error);
+    const total = +(baseTotal - couponResult.discountUsd).toFixed(4);
 
     // 2) Check wallet balance
     const { data: profile } = await context.supabase
@@ -287,10 +300,9 @@ export const purchaseToolProduct = createServerFn({ method: "POST" })
     if (!resp.ok) throw new Error("Upstream purchase failed");
     const codes = extractDeliverables(resp);
 
-    // 4) Deduct wallet + record
+    // 4) Atomically debit wallet + record
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const newBal = +(balance - total).toFixed(4);
-    await supabaseAdmin.from("profiles").update({ balance: newBal }).eq("id", context.userId);
+    const newBal = await deltaBalance(context.userId, -total);
     await supabaseAdmin.from("transactions").insert({
       user_id: context.userId,
       amount: -total,
@@ -322,22 +334,14 @@ export const listMyToolOrders = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("tool_orders")
       .select("id, product_name, qty, unit_price, total_price, codes, status, created_at")
+      .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
     if (error) throw new Error(error.message);
     return data ?? [];
   });
 
 // ---------- Create card checkout for tool purchase ----------
-function toMinorUnitTool(amount: number, currency: string): number {
-  const c = currency.toLowerCase();
-  const zero = new Set(["bif","clp","djf","gnf","jpy","kmf","krw","mga","pyg","rwf","ugx","vnd","vuv","xaf","xof","xpf"]);
-  const three = new Set(["bhd","jod","kwd","omr","tnd"]);
-  if (zero.has(c)) return Math.round(amount);
-  if (three.has(c)) return Math.round(amount * 1000);
-  return Math.round(amount * 100);
-}
-
 export const createToolCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { productId: string; qty: number; coupon?: string; environment: string }) =>
@@ -351,29 +355,33 @@ export const createToolCheckout = createServerFn({ method: "POST" })
     const product = products.find((p) => p.id === data.productId);
     if (!product) throw new Error("Product not found");
     if (!product.in_stock) throw new Error("Product is out of stock");
+
     const baseTotal = +(Number(product.your_price) * data.qty).toFixed(4);
-    let discountUsd = 0;
-    const couponCode = data.coupon?.toUpperCase();
-    if (couponCode === "WELCOME5") discountUsd = +(baseTotal * 0.05).toFixed(4);
-    else if (couponCode === "GEMIPRO10") {
-      if (data.productId !== "6") throw new Error("Coupon only valid for Gemini Pro 18 Months");
-      const { getUserCurrency } = await import("./geo.functions");
-      let rate = 4.7;
-      try { const ccy = await getUserCurrency(); rate = ccy.rate || 4.7; } catch { /* fallback */ }
-      discountUsd = Math.min(+(10 / rate).toFixed(4), baseTotal * 0.9);
-    } else if (couponCode) throw new Error("Invalid coupon code");
-    const usdTotal = +(baseTotal - discountUsd).toFixed(4);
+    const couponResult = applyCoupon(data.coupon, data.productId, baseTotal);
+    if ("error" in couponResult) throw new Error(couponResult.error);
+    const usdTotal = +(baseTotal - couponResult.discountUsd).toFixed(4);
+
     const { getUserCurrency } = await import("./geo.functions");
     const ccy = await getUserCurrency();
     const localAmount = +(usdTotal * ccy.rate).toFixed(2);
-    const minor = toMinorUnitTool(localAmount, ccy.currency);
+    const minor = toMinorUnit(localAmount, ccy.currency);
     if (minor < 50) throw new Error("Amount too small for payment");
+
     const { createStripeClient } = await import("@/lib/stripe.server");
     const stripe = createStripeClient(data.environment as "sandbox" | "live");
     const pi = await stripe.paymentIntents.create({
-      amount: minor, currency: ccy.currency.toLowerCase(), payment_method_types: ["card"],
+      amount: minor,
+      currency: ccy.currency.toLowerCase(),
+      payment_method_types: ["card"],
       description: `Social Padu — ${product.name_en}`,
-      metadata: { userId: context.userId, kind: "tool_purchase", productId: data.productId, qty: String(data.qty), coupon: data.coupon ?? "", usdAmount: usdTotal.toFixed(4) },
+      metadata: {
+        userId: context.userId,
+        kind: "tool_purchase",
+        productId: data.productId,
+        qty: String(data.qty),
+        coupon: data.coupon ?? "",
+        usdAmount: usdTotal.toFixed(4),
+      },
     });
     return { clientSecret: pi.client_secret ?? "" };
   });
@@ -389,9 +397,13 @@ export const confirmToolCardPurchase = createServerFn({ method: "POST" })
     const pi = await stripe.paymentIntents.retrieve(data.paymentIntentId);
     if (pi.metadata?.userId !== context.userId) throw new Error("Not authorized");
     if (pi.status !== "succeeded") throw new Error("Payment not completed");
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Idempotency — already processed
     const { data: existingTx } = await supabaseAdmin.from("transactions").select("id").like("description", `stripe:${pi.id}%`).limit(1).maybeSingle();
     if (existingTx) return { ok: true, codes: [] as string[], alreadyDone: true };
+
     const productId = pi.metadata?.productId ?? "";
     const qty = Number(pi.metadata?.qty ?? 1);
     const usdAmount = Number(pi.metadata?.usdAmount ?? 0);
@@ -401,11 +413,30 @@ export const confirmToolCardPurchase = createServerFn({ method: "POST" })
     const products = mapProducts(r.data ?? [], markupPct);
     const product = products.find((p) => p.id === productId);
     if (!product) throw new Error("Product not found");
+
     const externalOrderId = `sp-card-${context.userId.slice(0, 8)}-${Date.now()}`;
-    const resp = await callStore<GgsomaOrderResp>(conn, "/orders", { method: "POST", body: JSON.stringify({ productSlug: product.slug, quantity: qty, externalOrderId }) });
+    const resp = await callStore<GgsomaOrderResp>(conn, "/orders", {
+      method: "POST",
+      body: JSON.stringify({ productSlug: product.slug, quantity: qty, externalOrderId }),
+    });
     if (!resp.ok) throw new Error("Failed to process order");
     const codes = extractDeliverables(resp);
-    await supabaseAdmin.from("transactions").insert({ user_id: context.userId, amount: -usdAmount, type: "tool_purchase", description: `stripe:${pi.id} ${product.name_en} × ${qty}` });
-    await supabaseAdmin.from("tool_orders").insert({ user_id: context.userId, product_id: productId, product_name: product.name_en, qty, unit_price: product.your_price, total_price: usdAmount, codes, status: "completed" });
+
+    await supabaseAdmin.from("transactions").insert({
+      user_id: context.userId,
+      amount: -usdAmount,
+      type: "tool_purchase",
+      description: `stripe:${pi.id} ${product.name_en} × ${qty}`,
+    });
+    await supabaseAdmin.from("tool_orders").insert({
+      user_id: context.userId,
+      product_id: productId,
+      product_name: product.name_en,
+      qty,
+      unit_price: product.your_price,
+      total_price: usdAmount,
+      codes,
+      status: "completed",
+    });
     return { ok: true, codes };
   });

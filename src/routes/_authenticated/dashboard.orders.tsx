@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useEffect } from "react";
 import { RefreshCw, Loader2, Clock4 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
-import { listMyOrders, refreshOrderStatus } from "@/lib/orders.functions";
+import { listMyOrders, refreshOrderStatus, syncMyActiveOrders } from "@/lib/orders.functions";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -15,14 +16,31 @@ export const Route = createFileRoute("/_authenticated/dashboard/orders")({
 function OrdersPage() {
   const fetchOrders = useServerFn(listMyOrders);
   const refresh = useServerFn(refreshOrderStatus);
+  const sync = useServerFn(syncMyActiveOrders);
   const qc = useQueryClient();
   const { data: orders, isLoading } = useQuery({ queryKey: ["orders"], queryFn: () => fetchOrders() });
 
+  // Auto-sync all active orders on page mount
+  useEffect(() => {
+    sync({ data: {} }).then((result) => {
+      if (result.synced > 0) {
+        qc.invalidateQueries({ queryKey: ["orders"] });
+        if (result.refunded > 0) {
+          toast.info(`${result.refunded} order${result.refunded > 1 ? "s were" : " was"} cancelled — your balance has been refunded`);
+        }
+      }
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const mut = useMutation({
     mutationFn: (orderId: string) => refresh({ data: { orderId } }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Status updated");
+      if (result.refunded) {
+        toast.info("Order was cancelled — your balance has been refunded");
+      } else {
+        toast.success("Status updated");
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });

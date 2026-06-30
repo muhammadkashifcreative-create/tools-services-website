@@ -232,6 +232,32 @@ export async function sendOrderConfirmationEmail(
   await sendEmail(to, `🚀 Order confirmed — ${serviceName}`, layout(`Your order for ${serviceName} is being processed`, "Order Placed", body));
 }
 
+export async function sendOrderCancelledEmail(
+  to: string, name: string, orderId: string,
+  serviceName: string, refundAmount: number, newBalance: number,
+) {
+  const body = `
+    ${heroIcon("❌", "#fef2f2")}
+    ${h1("Order cancelled — balance refunded")}
+    ${subtitle(`Hi <strong>${name || "there"}</strong>, your order was cancelled by the provider. The full amount has been automatically refunded to your wallet.`)}
+    ${infoCard([
+      ["Order ID", `#${orderId.slice(0, 8).toUpperCase()}`],
+      ["Service", serviceName],
+      ["Amount refunded", `$${refundAmount.toFixed(2)} USD`],
+      ["New wallet balance", `$${newBalance.toFixed(2)} USD`],
+      ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
+    ])}
+    ${alertBox("Your refund is available in your wallet immediately. You can place a new order any time.", "success")}
+    ${cta("Place a new order →", `${BASE_URL}/dashboard/new-order`)}
+    <p style="margin:16px 0 0;font-size:13px;color:#64748b;text-align:center;">If you believe this was a mistake, please contact our support team.</p>
+  `;
+  await sendEmail(
+    to,
+    `Order cancelled — $${refundAmount.toFixed(2)} refunded to your wallet`,
+    layout(`Order #${orderId.slice(0, 8).toUpperCase()} cancelled and refunded`, "Order Cancelled", body),
+  );
+}
+
 export async function sendCaseOpenedEmail(to: string, name: string, caseId: string, subject: string) {
   const body = `
     ${heroIcon("🎫", "#faf5ff")}
