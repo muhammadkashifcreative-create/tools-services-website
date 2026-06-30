@@ -12,6 +12,21 @@ function tokenKey(token: string) {
   return `_auth_token_${hash}`;
 }
 
+// Prune expired tokens from app_settings to prevent accumulation.
+// Runs asynchronously on each store — does not block the caller.
+async function pruneExpiredTokens() {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const now = Math.floor(Date.now() / 1000);
+    // Delete rows whose value->>'exp' is below now and key starts with the token prefix
+    await supabaseAdmin
+      .from("app_settings")
+      .delete()
+      .like("key", "_auth_token_%")
+      .lt("value->>exp", String(now));
+  } catch { /* non-critical */ }
+}
+
 export async function storeToken(
   token: string,
   payload: { userId: string; email: string; type: "verify" | "reset" },
@@ -23,6 +38,9 @@ export async function storeToken(
     value: { ...payload, exp: Math.floor(Date.now() / 1000) + ttl },
   });
   if (error) throw error;
+
+  // Clean up expired tokens in the background
+  pruneExpiredTokens();
 }
 
 export async function deleteToken(token: string) {

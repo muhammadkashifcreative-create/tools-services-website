@@ -2,7 +2,10 @@ import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { readSession } from "@/lib/direct-google-auth.server";
 
-export const ADMIN_EMAIL = "muhammadkashif.creative@gmail.com";
+// Read from env var so the admin account can be changed without a code deploy.
+// Falls back to the original value so existing deployments keep working.
+export const ADMIN_EMAIL =
+  process.env.ADMIN_EMAIL ?? "muhammadkashif.creative@gmail.com";
 
 export const requireDirectAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {

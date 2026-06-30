@@ -282,27 +282,53 @@ export const purchaseToolProduct = createServerFn({ method: "POST" })
     if ("error" in couponResult) throw new Error(couponResult.error);
     const total = +(baseTotal - couponResult.discountUsd).toFixed(4);
 
-    // 2) Check wallet balance
+    // 2) Read balance for idempotency return value (floor enforced by deltaBalance in step 3)
     const { data: profile } = await context.supabase
       .from("profiles")
       .select("balance")
       .eq("id", context.userId)
       .maybeSingle();
-    const balance = Number(profile?.balance ?? 0);
-    if (balance < total) throw new Error("Insufficient wallet balance. Top up first.");
 
-    // 3) Place order via ggsoma Partner API
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Idempotency: reject if the same user bought the same product in the last 30 seconds
+    const thirtySecsAgo = new Date(Date.now() - 30_000).toISOString();
+    const { data: recent } = await supabaseAdmin
+      .from("tool_orders")
+      .select("id, codes")
+      .eq("user_id", context.userId)
+      .eq("product_id", data.productId)
+      .eq("qty", data.qty)
+      .gte("created_at", thirtySecsAgo)
+      .limit(1)
+      .maybeSingle();
+    if (recent) return { ok: true, orderId: recent.id, codes: recent.codes as string[], newBalance: Number(profile?.balance ?? 0) };
+
+    // 3) Atomically debit wallet first — refund if provider call fails
+    let newBal: number;
+    try {
+      newBal = await deltaBalance(context.userId, -total);
+    } catch (err: any) {
+      if (err.message?.includes("Insufficient")) throw new Error("Insufficient wallet balance. Top up first.");
+      throw err;
+    }
+
+    // 4) Place order via ggsoma Partner API
     const externalOrderId = `sp-${context.userId.slice(0, 8)}-${Date.now()}`;
-    const resp = await callStore<GgsomaOrderResp>(conn, "/orders", {
-      method: "POST",
-      body: JSON.stringify({ productSlug: product.slug, quantity: data.qty, externalOrderId }),
-    });
-    if (!resp.ok) throw new Error("Upstream purchase failed");
+    let resp: GgsomaOrderResp;
+    try {
+      resp = await callStore<GgsomaOrderResp>(conn, "/orders", {
+        method: "POST",
+        body: JSON.stringify({ productSlug: product.slug, quantity: data.qty, externalOrderId }),
+      });
+      if (!resp.ok) throw new Error("Upstream purchase failed");
+    } catch {
+      await deltaBalance(context.userId, total).catch(console.error);
+      throw new Error("Purchase could not be completed. Your balance has been refunded.");
+    }
     const codes = extractDeliverables(resp);
 
-    // 4) Atomically debit wallet + record
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const newBal = await deltaBalance(context.userId, -total);
+    // 5) Record transaction + order
     await supabaseAdmin.from("transactions").insert({
       user_id: context.userId,
       amount: -total,

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { consumeToken } from "@/lib/auth-tokens.server";
 import { createSessionCookie } from "@/lib/direct-google-auth.server";
+import { rateLimit, getClientIp } from "@/lib/rate-limit.server";
 
 export const Route = createFileRoute("/api/auth/verify-email")({
   server: {
@@ -8,6 +9,13 @@ export const Route = createFileRoute("/api/auth/verify-email")({
       GET: async ({ request }) => {
         const token = new URL(request.url).searchParams.get("token");
         if (!token) return Response.redirect(new URL("/auth?error=Invalid+verification+link", request.url));
+
+        // 20 verification attempts per hour per IP — blocks token brute-force
+        const ip = getClientIp(request);
+        const rl = await rateLimit(`verify:ip:${ip}`, 20, 3600);
+        if (!rl.allowed) {
+          return Response.redirect(new URL("/auth?error=Too+many+attempts.+Please+try+again+later.", request.url));
+        }
 
         try {
           const payload = await consumeToken(token, "verify");
@@ -34,7 +42,7 @@ export const Route = createFileRoute("/api/auth/verify-email")({
             headers: { location: "/dashboard?verified=1", "set-cookie": cookie },
           });
         } catch (e) {
-          console.error("verify-email error", e);
+          console.error("verify-email error");
           return Response.redirect(new URL("/auth?error=Verification+failed.+Please+try+again.", request.url));
         }
       },

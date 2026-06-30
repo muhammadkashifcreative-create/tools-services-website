@@ -1,12 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { createSessionCookie } from "@/lib/direct-google-auth.server";
+import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit.server";
 
 export const Route = createFileRoute("/api/auth/login")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         try {
+          const ip = getClientIp(request);
+
+          // 10 login attempts per 15 minutes per IP
+          const rl = await rateLimit(`login:ip:${ip}`, 10, 900);
+          if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
           const { email, password } = (await request.json()) as { email?: string; password?: string };
 
           if (!email || !password) return Response.json({ error: "Email and password are required" }, { status: 400 });
@@ -57,7 +64,7 @@ export const Route = createFileRoute("/api/auth/login")({
             headers: { "set-cookie": cookie },
           });
         } catch (e) {
-          console.error("login error", e);
+          console.error("login error");
           return Response.json({ error: "Login failed. Please try again." }, { status: 500 });
         }
       },

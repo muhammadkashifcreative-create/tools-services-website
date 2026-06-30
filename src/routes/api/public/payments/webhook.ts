@@ -1,11 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { type StripeEnv, verifyWebhook } from "@/lib/stripe.server";
+import { type StripeEnv, verifyWebhookBody } from "@/lib/stripe.server";
 import { deltaBalance } from "@/lib/balance.server";
 
-function detectEnv(): StripeEnv {
-  // Use live if live key is configured, otherwise sandbox
-  if (process.env.STRIPE_LIVE_API_KEY || process.env.STRIPE_SECRET_KEY) return "live";
-  return "sandbox";
+// Auto-detect which Stripe environment signed the webhook by trying each configured
+// secret. This prevents attackers from forcing ?env=sandbox against a live deployment.
+async function parseWebhook(
+  request: Request,
+): Promise<{ event: { type: string; data: { object: unknown } }; env: StripeEnv }> {
+  const signature = request.headers.get("stripe-signature") ?? "";
+  const body = await request.text();
+
+  const liveSecret =
+    process.env.PAYMENTS_LIVE_WEBHOOK_SECRET ?? process.env.STRIPE_WEBHOOK_SECRET;
+  const sandboxSecret = process.env.PAYMENTS_SANDBOX_WEBHOOK_SECRET;
+
+  if (liveSecret) {
+    try {
+      const event = await verifyWebhookBody(body, signature, liveSecret);
+      return { event, env: "live" };
+    } catch {
+      // signature didn't match live secret — try sandbox
+    }
+  }
+
+  if (sandboxSecret) {
+    const event = await verifyWebhookBody(body, signature, sandboxSecret);
+    return { event, env: "sandbox" };
+  }
+
+  throw new Error("No webhook secret configured or signature verification failed");
 }
 
 async function handlePaymentIntent(pi: any) {
@@ -16,7 +39,7 @@ async function handlePaymentIntent(pi: any) {
   const kind = (meta.kind as string | undefined) ?? "wallet_deposit";
 
   if (!userId || !piId) {
-    console.error("webhook: missing userId or paymentIntentId", { userId, piId });
+    console.error("webhook: missing userId or paymentIntentId");
     return;
   }
 
@@ -24,7 +47,7 @@ async function handlePaymentIntent(pi: any) {
   // Skipping here prevents incorrectly crediting the wallet if the webhook fires first.
   if (kind === "tool_purchase") return;
 
-  // Idempotency — skip if already processed (prefix match catches all description formats)
+  // Idempotency — skip if already processed
   const { data: existing } = await supabaseAdmin
     .from("transactions")
     .select("id")
@@ -42,7 +65,7 @@ async function handlePaymentIntent(pi: any) {
     const quantity = Number(meta.quantity);
 
     if (!serviceId || !link || !quantity) {
-      console.error("webhook order_payment: missing fields", meta);
+      console.error("webhook order_payment: missing fields");
       return;
     }
 
@@ -59,8 +82,8 @@ async function handlePaymentIntent(pi: any) {
       const { placeOrder: providerPlace } = await import("@/lib/famousprovider.server");
       const res = await providerPlace({ service: service.provider_service_id, link, quantity });
       providerOrderId = String(res.order);
-    } catch (e) {
-      console.error("webhook: provider order failed, crediting wallet", e);
+    } catch {
+      console.error("webhook: provider order failed, crediting wallet");
     }
 
     if (providerOrderId) {
@@ -96,12 +119,8 @@ export const Route = createFileRoute("/api/public/payments/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Accept env from query param or auto-detect
-        const rawEnv = new URL(request.url).searchParams.get("env");
-        const env: StripeEnv = (rawEnv === "sandbox" || rawEnv === "live") ? rawEnv : detectEnv();
-
         try {
-          const event = await verifyWebhook(request, env);
+          const { event } = await parseWebhook(request);
 
           if (event.type === "payment_intent.succeeded") {
             await handlePaymentIntent(event.data.object);
@@ -109,7 +128,6 @@ export const Route = createFileRoute("/api/public/payments/webhook")({
             event.type === "checkout.session.completed" ||
             event.type === "checkout.session.async_payment_succeeded"
           ) {
-            // Legacy support for checkout sessions
             const session = event.data.object as any;
             const piId = session?.payment_intent as string;
             if (piId && session?.metadata) {
@@ -121,7 +139,7 @@ export const Route = createFileRoute("/api/public/payments/webhook")({
 
           return Response.json({ received: true });
         } catch (e) {
-          console.error("Webhook error:", e);
+          console.error("Webhook error:", (e as Error).message);
           return new Response("Webhook error", { status: 400 });
         }
       },

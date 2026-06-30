@@ -37,16 +37,13 @@ export function getStripeErrorMessage(error: unknown): string {
   return "Payment failed";
 }
 
-export async function verifyWebhook(
-  req: Request,
-  env: StripeEnv,
+// Pure signature verification — accepts pre-read body string so the caller
+// can try multiple secrets without re-reading the request stream.
+export async function verifyWebhookBody(
+  body: string,
+  signature: string,
+  secret: string,
 ): Promise<{ type: string; data: { object: unknown } }> {
-  const signature = req.headers.get("stripe-signature");
-  const body = await req.text();
-  const secret = env === "sandbox"
-    ? (process.env.PAYMENTS_SANDBOX_WEBHOOK_SECRET ?? getEnv("STRIPE_WEBHOOK_SECRET"))
-    : (process.env.PAYMENTS_LIVE_WEBHOOK_SECRET ?? getEnv("STRIPE_WEBHOOK_SECRET"));
-
   if (!signature || !body) throw new Error("Missing Stripe signature");
 
   let timestamp: string | undefined;
@@ -58,7 +55,8 @@ export async function verifyWebhook(
   }
   if (!timestamp || !v1.length) throw new Error("Invalid Stripe signature format");
 
-  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300)
+  // Allow up to 10 minutes to handle delayed delivery during Stripe outages
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 600)
     throw new Error("Stripe webhook timestamp too old");
 
   const key = await crypto.subtle.importKey(
@@ -70,4 +68,17 @@ export async function verifyWebhook(
   if (!v1.includes(expected)) throw new Error("Invalid Stripe webhook signature");
 
   return JSON.parse(body);
+}
+
+// Convenience wrapper that reads the request body and selects the secret by env.
+export async function verifyWebhook(
+  req: Request,
+  env: StripeEnv,
+): Promise<{ type: string; data: { object: unknown } }> {
+  const signature = req.headers.get("stripe-signature") ?? "";
+  const body = await req.text();
+  const secret = env === "sandbox"
+    ? (process.env.PAYMENTS_SANDBOX_WEBHOOK_SECRET ?? getEnv("STRIPE_WEBHOOK_SECRET"))
+    : (process.env.PAYMENTS_LIVE_WEBHOOK_SECRET ?? getEnv("STRIPE_WEBHOOK_SECRET"));
+  return verifyWebhookBody(body, signature, secret);
 }

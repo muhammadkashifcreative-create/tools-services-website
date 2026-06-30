@@ -55,29 +55,35 @@ export const placeOrder = createServerFn({ method: "POST" })
       throw new Error("Invalid coupon code");
     }
 
-    // Check balance before touching anything
-    const { data: profile, error: pErr } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("id", userId)
-      .maybeSingle();
-    if (pErr) throw new Error(pErr.message);
-    const balance = Number(profile?.balance ?? 0);
-    if (balance < charge) throw new Error(`Insufficient balance. Need $${charge.toFixed(2)}, have $${balance.toFixed(2)}`);
-
-    // Submit to provider
-    const { placeOrder: providerPlace } = await import("./famousprovider.server");
-    const providerRes = await providerPlace({
-      service: service.provider_service_id,
-      link: data.link,
-      quantity: data.quantity,
-    });
-    const providerOrderId = String(providerRes.order);
-
-    // Atomically debit balance
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const newBalance = await deltaBalance(userId, -charge);
 
+    // 1. Atomically debit balance first. DB raises "Insufficient balance" if too low.
+    let newBalance: number;
+    try {
+      newBalance = await deltaBalance(userId, -charge);
+    } catch (err: any) {
+      if (err.message?.includes("Insufficient")) {
+        throw new Error(`Insufficient balance. Need $${charge.toFixed(2)}`);
+      }
+      throw err;
+    }
+
+    // 2. Submit to provider. Refund immediately if provider rejects.
+    let providerOrderId: string;
+    try {
+      const { placeOrder: providerPlace } = await import("./famousprovider.server");
+      const providerRes = await providerPlace({
+        service: service.provider_service_id,
+        link: data.link,
+        quantity: data.quantity,
+      });
+      providerOrderId = String(providerRes.order);
+    } catch {
+      await deltaBalance(userId, charge).catch(console.error);
+      throw new Error("Order could not be placed with the provider. Your balance has been refunded.");
+    }
+
+    // 3. Save order record. Refund if DB write fails.
     const { data: order, error: oErr } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -91,7 +97,10 @@ export const placeOrder = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (oErr) throw new Error(oErr.message);
+    if (oErr) {
+      await deltaBalance(userId, charge).catch(console.error);
+      throw new Error("Order could not be saved. Your balance has been refunded.");
+    }
 
     await supabaseAdmin.from("transactions").insert({
       user_id: userId,
