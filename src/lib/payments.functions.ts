@@ -90,7 +90,7 @@ export const confirmDeposit = createServerFn({ method: "POST" })
       description: `stripe:${pi.id} Wallet top-up · ${localAmount} ${localCurrency}`,
     });
 
-    // Send payment confirmation email (non-blocking)
+    // Send payment confirmation email + Telegram (non-blocking)
     const { data: prof } = await supabaseAdmin.from("profiles").select("full_name").eq("id", context.userId).maybeSingle();
     const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(context.userId);
     const toEmail = authUser?.user?.email;
@@ -104,6 +104,9 @@ export const confirmDeposit = createServerFn({ method: "POST" })
           pi.metadata?.localCurrency ?? "USD",
           newBal,
         ).catch(console.error);
+      });
+      import("@/lib/telegram.server").then(({ tgDeposit }) => {
+        tgDeposit(toEmail, usdAmount, newBal).catch(console.error);
       });
     }
 
@@ -269,13 +272,16 @@ export const confirmOrderCheckout = createServerFn({ method: "POST" })
         reference_id: order?.id ?? null,
       });
 
-      // Send confirmation email (non-blocking)
+      // Send confirmation email + Telegram (non-blocking)
       const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(context.userId);
       const toEmail = authUser?.user?.email;
       if (toEmail && order?.id) {
         const { data: prof } = await supabaseAdmin.from("profiles").select("full_name").eq("id", context.userId).maybeSingle();
         import("@/lib/email.server").then(({ sendOrderConfirmationEmail }) => {
           sendOrderConfirmationEmail(toEmail, prof?.full_name ?? "", order.id, service.name, quantity, usdAmount, link).catch(console.error);
+        });
+        import("@/lib/telegram.server").then(({ tgOrder }) => {
+          tgOrder(toEmail, service.name, quantity, usdAmount, link, "card").catch(console.error);
         });
       }
 

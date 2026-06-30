@@ -106,6 +106,11 @@ export const Route = createFileRoute("/api/auth/register")({
             { onConflict: "id" },
           );
 
+          // Notify Telegram (non-blocking)
+          import("@/lib/telegram.server").then(({ tgSignup }) => {
+            tgSignup(normalizedEmail, displayName).catch(console.error);
+          });
+
           try {
             await sendVerification(userId);
           } catch (sendError) {

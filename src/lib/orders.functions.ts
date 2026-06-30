@@ -101,13 +101,16 @@ export const placeOrder = createServerFn({ method: "POST" })
       reference_id: order.id,
     });
 
-    // Send order confirmation email (non-blocking)
+    // Send order confirmation email + Telegram (non-blocking)
     const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
     const toEmail = authUser?.user?.email;
     if (toEmail) {
       const { data: prof } = await supabaseAdmin.from("profiles").select("full_name").eq("id", userId).maybeSingle();
       import("@/lib/email.server").then(({ sendOrderConfirmationEmail }) => {
         sendOrderConfirmationEmail(toEmail, prof?.full_name ?? "", order.id, service.name, data.quantity, charge, data.link).catch(console.error);
+      });
+      import("@/lib/telegram.server").then(({ tgOrder }) => {
+        tgOrder(toEmail, service.name, data.quantity, charge, data.link, "wallet").catch(console.error);
       });
     }
 
