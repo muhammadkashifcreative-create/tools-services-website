@@ -35,3 +35,15 @@ export function tgDeposit(email: string, amount: number, newBalance: number) {
     `💰 <b>Wallet Deposit</b>\n👤 ${maskEmail(email)}\n💵 +$${amount.toFixed(2)} USD\n💼 Balance: $${newBalance.toFixed(2)}`,
   );
 }
+
+export function tgToolOrder(
+  email: string,
+  productName: string,
+  qty: number,
+  totalUsd: number,
+  orderId: string,
+) {
+  return notifyTelegram(
+    `🛒 <b>New Tool Order</b>\n👤 ${maskEmail(email)}\n📦 ${productName} × ${qty}\n💵 $${totalUsd.toFixed(2)} USD\n🆔 #${orderId.slice(0, 8).toUpperCase()}\n🕐 ${new Date().toUTCString()}`,
+  );
+}

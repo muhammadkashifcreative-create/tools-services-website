@@ -437,6 +437,14 @@ export const purchaseToolProduct = createServerFn({ method: "POST" })
       .select("id")
       .single();
 
+    // Notify admin on Telegram (non-blocking)
+    const buyerEmail = (context as { email?: string }).email;
+    if (buyerEmail) {
+      import("@/lib/telegram.server").then(({ tgToolOrder }) => {
+        tgToolOrder(buyerEmail, product.name_en, data.qty, total, order?.id ?? "").catch(console.error);
+      });
+    }
+
     return { ok: true, orderId: order?.id, codes, newBalance: newBal };
   });
 
@@ -551,5 +559,14 @@ export const confirmToolCardPurchase = createServerFn({ method: "POST" })
       codes,
       status: "completed",
     });
+
+    // Notify admin on Telegram (non-blocking)
+    const buyerEmail = (context as { email?: string }).email;
+    if (buyerEmail) {
+      import("@/lib/telegram.server").then(({ tgToolOrder }) => {
+        tgToolOrder(buyerEmail, product.name_en, qty, usdAmount, externalOrderId).catch(console.error);
+      });
+    }
+
     return { ok: true, codes };
   });
