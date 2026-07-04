@@ -25,7 +25,6 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { getMyProfile } from "@/lib/wallet.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 
 export const Route = createFileRoute("/tools/store")({
@@ -44,11 +43,11 @@ export const Route = createFileRoute("/tools/store")({
 function ToolsStorePublicPage() {
   const fetchStatus = useServerFn(getToolStoreStatusPublic);
   const fetchProducts = useServerFn(listToolProductsPublic);
-  const fetchProfile = useServerFn(getMyProfile);
   const fetchCurrency = useServerFn(getUserCurrency);
 
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [query, setQuery] = useState("");
+  const [selectedQty, setSelectedQty] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("product");
@@ -65,11 +64,6 @@ function ToolsStorePublicPage() {
     queryFn: () => fetchProducts(),
     enabled: true, // always attempt — server will return not-connected if no key
     retry: 1,
-  });
-  const { data: profile } = useQuery({
-    queryKey: ["profile"],
-    queryFn: () => fetchProfile(),
-    enabled: authed === true,
   });
   const { data: ccy } = useQuery({
     queryKey: ["user-currency"],
@@ -115,7 +109,7 @@ function ToolsStorePublicPage() {
               </div>
             </div>
             {!authed && (
-              <Link to="/auth" className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow" style={{ background: "var(--gradient-accent)" }}>
+              <Link to="/auth" search={{ redirect: "/tools/store" }} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow" style={{ background: "var(--gradient-accent)" }}>
                 <LogIn className="h-4 w-4" /> Login to buy
               </Link>
             )}
@@ -196,11 +190,9 @@ function ToolsStorePublicPage() {
                   key={p.id}
                   product={p}
                   authed={authed === true}
-                  walletBalance={Number(profile?.balance ?? 0)}
-                  onPurchased={() => refetch()}
                   fxSymbol={fxSymbol}
                   fxRate={fxRate}
-                  onViewDetail={() => setSelectedProductId(p.id)}
+                  onViewDetail={(qty) => { setSelectedQty(qty); setSelectedProductId(p.id); }}
                 />
               ))}
             </div>
@@ -210,9 +202,10 @@ function ToolsStorePublicPage() {
         <ProductDetailModal
           productId={selectedProductId}
           authed={authed === true}
+          initialQty={selectedQty}
           fxSymbol={fxSymbol}
           fxRate={fxRate}
-          onClose={() => setSelectedProductId(null)}
+          onClose={() => { setSelectedProductId(null); setSelectedQty(1); refetch(); }}
         />
       )}
       <SiteFooter />
@@ -247,27 +240,12 @@ function paletteFor(id: string) {
   return PALETTES[h % PALETTES.length];
 }
 
-function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fxRate, onViewDetail }: { product: ToolProduct; authed: boolean; walletBalance: number; onPurchased: () => void; fxSymbol: string; fxRate: number; onViewDetail: () => void }) {
+function ProductCard({ product, authed, fxSymbol, fxRate, onViewDetail }: { product: ToolProduct; authed: boolean; fxSymbol: string; fxRate: number; onViewDetail: (qty: number) => void }) {
   const [qty, setQty] = useState(1);
-  const purchase = useServerFn(purchaseToolProduct);
-  const qc = useQueryClient();
-  const mut = useMutation({
-    mutationFn: () => purchase({ data: { productId: product.id, qty } }),
-    onSuccess: (r) => {
-      toast.success(`Purchased! ${r.codes.length} code(s) delivered.`);
-      qc.invalidateQueries({ queryKey: ["profile"] });
-      onPurchased();
-      if (r.codes?.length) {
-        navigator.clipboard?.writeText(r.codes.join("\n")).catch(() => {});
-      }
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
   const totalUsd = +(Number(product.your_price) * qty).toFixed(2);
   const totalLocal = +(totalUsd * fxRate).toFixed(2);
   const priceLocal = +(Number(product.your_price) * fxRate).toFixed(2);
   const outOfStock = product.in_stock === false || product.stock === 0;
-  const canAfford = !authed || walletBalance >= totalUsd;
   const fmt = (n: number) => `${fxSymbol}${n.toFixed(2)}`;
   const ps = paletteFor(product.id);
 
@@ -294,7 +272,7 @@ function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fx
         />
 
         <div className="relative p-5">
-          <button onClick={onViewDetail} className="flex w-full items-start gap-3 text-left">
+          <button onClick={() => onViewDetail(qty)} className="flex w-full items-start gap-3 text-left">
             <div
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-soft text-2xl"
               style={{ background: `linear-gradient(135deg, ${ps.from}, ${ps.to})` }}
@@ -335,18 +313,30 @@ function ProductCard({ product, authed, walletBalance, onPurchased, fxSymbol, fx
                 type="number" min={1} max={Math.max(1, product.stock)} value={qty}
                 onChange={(e) => setQty(Math.max(1, Math.min(product.stock || 1, Number(e.target.value || 1))))}
                 className="w-16 rounded-md border border-border/60 bg-background px-2 py-1 text-right text-sm"
-                disabled={!authed}
               />
             </div>
           </div>
 
-          <Link
-            to="/auth"
-            className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90"
-            style={{ background: "var(--gradient-accent)" }}
-          >
-            <LogIn className="h-3.5 w-3.5" /> Login to purchase · {fmt(totalLocal)}
-          </Link>
+          {authed ? (
+            <button
+              type="button"
+              onClick={() => onViewDetail(qty)}
+              disabled={outOfStock}
+              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-50"
+              style={{ background: "var(--gradient-accent)" }}
+            >
+              <ShoppingBag className="h-3.5 w-3.5" /> {outOfStock ? "Out of stock" : `Buy now · ${fmt(totalLocal)}`}
+            </button>
+          ) : (
+            <Link
+              to="/auth"
+              search={{ redirect: `/tools/store?product=${product.id}` }}
+              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90"
+              style={{ background: "var(--gradient-accent)" }}
+            >
+              <LogIn className="h-3.5 w-3.5" /> Login to purchase · {fmt(totalLocal)}
+            </Link>
+          )}
         </div>
       </div>
     </TiltCard>
@@ -360,12 +350,12 @@ const ELEMENT_STYLE = {
   invalid: { color: "#ef4444" },
 };
 
-function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
-  productId: string; authed: boolean; fxSymbol: string; fxRate: number; onClose: () => void;
+function ProductDetailModal({ productId, authed, initialQty = 1, fxSymbol, fxRate, onClose }: {
+  productId: string; authed: boolean; initialQty?: number; fxSymbol: string; fxRate: number; onClose: () => void;
 }) {
   const fetchDetail = useServerFn(getToolProductDetail);
   const startCheckout = useServerFn(createDepositCheckout);
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(Math.max(1, initialQty));
   const [coupon, setCoupon] = useState("");
   const [couponApplied, setCouponApplied] = useState<{ code: string; percent?: number; fixedLocal?: number } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -572,7 +562,7 @@ function ProductDetailModal({ productId, authed, fxSymbol, fxRate, onClose }: {
                   </button>
                 </div>
               ) : (
-                <Link to="/auth" className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow" style={{ background: "var(--gradient-accent)" }}>
+                <Link to="/auth" search={{ redirect: `/tools/store?product=${productId}` }} className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow" style={{ background: "var(--gradient-accent)" }}>
                   <LogIn className="h-4 w-4" /> Login to purchase · {fxSymbol}{totalLocal.toFixed(2)}
                 </Link>
               )

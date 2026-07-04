@@ -8,6 +8,9 @@ import { Toaster } from "@/components/ui/sonner";
 export const Route = createFileRoute("/auth")({
   ssr: false,
   head: () => ({ meta: [{ title: "Login — Social Padu" }] }),
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
   component: AuthPage,
 });
 
@@ -15,6 +18,7 @@ type Mode = "signin" | "signup" | "forgot" | "reset";
 
 function AuthPage() {
   const router = useRouter();
+  const { redirect: redirectTo } = Route.useSearch();
   const [mode, setMode] = useState<Mode>("signin");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -29,12 +33,23 @@ function AuthPage() {
     return { urlError: p.get("error"), resetToken: p.get("mode") === "reset" ? p.get("token") : null };
   }, []);
 
+  // Where to land after a successful login. Only internal paths are allowed
+  // (must start with "/" but not "//") so the param can't redirect off-site.
+  const goAfterAuth = () => {
+    if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+      router.history.replace(redirectTo);
+    } else {
+      router.navigate({ to: "/dashboard", replace: true });
+    }
+  };
+
   useEffect(() => {
     if (urlError) toast.error(urlError);
     if (resetToken) setMode("reset");
     fetch("/api/auth/me").then((r) => {
-      if (r.ok) router.navigate({ to: "/dashboard", replace: true });
+      if (r.ok) goAfterAuth();
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlError, resetToken, router]);
 
   const set = (f: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,14 +97,14 @@ function AuthPage() {
       if (!res.ok) { setError(data.error ?? "Something went wrong."); return; }
 
       if (mode === "signin") {
-        router.navigate({ to: "/dashboard", replace: true });
+        goAfterAuth();
       } else if (mode === "signup") {
         setDone("account");
       } else if (mode === "forgot") {
         setDone("forgot");
       } else if (mode === "reset") {
         setDone("reset");
-        setTimeout(() => router.navigate({ to: "/dashboard", replace: true }), 2000);
+        setTimeout(() => goAfterAuth(), 2000);
       }
     } catch {
       setError("Network error. Please check your connection.");
