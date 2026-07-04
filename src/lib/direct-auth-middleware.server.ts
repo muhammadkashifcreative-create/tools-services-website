@@ -36,6 +36,10 @@ export const requireDirectAuth = createMiddleware({ type: "function" }).server(
             // Wallet operations require a profiles row — make sure one exists
             const { ensureProfile } = await import("@/lib/balance.server");
             await ensureProfile(created.user.id).catch(console.error);
+            // First time we see this account — notify admin on Telegram (non-blocking)
+            import("@/lib/telegram.server").then(({ tgSignup }) => {
+              tgSignup(session.email, session.name ?? session.email.split("@")[0]).catch(console.error);
+            });
           }
           return created?.user?.id ?? null;
         })(),

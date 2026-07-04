@@ -86,6 +86,14 @@ export const createCase = createServerFn({ method: "POST" })
       });
     }
 
+    // Notify admin on Telegram (non-blocking)
+    const openerEmail = (context as { email?: string }).email ?? toEmail;
+    if (openerEmail) {
+      import("@/lib/telegram.server").then(({ tgCaseOpened }) => {
+        tgCaseOpened(openerEmail, data.subject, data.category, data.priority, c.id).catch(console.error);
+      });
+    }
+
     return { id: c.id };
   });
 
@@ -115,6 +123,17 @@ export const addCaseMessage = createServerFn({ method: "POST" })
             sendCaseReplyEmail(toEmail, prof?.full_name ?? "", data.caseId, caseRow.subject, data.body).catch(console.error);
           });
         }
+      }
+    } else {
+      // Customer replied — notify admin on Telegram (non-blocking)
+      const replierEmail = (context as { email?: string }).email;
+      if (replierEmail) {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: caseRow } = await supabaseAdmin
+          .from("cases").select("subject").eq("id", data.caseId).maybeSingle();
+        import("@/lib/telegram.server").then(({ tgCaseReply }) => {
+          tgCaseReply(replierEmail, caseRow?.subject ?? "Support case", data.caseId).catch(console.error);
+        });
       }
     }
 

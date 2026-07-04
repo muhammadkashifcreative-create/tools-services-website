@@ -24,6 +24,12 @@ async function findOrCreateSupabaseUser(email: string, name?: string, picture?: 
       const { ensureProfile } = await import("@/lib/balance.server");
       await ensureProfile(userId).catch(console.error);
     }
+    if (userId && !existing) {
+      // Brand-new Google account — notify admin on Telegram (non-blocking)
+      import("@/lib/telegram.server").then(({ tgSignup }) => {
+        tgSignup(email, name ?? email.split("@")[0]).catch(console.error);
+      });
+    }
     return userId;
   } catch {
     return undefined;

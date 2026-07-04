@@ -61,11 +61,23 @@ async function handlePaymentIntent(pi: any) {
   if (!usdAmount) return;
 
   // wallet_deposit — atomically credit balance
-  await deltaBalance(userId, usdAmount);
+  const newBalance = await deltaBalance(userId, usdAmount);
   await supabaseAdmin.from("transactions").insert({
     user_id: userId, amount: usdAmount, type: "deposit",
     description: `stripe:${piId} Wallet top-up · ${meta.localAmount ?? ""} ${meta.localCurrency ?? "MYR"}`,
   });
+
+  // Notify admin on Telegram (non-blocking). The client confirmation path sends
+  // the same notification, but idempotency guarantees only one of the two runs.
+  try {
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const email = authUser?.user?.email;
+    if (email) {
+      import("@/lib/telegram.server").then(({ tgDeposit }) => {
+        tgDeposit(email, usdAmount, newBalance).catch(console.error);
+      });
+    }
+  } catch { /* notification must never fail the webhook */ }
 }
 
 export const Route = createFileRoute("/api/public/payments/webhook")({

@@ -24,9 +24,14 @@ function maskEmail(email: string): string {
   return `${visible}***@${domain}`;
 }
 
+// Escape user-provided text so it can't break Telegram's HTML parse mode
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export function tgSignup(email: string, name: string) {
   return notifyTelegram(
-    `🆕 <b>New Signup</b>\n👤 ${maskEmail(email)}\n📛 ${name}\n🕐 ${new Date().toUTCString()}`,
+    `🆕 <b>New Signup</b>\n👤 ${maskEmail(email)}\n📛 ${esc(name)}\n🕐 ${new Date().toUTCString()}`,
   );
 }
 
@@ -44,6 +49,24 @@ export function tgToolOrder(
   orderId: string,
 ) {
   return notifyTelegram(
-    `🛒 <b>New Tool Order</b>\n👤 ${maskEmail(email)}\n📦 ${productName} × ${qty}\n💵 $${totalUsd.toFixed(2)} USD\n🆔 #${orderId.slice(0, 8).toUpperCase()}\n🕐 ${new Date().toUTCString()}`,
+    `🛒 <b>New Tool Order</b>\n👤 ${maskEmail(email)}\n📦 ${esc(productName)} × ${qty}\n💵 $${totalUsd.toFixed(2)} USD\n🆔 #${orderId.slice(0, 8).toUpperCase()}\n🕐 ${new Date().toUTCString()}`,
+  );
+}
+
+export function tgCaseOpened(
+  email: string,
+  subject: string,
+  category: string,
+  priority: string,
+  caseId: string,
+) {
+  return notifyTelegram(
+    `🎫 <b>New Support Case</b>\n👤 ${maskEmail(email)}\n📋 ${esc(subject)}\n🏷 ${esc(category)} · ${esc(priority)}\n🆔 #${caseId.slice(0, 8).toUpperCase()}`,
+  );
+}
+
+export function tgCaseReply(email: string, subject: string, caseId: string) {
+  return notifyTelegram(
+    `💬 <b>Customer Replied to Case</b>\n👤 ${maskEmail(email)}\n📋 ${esc(subject)}\n🆔 #${caseId.slice(0, 8).toUpperCase()}`,
   );
 }
