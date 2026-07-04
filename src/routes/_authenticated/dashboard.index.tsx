@@ -41,7 +41,7 @@ function Dashboard() {
 
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           <Link
-            to="/tools/store"
+            to="/dashboard/new-order"
             className="group rounded-xl border bg-card p-6 transition hover:border-primary/40 hover:shadow-sm lg:col-span-2"
           >
             <div className="flex items-start gap-4">
@@ -49,7 +49,7 @@ function Dashboard() {
                 <ShoppingBag className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold">Browse the tools store</h3>
+                <h3 className="font-semibold">Place a new order</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Premium digital tools and subscriptions — delivered instantly.
                 </p>

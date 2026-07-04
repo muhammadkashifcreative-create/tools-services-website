@@ -205,7 +205,7 @@ export async function sendPaymentConfirmationEmail(
       ["New wallet balance", `$${newBalance.toFixed(2)} USD`],
       ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
     ])}
-    ${cta("Browse the Tools Store →", `${BASE_URL}/tools/store`)}
+    ${cta("Place an Order →", `${BASE_URL}/dashboard/new-order`)}
   `;
   await sendEmail(to, `✅ Payment confirmed — ${localAmount} ${localCurrency} added to wallet`, layout(`${localAmount} ${localCurrency} added to your Social Padu wallet`, "Payment Confirmed", body));
 }

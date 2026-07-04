@@ -38,7 +38,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   const subNav: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
-    { to: "/tools/store", label: "Tools Store", icon: Wrench },
+    { to: "/dashboard/new-order", label: "New Order", icon: Wrench },
     { to: "/dashboard/orders", label: "Orders", icon: Receipt },
     { to: "/dashboard/wallet", label: "Wallet", icon: Wallet },
     { to: "/dashboard/support", label: "Cases", icon: LifeBuoy },
@@ -153,11 +153,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <LanguageSwitcher />
             <Link
-              to="/tools/store"
+              to="/dashboard/new-order"
               className="hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 md:inline-flex"
               style={{ background: "var(--gradient-accent)" }}
             >
-              <Plus className="h-3.5 w-3.5" /> Buy tools
+              <Plus className="h-3.5 w-3.5" /> New order
             </Link>
             <Link
               to="/dashboard/wallet"

@@ -32,6 +32,11 @@ export const requireDirectAuth = createMiddleware({ type: "function" }).server(
             email_confirm: true,
             user_metadata: { name: session.name, picture: session.picture },
           });
+          if (created?.user?.id) {
+            // Wallet operations require a profiles row — make sure one exists
+            const { ensureProfile } = await import("@/lib/balance.server");
+            await ensureProfile(created.user.id).catch(console.error);
+          }
           return created?.user?.id ?? null;
         })(),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),

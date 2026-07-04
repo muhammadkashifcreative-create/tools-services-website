@@ -34,6 +34,7 @@ import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api/auth/for
 import { Route as AuthenticatedDashboardWalletRouteImport } from './routes/_authenticated/dashboard.wallet'
 import { Route as AuthenticatedDashboardSupportRouteImport } from './routes/_authenticated/dashboard.support'
 import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
+import { Route as AuthenticatedDashboardNewOrderRouteImport } from './routes/_authenticated/dashboard.new-order'
 import { Route as AuthenticatedAdminCasesRouteImport } from './routes/_authenticated/admin.cases'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
@@ -167,6 +168,12 @@ const AuthenticatedDashboardOrdersRoute =
     path: '/orders',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const AuthenticatedDashboardNewOrderRoute =
+  AuthenticatedDashboardNewOrderRouteImport.update({
+    id: '/new-order',
+    path: '/new-order',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
 const AuthenticatedAdminCasesRoute = AuthenticatedAdminCasesRouteImport.update({
   id: '/cases',
   path: '/cases',
@@ -203,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/tools/store': typeof ToolsStoreRoute
   '/tools/': typeof ToolsIndexRoute
   '/admin/cases': typeof AuthenticatedAdminCasesRoute
+  '/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
@@ -230,6 +238,7 @@ export interface FileRoutesByTo {
   '/tools/store': typeof ToolsStoreRoute
   '/tools': typeof ToolsIndexRoute
   '/admin/cases': typeof AuthenticatedAdminCasesRoute
+  '/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
@@ -262,6 +271,7 @@ export interface FileRoutesById {
   '/tools/store': typeof ToolsStoreRoute
   '/tools/': typeof ToolsIndexRoute
   '/_authenticated/admin/cases': typeof AuthenticatedAdminCasesRoute
+  '/_authenticated/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/_authenticated/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
   '/_authenticated/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
@@ -294,6 +304,7 @@ export interface FileRouteTypes {
     | '/tools/store'
     | '/tools/'
     | '/admin/cases'
+    | '/dashboard/new-order'
     | '/dashboard/orders'
     | '/dashboard/support'
     | '/dashboard/wallet'
@@ -321,6 +332,7 @@ export interface FileRouteTypes {
     | '/tools/store'
     | '/tools'
     | '/admin/cases'
+    | '/dashboard/new-order'
     | '/dashboard/orders'
     | '/dashboard/support'
     | '/dashboard/wallet'
@@ -352,6 +364,7 @@ export interface FileRouteTypes {
     | '/tools/store'
     | '/tools/'
     | '/_authenticated/admin/cases'
+    | '/_authenticated/dashboard/new-order'
     | '/_authenticated/dashboard/orders'
     | '/_authenticated/dashboard/support'
     | '/_authenticated/dashboard/wallet'
@@ -567,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardOrdersRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/_authenticated/dashboard/new-order': {
+      id: '/_authenticated/dashboard/new-order'
+      path: '/new-order'
+      fullPath: '/dashboard/new-order'
+      preLoaderRoute: typeof AuthenticatedDashboardNewOrderRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
     '/_authenticated/admin/cases': {
       id: '/_authenticated/admin/cases'
       path: '/cases'
@@ -627,6 +647,7 @@ const AuthenticatedDashboardSupportRouteWithChildren =
   )
 
 interface AuthenticatedDashboardRouteChildren {
+  AuthenticatedDashboardNewOrderRoute: typeof AuthenticatedDashboardNewOrderRoute
   AuthenticatedDashboardOrdersRoute: typeof AuthenticatedDashboardOrdersRoute
   AuthenticatedDashboardSupportRoute: typeof AuthenticatedDashboardSupportRouteWithChildren
   AuthenticatedDashboardWalletRoute: typeof AuthenticatedDashboardWalletRoute
@@ -635,6 +656,7 @@ interface AuthenticatedDashboardRouteChildren {
 
 const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
   {
+    AuthenticatedDashboardNewOrderRoute: AuthenticatedDashboardNewOrderRoute,
     AuthenticatedDashboardOrdersRoute: AuthenticatedDashboardOrdersRoute,
     AuthenticatedDashboardSupportRoute:
       AuthenticatedDashboardSupportRouteWithChildren,

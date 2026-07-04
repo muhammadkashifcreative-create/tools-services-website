@@ -12,14 +12,19 @@ async function findOrCreateSupabaseUser(email: string, name?: string, picture?: 
     // Try listing first page only (100 users max) to find by email
     const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 100 });
     const existing = data?.users?.find((u) => u.email === email);
-    if (existing) return existing.id;
-    // Create new Supabase auth user
-    const { data: created } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: { name, picture },
-    });
-    return created?.user?.id;
+    const userId = existing
+      ? existing.id
+      : (await supabaseAdmin.auth.admin.createUser({
+          email,
+          email_confirm: true,
+          user_metadata: { name, picture },
+        })).data?.user?.id;
+    if (userId) {
+      // Wallet operations require a profiles row — make sure one exists
+      const { ensureProfile } = await import("@/lib/balance.server");
+      await ensureProfile(userId).catch(console.error);
+    }
+    return userId;
   } catch {
     return undefined;
   }
