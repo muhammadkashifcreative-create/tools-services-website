@@ -19,12 +19,15 @@ export const Route = createFileRoute("/_authenticated/dashboard/new-order")({
 
 function NewOrderPage() {
   const { product: productParam } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const fetchProducts = useServerFn(listToolProducts);
   const fetchCurrency = useServerFn(getUserCurrency);
 
   const [query, setQuery] = useState("");
   const [selectedQty, setSelectedQty] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(productParam ?? null);
+
+  const showAllProducts = () => navigate({ search: {}, replace: true });
 
   const { data: prod, isLoading, refetch } = useQuery({
     queryKey: ["toolProducts"],
@@ -41,7 +44,7 @@ function NewOrderPage() {
 
   const allProducts = (prod?.products ?? []) as ToolProduct[];
   const q = query.trim().toLowerCase();
-  const filtered = q
+  const searched = q
     ? allProducts.filter(
         (p) =>
           p.name_en.toLowerCase().includes(q) ||
@@ -49,6 +52,10 @@ function NewOrderPage() {
           (p.provider_name && p.provider_name.toLowerCase().includes(q)),
       )
     : allProducts;
+
+  // Shared-link mode (?product=ID): show only that product until "Browse all"
+  const linkedProduct = productParam ? allProducts.find((p) => p.id === productParam) ?? null : null;
+  const filtered = linkedProduct ? [linkedProduct] : searched;
 
   return (
     <AppLayout>
@@ -63,8 +70,25 @@ function NewOrderPage() {
           </div>
         </div>
 
+        {/* Shared product link banner */}
+        {linkedProduct && (
+          <div className="mt-6 flex flex-col items-start justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-5 py-4 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-sm font-semibold">Ordering a shared product</p>
+              <p className="text-xs text-muted-foreground">Only <span className="font-medium text-foreground">{linkedProduct.name_en}</span> is shown below.</p>
+            </div>
+            <button
+              type="button"
+              onClick={showAllProducts}
+              className="shrink-0 rounded-lg border border-border/60 bg-card px-3.5 py-2 text-xs font-semibold transition hover:bg-accent"
+            >
+              Browse all products
+            </button>
+          </div>
+        )}
+
         {/* Search */}
-        {allProducts.length > 0 && (
+        {allProducts.length > 0 && !linkedProduct && (
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:max-w-md">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

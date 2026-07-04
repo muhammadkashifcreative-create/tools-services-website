@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Package, X, Clock, Tag, ChevronRight, Check, Copy, Wallet, CreditCard, Lock, CheckCircle2, ShoppingBag, Zap } from "lucide-react";
+import { Loader2, Package, X, Clock, Tag, ChevronRight, Check, Copy, Wallet, CreditCard, Lock, CheckCircle2, ShoppingBag, Zap, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { TiltCard } from "@/components/TiltCard";
 import {
@@ -171,8 +171,19 @@ export function ProductDetailModal({ productId, purchasable, initialQty = 1, fxS
   const [cardLoading, setCardLoading] = useState(false);
   const [success, setSuccess] = useState<string[]>([]);
   const [copiedCodes, setCopiedCodes] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const qc = useQueryClient();
   const purchase = useServerFn(purchaseToolProduct);
+
+  // Shareable customer link — opens the public store showing only this product
+  const copyShareLink = () => {
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}/tools/store?product=${productId}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    setCopiedLink(true);
+    toast.success("Product link copied — share it with your customer.");
+    setTimeout(() => setCopiedLink(false), 1800);
+  };
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["toolProductDetail", productId],
@@ -272,7 +283,17 @@ export function ProductDetailModal({ productId, purchasable, initialQty = 1, fxS
                 <p className="font-bold text-sm leading-snug">{product?.name_en}</p>}
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg border border-border p-1.5 hover:bg-accent transition"><X className="h-4 w-4" /></button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={copyShareLink}
+              title="Copy product link"
+              aria-label="Copy product link"
+              className="rounded-lg border border-border p-1.5 hover:bg-accent transition"
+            >
+              {copiedLink ? <Check className="h-4 w-4 text-emerald-500" /> : <Link2 className="h-4 w-4" />}
+            </button>
+            <button onClick={onClose} className="rounded-lg border border-border p-1.5 hover:bg-accent transition"><X className="h-4 w-4" /></button>
+          </div>
         </div>
 
         {isLoading ? (

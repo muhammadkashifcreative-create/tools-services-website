@@ -35,10 +35,19 @@ function ToolsStorePublicPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [query, setQuery] = useState("");
   const [selectedQty, setSelectedQty] = useState(1);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(() => {
+  // ?product=ID → shared product link: only that product is shown to order
+  const [linkedProductId, setLinkedProductId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("product");
   });
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(linkedProductId);
+
+  const showAllProducts = () => {
+    setLinkedProductId(null);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/tools/store");
+    }
+  };
   useEffect(() => {
     // Use the session cookie check via /api/auth/me instead of Supabase client
     // (Supabase client may not be configured client-side without VITE_ env vars)
@@ -62,7 +71,7 @@ function ToolsStorePublicPage() {
 
   const allProducts = (prod?.products ?? []) as ToolProduct[];
   const q = query.trim().toLowerCase();
-  const filtered = q
+  const searched = q
     ? allProducts.filter(
         (p) =>
           p.name_en.toLowerCase().includes(q) ||
@@ -70,6 +79,11 @@ function ToolsStorePublicPage() {
           (p.provider_name && p.provider_name.toLowerCase().includes(q)),
       )
     : allProducts;
+
+  // Shared-link mode: show only the linked product when it exists in the catalog
+  const linkedProduct = linkedProductId ? allProducts.find((p) => p.id === linkedProductId) ?? null : null;
+  const linkedNotFound = Boolean(linkedProductId && allProducts.length > 0 && !linkedProduct);
+  const filtered = linkedProduct ? [linkedProduct] : searched;
 
   return (
     <div className="min-h-screen bg-background">
@@ -110,8 +124,42 @@ function ToolsStorePublicPage() {
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
 
+          {/* Shared product link banner */}
+          {linkedProduct && (
+            <div className="mb-8 flex flex-col items-start justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-5 py-4 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: "var(--gradient-accent)" }}>
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">You're viewing a shared product</p>
+                  <p className="text-xs text-muted-foreground">Only <span className="font-medium text-foreground">{linkedProduct.name_en}</span> is shown below.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={showAllProducts}
+                className="shrink-0 rounded-lg border border-border/60 bg-card px-3.5 py-2 text-xs font-semibold transition hover:bg-accent"
+              >
+                Browse all products
+              </button>
+            </div>
+          )}
+          {linkedNotFound && (
+            <div className="mb-8 flex flex-col items-start justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-5 py-4 sm:flex-row sm:items-center">
+              <p className="text-sm text-amber-700 dark:text-amber-400">The shared product is no longer available — here's the full catalog instead.</p>
+              <button
+                type="button"
+                onClick={showAllProducts}
+                className="shrink-0 rounded-lg border border-border/60 bg-card px-3.5 py-2 text-xs font-semibold transition hover:bg-accent"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {/* Search bar */}
-          {(prod?.connected ?? false) && allProducts.length > 0 && (
+          {(prod?.connected ?? false) && allProducts.length > 0 && !linkedProduct && (
             <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative w-full sm:max-w-md">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
