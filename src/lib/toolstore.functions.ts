@@ -114,6 +114,54 @@ export const updateMarkup = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---------- Admin: per-product pricing ----------
+export const adminListToolPricing = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    assertAdmin(context);
+    const conn = await loadConn();
+    if (!conn) return { connected: false, markup: 0, items: [] as Array<{
+      id: string; name: string; provider_price: number; default_price: number;
+      override_price: number | null; in_stock: boolean;
+    }> };
+    const [r, markup, overrides] = await Promise.all([fetchProducts(conn), loadMarkupPercent(), loadPriceOverrides()]);
+    const factor = 1 + markup / 100;
+    const items = (r.data ?? []).map((p) => ({
+      id: String(p.id),
+      name: p.name,
+      provider_price: +Number(p.yourPrice).toFixed(4),
+      default_price: +((Number(p.yourPrice) * factor) || 0).toFixed(4),
+      override_price: overrides[String(p.id)] ?? null,
+      in_stock: p.stock?.inStock ?? false,
+    }));
+    return { connected: true, markup, items };
+  });
+
+export const setToolPriceOverride = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { productId: string; priceUsd: number | null }) =>
+    z.object({
+      productId: z.string().min(1),
+      priceUsd: z.number().positive().max(100000).nullable(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const overrides = await loadPriceOverrides();
+    if (data.priceUsd == null) {
+      delete overrides[data.productId];
+    } else {
+      overrides[data.productId] = +data.priceUsd.toFixed(4);
+    }
+    const { error } = await supabaseAdmin.from("app_settings").upsert({
+      key: PRICE_OVERRIDES_KEY,
+      value: overrides as unknown as never,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // ---------- ToolProduct type (mapped from ggsoma catalog) ----------
 export type ToolProduct = {
   id: string;
@@ -152,13 +200,33 @@ async function loadMarkupPercent(): Promise<number> {
   } catch { return 0; }
 }
 
-function mapProducts(raw: GgsomaProduct[], markupPct: number): ToolProduct[] {
+// Per-product price overrides (USD), set by the admin. A product with an
+// override sells at exactly that price; otherwise provider cost × markup.
+const PRICE_OVERRIDES_KEY = "tool_price_overrides";
+
+async function loadPriceOverrides(): Promise<Record<string, number>> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", PRICE_OVERRIDES_KEY).maybeSingle();
+    const v = (data?.value ?? null) as Record<string, number> | null;
+    return v && typeof v === "object" ? v : {};
+  } catch { return {}; }
+}
+
+function effectivePrice(providerPrice: number, factor: number, override: number | undefined): number {
+  if (override != null && Number.isFinite(Number(override)) && Number(override) > 0) {
+    return +Number(override).toFixed(4);
+  }
+  return +((providerPrice * factor) || 0).toFixed(4);
+}
+
+function mapProducts(raw: GgsomaProduct[], markupPct: number, overrides: Record<string, number> = {}): ToolProduct[] {
   const factor = 1 + markupPct / 100;
   return raw.map((p) => ({
     id: String(p.id),
     slug: p.slug,
     name_en: p.name,
-    your_price: +((Number(p.yourPrice) * factor) || 0).toFixed(4),
+    your_price: effectivePrice(Number(p.yourPrice), factor, overrides[String(p.id)]),
     stock: p.stock?.count ?? 0,
     in_stock: p.stock?.inStock ?? false,
     emoji: p.emoji?.normal ?? p.provider?.emoji?.normal ?? undefined,
@@ -178,8 +246,8 @@ export const listToolProducts = createServerFn({ method: "GET" })
   .handler(async () => {
     const conn = await loadConn();
     if (!conn) return { connected: false, products: [] as ToolProduct[] };
-    const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
-    return { connected: true, products: mapProducts(r.data ?? [], markup) };
+    const [r, markup, overrides] = await Promise.all([fetchProducts(conn), loadMarkupPercent(), loadPriceOverrides()]);
+    return { connected: true, products: mapProducts(r.data ?? [], markup, overrides) };
   });
 
 // ---------- Public catalog (no auth needed) ----------
@@ -187,8 +255,8 @@ export const listToolProductsPublic = createServerFn({ method: "GET" })
   .handler(async () => {
     const conn = await loadConn();
     if (!conn) return { connected: false, products: [] as ToolProduct[], error: "Tools store not connected" };
-    const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
-    const products = mapProducts(r.data ?? [], markup);
+    const [r, markup, overrides] = await Promise.all([fetchProducts(conn), loadMarkupPercent(), loadPriceOverrides()]);
+    const products = mapProducts(r.data ?? [], markup, overrides);
     return { connected: true, products };
   });
 
@@ -204,7 +272,7 @@ export const getToolProductDetail = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const conn = await loadConn();
     if (!conn) return null;
-    const markup = await loadMarkupPercent();
+    const [markup, overrides] = await Promise.all([loadMarkupPercent(), loadPriceOverrides()]);
     // Try single product endpoint first, fall back to catalog filter
     try {
       const r = await callStore<{ data?: GgsomaProduct }>(conn, `/catalog/products/${data.productId}`);
@@ -216,7 +284,7 @@ export const getToolProductDetail = createServerFn({ method: "GET" })
           slug: p.slug,
           name_en: p.name,
           desc_en: undefined as string | undefined,
-          your_price: +((Number(p.yourPrice) * factor) || 0).toFixed(4),
+          your_price: effectivePrice(Number(p.yourPrice), factor, overrides[String(p.id)]),
           stock: p.stock?.count ?? 0,
           max_qty: p.stock?.maxQuantity ?? 0,
           in_stock: p.stock?.inStock ?? false,
@@ -230,7 +298,7 @@ export const getToolProductDetail = createServerFn({ method: "GET" })
     } catch { /* fall through to catalog filter */ }
     // Fallback: filter from catalog
     const r = await fetchProducts(conn);
-    const products = mapProducts(r.data ?? [], markup);
+    const products = mapProducts(r.data ?? [], markup, overrides);
     const found = products.find((p) => p.id === data.productId);
     return found ? { ...found, max_qty: found.stock, sensitive: false } : null;
   });
@@ -288,8 +356,8 @@ export const purchaseToolProduct = createServerFn({ method: "POST" })
     if (!conn) throw new Error("Tool store is not connected yet.");
 
     // 1) Fetch catalog to get slug + price
-    const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
-    const products = mapProducts(r.data ?? [], markup);
+    const [r, markup, overrides] = await Promise.all([fetchProducts(conn), loadMarkupPercent(), loadPriceOverrides()]);
+    const products = mapProducts(r.data ?? [], markup, overrides);
     const product = products.find((p) => p.id === data.productId);
     if (!product) throw new Error("Product not found");
     if (!product.in_stock) throw new Error("Product is out of stock.");
@@ -395,8 +463,8 @@ export const createToolCheckout = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const conn = await loadConn();
     if (!conn) throw new Error("Tool store not connected");
-    const [r, markup] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
-    const products = mapProducts(r.data ?? [], markup);
+    const [r, markup, overrides] = await Promise.all([fetchProducts(conn), loadMarkupPercent(), loadPriceOverrides()]);
+    const products = mapProducts(r.data ?? [], markup, overrides);
     const product = products.find((p) => p.id === data.productId);
     if (!product) throw new Error("Product not found");
     if (!product.in_stock) throw new Error("Product is out of stock");
@@ -454,8 +522,8 @@ export const confirmToolCardPurchase = createServerFn({ method: "POST" })
     const usdAmount = Number(pi.metadata?.usdAmount ?? 0);
     const conn = await loadConn();
     if (!conn) throw new Error("Tool store not connected");
-    const [r, markupPct] = await Promise.all([fetchProducts(conn), loadMarkupPercent()]);
-    const products = mapProducts(r.data ?? [], markupPct);
+    const [r, markupPct, overrides] = await Promise.all([fetchProducts(conn), loadMarkupPercent(), loadPriceOverrides()]);
+    const products = mapProducts(r.data ?? [], markupPct, overrides);
     const product = products.find((p) => p.id === productId);
     if (!product) throw new Error("Product not found");
 

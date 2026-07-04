@@ -2,12 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Loader2, ShieldCheck, Users, MessageSquare, ShoppingBag, DollarSign, TrendingDown, TrendingUp, Plug, CheckCircle2, Database, Activity, Zap, BarChart3, Mail, Server } from "lucide-react";
+import { Loader2, ShieldCheck, Users, MessageSquare, ShoppingBag, DollarSign, TrendingDown, TrendingUp, Plug, CheckCircle2, Database, Activity, Zap, BarChart3, Mail, Server, Search, RotateCcw, Check } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile } from "@/lib/wallet.functions";
 import { adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUserOrders } from "@/lib/admin.functions";
 import { adminListAllCases, updateCaseStatus } from "@/lib/cases.functions";
-import { saveToolStoreConnectionDirect, getToolStoreStatus, getMarkup, updateMarkup } from "@/lib/toolstore.functions";
+import { saveToolStoreConnectionDirect, getToolStoreStatus, getMarkup, updateMarkup, adminListToolPricing, setToolPriceOverride } from "@/lib/toolstore.functions";
 import { runDatabaseMigration } from "@/lib/migrate.server";
 import { OrderDetailModal, type OrderDetailData } from "@/components/OrderDetailModal";
 import { toast } from "sonner";
@@ -89,7 +89,7 @@ function AdminBody() {
   const [markupVal, setMarkupVal] = useState<number | null>(null);
   const [toolApiUrl, setToolApiUrl] = useState("");
   const [toolApiKey, setToolApiKey] = useState("");
-  const [tab, setTab] = useState<"overview" | "orders" | "users">("overview");
+  const [tab, setTab] = useState<"overview" | "orders" | "users" | "pricing">("overview");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [orderDetail, setOrderDetail] = useState<OrderDetailData | null>(null);
 
@@ -178,7 +178,7 @@ function AdminBody() {
             ["overview", "Overview", <BarChart3 key="o" className="h-3.5 w-3.5" />],
             ["users", "Users", <Users key="u" className="h-3.5 w-3.5" />, stats?.users],
             ["orders", "Orders", <ShoppingBag key="or" className="h-3.5 w-3.5" />, stats?.orders],
-            
+            ["pricing", "Pricing", <DollarSign key="p" className="h-3.5 w-3.5" />],
           ] as const).map(([k, l, icon, count]) => (
             <button key={k} onClick={() => setTab(k as typeof tab)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium transition-all ${tab === k ? "bg-primary text-primary-foreground shadow-glow" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`}>
@@ -461,10 +461,158 @@ function AdminBody() {
         )}
 
 
+        {tab === "pricing" && <PricingTab />}
+
       </div>
 
       {orderDetail && <OrderDetailModal order={orderDetail} onClose={() => setOrderDetail(null)} />}
     </AppLayout>
+  );
+}
+
+function PricingTab() {
+  const qc = useQueryClient();
+  const fetchPricing = useServerFn(adminListToolPricing);
+  const savePrice = useServerFn(setToolPriceOverride);
+  const { data, isLoading } = useQuery({ queryKey: ["adminToolPricing"], queryFn: () => fetchPricing() });
+  const [search, setSearch] = useState("");
+
+  const mut = useMutation({
+    mutationFn: ({ productId, priceUsd }: { productId: string; priceUsd: number | null }) =>
+      savePrice({ data: { productId, priceUsd } }),
+    onSuccess: (_r, vars) => {
+      toast.success(vars.priceUsd == null ? "Price reset to default." : "Custom price saved.");
+      qc.invalidateQueries({ queryKey: ["adminToolPricing"] });
+      qc.invalidateQueries({ queryKey: ["toolProducts"] });
+      qc.invalidateQueries({ queryKey: ["toolProductsPub"] });
+      qc.invalidateQueries({ queryKey: ["toolProductDetail"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const items = data?.items ?? [];
+  const q = search.trim().toLowerCase();
+  const filtered = q ? items.filter((i) => i.name.toLowerCase().includes(q)) : items;
+  const customCount = items.filter((i) => i.override_price != null).length;
+
+  return (
+    <div className="mt-6 overflow-hidden rounded-xl border bg-card">
+      <div className="flex flex-col gap-3 border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-semibold">Product pricing</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Default price = provider cost × (1 + {data?.markup ?? 0}% markup). Set a custom USD price to override it — customers see it converted to their currency.
+            {customCount > 0 && <span className="ml-1 font-semibold text-primary">{customCount} custom price{customCount > 1 ? "s" : ""} active.</span>}
+          </p>
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search products…"
+            className="w-full rounded-lg border bg-background py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 ring-ring"
+          />
+        </div>
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : !data?.connected ? (
+        <div className="px-6 py-12 text-center text-sm text-muted-foreground">Tools store is not connected yet.</div>
+      ) : filtered.length === 0 ? (
+        <div className="px-6 py-12 text-center text-sm text-muted-foreground">No products match your search.</div>
+      ) : (
+        <div className="max-h-[600px] overflow-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 text-left">Product</th>
+                <th className="px-5 py-3 text-right">Provider cost</th>
+                <th className="px-5 py-3 text-right">Default price</th>
+                <th className="px-5 py-3 text-right">Selling price</th>
+                <th className="px-5 py-3 text-right">Custom price (USD)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filtered.map((item) => (
+                <PricingRow
+                  key={`${item.id}:${item.override_price ?? "default"}`}
+                  item={item}
+                  saving={mut.isPending}
+                  onSave={(priceUsd) => mut.mutate({ productId: item.id, priceUsd })}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PricingRow({ item, saving, onSave }: {
+  item: { id: string; name: string; provider_price: number; default_price: number; override_price: number | null; in_stock: boolean };
+  saving: boolean;
+  onSave: (priceUsd: number | null) => void;
+}) {
+  const [val, setVal] = useState(item.override_price != null ? String(item.override_price) : "");
+  const parsed = Number(val);
+  const validInput = val.trim() !== "" && Number.isFinite(parsed) && parsed > 0;
+  const dirty = validInput && parsed !== (item.override_price ?? NaN);
+  const effective = item.override_price ?? item.default_price;
+  const belowCost = validInput && parsed < item.provider_price;
+
+  return (
+    <tr className={item.in_stock ? "" : "opacity-60"}>
+      <td className="px-5 py-3">
+        <div className="font-medium">{item.name}</div>
+        <div className="mt-0.5 flex items-center gap-1.5">
+          {item.override_price != null ? (
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-primary">Custom</span>
+          ) : (
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">Default</span>
+          )}
+          {!item.in_stock && <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-destructive">Out of stock</span>}
+        </div>
+      </td>
+      <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">${item.provider_price.toFixed(2)}</td>
+      <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">${item.default_price.toFixed(2)}</td>
+      <td className="px-5 py-3 text-right tabular-nums font-semibold">${Number(effective).toFixed(2)}</td>
+      <td className="px-5 py-3">
+        <div className="flex items-center justify-end gap-2">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+            <input
+              type="number"
+              min={0.01}
+              step={0.01}
+              value={val}
+              onChange={(e) => setVal(e.target.value)}
+              placeholder={item.default_price.toFixed(2)}
+              className="w-28 rounded-md border bg-background py-1.5 pl-6 pr-2 text-right text-sm tabular-nums outline-none focus:ring-2 ring-ring"
+            />
+          </div>
+          <button
+            onClick={() => onSave(parsed)}
+            disabled={saving || !dirty}
+            title="Save custom price"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+          >
+            <Check className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => onSave(null)}
+            disabled={saving || item.override_price == null}
+            title="Reset to default price"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent disabled:opacity-40"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {belowCost && <p className="mt-1 text-right text-[10px] font-semibold text-destructive">Below provider cost — you'd sell at a loss</p>}
+      </td>
+    </tr>
   );
 }
 
