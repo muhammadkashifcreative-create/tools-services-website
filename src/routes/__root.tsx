@@ -1,12 +1,14 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
@@ -17,6 +19,8 @@ import { I18nProvider } from "@/lib/i18n";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { DiscountPopup } from "@/components/DiscountPopup";
 import { PremiumLoader } from "@/components/PremiumLoader";
+import { MaintenancePage } from "@/components/MaintenancePage";
+import { getMaintenanceStatus } from "@/lib/maintenance.functions";
 
 function NotFoundComponent() {
   return (
@@ -143,12 +147,47 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <PremiumLoader />
-        <AnnouncementBar />
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <DiscountPopup />
-        <CookieConsent />
+        <MaintenanceGate>
+          <AnnouncementBar />
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <DiscountPopup />
+          <CookieConsent />
+        </MaintenanceGate>
       </I18nProvider>
     </QueryClientProvider>
+  );
+}
+
+// Blocks the whole site behind a maintenance screen when maintenance mode is
+// on. The admin bypasses it (with a warning banner), and /auth stays reachable
+// so staff can sign in. API routes are unaffected.
+function MaintenanceGate({ children }: { children: ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const fetchStatus = useServerFn(getMaintenanceStatus);
+  const { data, isLoading } = useQuery({
+    queryKey: ["maintenance"],
+    queryFn: () => fetchStatus(),
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  // Staff must always be able to reach the login page
+  if (pathname.startsWith("/auth")) return <>{children}</>;
+
+  // Avoid flashing page content before the status is known
+  if (isLoading) return null;
+
+  if (data?.enabled && !data.bypass) return <MaintenancePage />;
+
+  return (
+    <>
+      {children}
+      {data?.enabled && data.bypass && (
+        <div className="fixed inset-x-0 bottom-0 z-[150] flex items-center justify-center gap-3 bg-amber-500 px-4 py-2.5 text-center text-xs font-semibold text-amber-950 sm:text-sm">
+          🔧 Maintenance mode is ON — visitors see the maintenance page. You're viewing the site as admin. Turn it off in Admin → Overview.
+        </div>
+      )}
+    </>
   );
 }

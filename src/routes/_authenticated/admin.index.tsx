@@ -9,6 +9,7 @@ import { adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUser
 import { adminListAllCases, updateCaseStatus } from "@/lib/cases.functions";
 import { saveToolStoreConnectionDirect, getToolStoreStatus, getMarkup, updateMarkup, adminListToolPricing, setToolPriceOverride } from "@/lib/toolstore.functions";
 import { runDatabaseMigration } from "@/lib/migrate.server";
+import { getMaintenanceStatus, setMaintenanceMode } from "@/lib/maintenance.functions";
 import { OrderDetailModal, type OrderDetailData } from "@/components/OrderDetailModal";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -79,6 +80,8 @@ function AdminBody() {
   const fetchToolStatus = useServerFn(getToolStoreStatus);
   const saveToolConnDirect = useServerFn(saveToolStoreConnectionDirect);
   const runMigration = useServerFn(runDatabaseMigration);
+  const fetchMaintenance = useServerFn(getMaintenanceStatus);
+  const saveMaintenance = useServerFn(setMaintenanceMode);
 
   const { data: stats } = useQuery({ queryKey: ["adminStats"], queryFn: () => fetchStats(), staleTime: 0, refetchOnWindowFocus: true });
   const { data: orders } = useQuery({ queryKey: ["adminOrders"], queryFn: () => fetchOrders(), staleTime: 0, refetchOnWindowFocus: true });
@@ -86,6 +89,7 @@ function AdminBody() {
   const { data: cases } = useQuery({ queryKey: ["adminCases"], queryFn: () => fetchCases(), staleTime: 0, refetchOnWindowFocus: true });
   const { data: markup } = useQuery({ queryKey: ["markup"], queryFn: () => fetchMarkup() });
   const { data: toolStatus } = useQuery({ queryKey: ["toolStoreStatus"], queryFn: () => fetchToolStatus() });
+  const { data: maintenance } = useQuery({ queryKey: ["maintenance"], queryFn: () => fetchMaintenance() });
   const [markupVal, setMarkupVal] = useState<number | null>(null);
   const [toolApiUrl, setToolApiUrl] = useState("");
   const [toolApiKey, setToolApiKey] = useState("");
@@ -114,6 +118,14 @@ function AdminBody() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const maintenanceMut = useMutation({
+    mutationFn: (enabled: boolean) => saveMaintenance({ data: { enabled } }),
+    onSuccess: (r) => {
+      toast.success(r.enabled ? "Maintenance mode is ON — visitors now see the maintenance page." : "Maintenance mode is OFF — the site is live again.");
+      qc.invalidateQueries({ queryKey: ["maintenance"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const markupMut = useMutation({
     mutationFn: (m: number) => saveMarkup({ data: { markup: m } }),
     onSuccess: () => {
@@ -207,6 +219,31 @@ function AdminBody() {
             <SystemChip icon={Zap} label="Tools Store" ok={toolStatus?.connected} detail={toolStatus?.adminBalance != null ? `$${toolStatus.adminBalance.toFixed(2)} balance` : "—"} />
             <SystemChip icon={Server} label="Database" ok={true} detail="Supabase" />
             <SystemChip icon={Activity} label="Stripe" ok={true} detail="Payments live" />
+          </div>
+
+          {/* Maintenance mode */}
+          <div className={`mt-4 flex flex-col gap-4 rounded-xl border p-5 sm:flex-row sm:items-center sm:justify-between ${maintenance?.enabled ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20" : "bg-card"}`}>
+            <div className="flex items-center gap-3">
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${maintenance?.enabled ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+              <div>
+                <p className="font-semibold">
+                  Maintenance mode {maintenance?.enabled ? <span className="text-amber-600">— ON</span> : <span className="text-emerald-600">— OFF</span>}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {maintenance?.enabled
+                    ? "Visitors currently see the maintenance page. You bypass it as admin."
+                    : "The site is live for everyone. Turn on to show visitors a maintenance page."}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => maintenanceMut.mutate(!maintenance?.enabled)}
+              disabled={maintenanceMut.isPending || maintenance == null}
+              className={`shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${maintenance?.enabled ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-600 hover:bg-amber-700"}`}
+            >
+              {maintenanceMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {maintenance?.enabled ? "Turn OFF — go live" : "Turn ON maintenance"}
+            </button>
           </div>
 
         <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-5">
