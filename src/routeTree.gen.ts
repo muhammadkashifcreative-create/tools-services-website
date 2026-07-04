@@ -11,18 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as TermsRouteImport } from './routes/terms'
-import { Route as ServicesRouteImport } from './routes/services'
 import { Route as RefundRouteImport } from './routes/refund'
 import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ToolsIndexRouteImport } from './routes/tools.index'
 import { Route as ToolsStoreRouteImport } from './routes/tools.store'
-import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
-import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
@@ -38,7 +34,6 @@ import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api/auth/for
 import { Route as AuthenticatedDashboardWalletRouteImport } from './routes/_authenticated/dashboard.wallet'
 import { Route as AuthenticatedDashboardSupportRouteImport } from './routes/_authenticated/dashboard.support'
 import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
-import { Route as AuthenticatedDashboardNewOrderRouteImport } from './routes/_authenticated/dashboard.new-order'
 import { Route as AuthenticatedAdminCasesRouteImport } from './routes/_authenticated/admin.cases'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
@@ -54,11 +49,6 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ServicesRoute = ServicesRouteImport.update({
-  id: '/services',
-  path: '/services',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const RefundRoute = RefundRouteImport.update({
   id: '/refund',
   path: '/refund',
@@ -67,11 +57,6 @@ const RefundRoute = RefundRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BlogRoute = BlogRouteImport.update({
-  id: '/blog',
-  path: '/blog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -102,16 +87,6 @@ const ToolsStoreRoute = ToolsStoreRouteImport.update({
   id: '/store',
   path: '/store',
   getParentRoute: () => ToolsRoute,
-} as any)
-const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
-  id: '/checkout/return',
-  path: '/checkout/return',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BlogSlugRoute = BlogSlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => BlogRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
@@ -192,12 +167,6 @@ const AuthenticatedDashboardOrdersRoute =
     path: '/orders',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
-const AuthenticatedDashboardNewOrderRoute =
-  AuthenticatedDashboardNewOrderRouteImport.update({
-    id: '/new-order',
-    path: '/new-order',
-    getParentRoute: () => AuthenticatedDashboardRoute,
-  } as any)
 const AuthenticatedAdminCasesRoute = AuthenticatedAdminCasesRouteImport.update({
   id: '/cases',
   path: '/cases',
@@ -225,20 +194,15 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
-  '/blog': typeof BlogRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
-  '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
-  '/blog/$slug': typeof BlogSlugRoute
-  '/checkout/return': typeof CheckoutReturnRoute
   '/tools/store': typeof ToolsStoreRoute
   '/tools/': typeof ToolsIndexRoute
   '/admin/cases': typeof AuthenticatedAdminCasesRoute
-  '/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
@@ -260,17 +224,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
-  '/blog': typeof BlogRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
-  '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
-  '/blog/$slug': typeof BlogSlugRoute
-  '/checkout/return': typeof CheckoutReturnRoute
   '/tools/store': typeof ToolsStoreRoute
   '/tools': typeof ToolsIndexRoute
   '/admin/cases': typeof AuthenticatedAdminCasesRoute
-  '/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
@@ -294,20 +253,15 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
-  '/blog': typeof BlogRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
-  '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
-  '/blog/$slug': typeof BlogSlugRoute
-  '/checkout/return': typeof CheckoutReturnRoute
   '/tools/store': typeof ToolsStoreRoute
   '/tools/': typeof ToolsIndexRoute
   '/_authenticated/admin/cases': typeof AuthenticatedAdminCasesRoute
-  '/_authenticated/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/_authenticated/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
   '/_authenticated/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
@@ -331,20 +285,15 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/auth'
-    | '/blog'
     | '/privacy'
     | '/refund'
-    | '/services'
     | '/terms'
     | '/tools'
     | '/admin'
     | '/dashboard'
-    | '/blog/$slug'
-    | '/checkout/return'
     | '/tools/store'
     | '/tools/'
     | '/admin/cases'
-    | '/dashboard/new-order'
     | '/dashboard/orders'
     | '/dashboard/support'
     | '/dashboard/wallet'
@@ -366,17 +315,12 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/auth'
-    | '/blog'
     | '/privacy'
     | '/refund'
-    | '/services'
     | '/terms'
-    | '/blog/$slug'
-    | '/checkout/return'
     | '/tools/store'
     | '/tools'
     | '/admin/cases'
-    | '/dashboard/new-order'
     | '/dashboard/orders'
     | '/dashboard/support'
     | '/dashboard/wallet'
@@ -399,20 +343,15 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/about'
     | '/auth'
-    | '/blog'
     | '/privacy'
     | '/refund'
-    | '/services'
     | '/terms'
     | '/tools'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
-    | '/blog/$slug'
-    | '/checkout/return'
     | '/tools/store'
     | '/tools/'
     | '/_authenticated/admin/cases'
-    | '/_authenticated/dashboard/new-order'
     | '/_authenticated/dashboard/orders'
     | '/_authenticated/dashboard/support'
     | '/_authenticated/dashboard/wallet'
@@ -436,13 +375,10 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRoute
-  BlogRoute: typeof BlogRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   RefundRoute: typeof RefundRoute
-  ServicesRoute: typeof ServicesRoute
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
-  CheckoutReturnRoute: typeof CheckoutReturnRoute
   ApiAuthForgotPasswordRoute: typeof ApiAuthForgotPasswordRoute
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
@@ -470,13 +406,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/services': {
-      id: '/services'
-      path: '/services'
-      fullPath: '/services'
-      preLoaderRoute: typeof ServicesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/refund': {
       id: '/refund'
       path: '/refund'
@@ -489,13 +418,6 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/blog': {
-      id: '/blog'
-      path: '/blog'
-      fullPath: '/blog'
-      preLoaderRoute: typeof BlogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -539,20 +461,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/tools/store'
       preLoaderRoute: typeof ToolsStoreRouteImport
       parentRoute: typeof ToolsRoute
-    }
-    '/checkout/return': {
-      id: '/checkout/return'
-      path: '/checkout/return'
-      fullPath: '/checkout/return'
-      preLoaderRoute: typeof CheckoutReturnRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/blog/$slug': {
-      id: '/blog/$slug'
-      path: '/$slug'
-      fullPath: '/blog/$slug'
-      preLoaderRoute: typeof BlogSlugRouteImport
-      parentRoute: typeof BlogRoute
     }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
@@ -659,13 +567,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardOrdersRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
-    '/_authenticated/dashboard/new-order': {
-      id: '/_authenticated/dashboard/new-order'
-      path: '/new-order'
-      fullPath: '/dashboard/new-order'
-      preLoaderRoute: typeof AuthenticatedDashboardNewOrderRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
-    }
     '/_authenticated/admin/cases': {
       id: '/_authenticated/admin/cases'
       path: '/cases'
@@ -726,7 +627,6 @@ const AuthenticatedDashboardSupportRouteWithChildren =
   )
 
 interface AuthenticatedDashboardRouteChildren {
-  AuthenticatedDashboardNewOrderRoute: typeof AuthenticatedDashboardNewOrderRoute
   AuthenticatedDashboardOrdersRoute: typeof AuthenticatedDashboardOrdersRoute
   AuthenticatedDashboardSupportRoute: typeof AuthenticatedDashboardSupportRouteWithChildren
   AuthenticatedDashboardWalletRoute: typeof AuthenticatedDashboardWalletRoute
@@ -735,7 +635,6 @@ interface AuthenticatedDashboardRouteChildren {
 
 const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
   {
-    AuthenticatedDashboardNewOrderRoute: AuthenticatedDashboardNewOrderRoute,
     AuthenticatedDashboardOrdersRoute: AuthenticatedDashboardOrdersRoute,
     AuthenticatedDashboardSupportRoute:
       AuthenticatedDashboardSupportRouteWithChildren,
@@ -760,16 +659,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
-
-interface BlogRouteChildren {
-  BlogSlugRoute: typeof BlogSlugRoute
-}
-
-const BlogRouteChildren: BlogRouteChildren = {
-  BlogSlugRoute: BlogSlugRoute,
-}
-
-const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
 
 interface ToolsRouteChildren {
   ToolsStoreRoute: typeof ToolsStoreRoute
@@ -800,13 +689,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AboutRoute: AboutRoute,
   AuthRoute: AuthRoute,
-  BlogRoute: BlogRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   RefundRoute: RefundRoute,
-  ServicesRoute: ServicesRoute,
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
-  CheckoutReturnRoute: CheckoutReturnRoute,
   ApiAuthForgotPasswordRoute: ApiAuthForgotPasswordRoute,
   ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
   ApiAuthLoginRoute: ApiAuthLoginRoute,

@@ -9,9 +9,7 @@ export function SiteFooter() {
   const [email, setEmail] = useState("");
 
   const productLinks = [
-    { label: t("nav.services") ?? "Services", to: "/services" },
     { label: t("nav.tools") ?? "Tools Store", to: "/tools" },
-    { label: t("nav.blog") ?? "Blog", to: "/blog" },
   ];
 
   const companyLinks = [
@@ -44,7 +42,7 @@ export function SiteFooter() {
               <BrandMark size={240} />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              {t("footer.tagline") ?? "Premium social growth solutions for creators, brands, and businesses worldwide."}
+              {t("footer.tagline") ?? "Premium digital tools and subscriptions, delivered instantly worldwide."}
             </p>
 
             {/* Newsletter */}

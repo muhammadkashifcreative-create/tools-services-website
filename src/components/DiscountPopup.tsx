@@ -61,7 +61,7 @@ export function DiscountPopup() {
           <br /> your first order
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Use this code at checkout — it applies to any service or tool in our catalog.
+          Use this code at checkout — it applies to any tool in our catalog.
         </p>
 
         <button

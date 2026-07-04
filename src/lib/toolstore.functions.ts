@@ -95,6 +95,25 @@ export const getToolStoreStatus = createServerFn({ method: "GET" })
     };
   });
 
+// ---------- Pricing markup (admin-configurable, applied to tool prices) ----------
+export const getMarkup = createServerFn({ method: "GET" }).handler(async () => {
+  return { markup: await loadMarkupPercent() };
+});
+
+export const updateMarkup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ markup: z.number().min(0).max(500) }).parse(data))
+  .handler(async ({ data, context }) => {
+    assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("app_settings").upsert({
+      key: "markup_percent",
+      value: data.markup as unknown as never,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // ---------- ToolProduct type (mapped from ggsoma catalog) ----------
 export type ToolProduct = {
   id: string;

@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, Wallet, Receipt, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowRight, Wallet, Receipt, ShoppingBag, TrendingUp } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile } from "@/lib/wallet.functions";
-import { listMyOrders } from "@/lib/orders.functions";
+import { listMyToolOrders } from "@/lib/toolstore.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard/")({
@@ -14,16 +14,16 @@ export const Route = createFileRoute("/_authenticated/dashboard/")({
 
 function Dashboard() {
   const fetchProfile = useServerFn(getMyProfile);
-  const fetchOrders = useServerFn(listMyOrders);
+  const fetchOrders = useServerFn(listMyToolOrders);
   const fetchCcy = useServerFn(getUserCurrency);
   const { data: profile } = useQuery({ queryKey: ["profile"], queryFn: () => fetchProfile() });
-  const { data: orders } = useQuery({ queryKey: ["orders"], queryFn: () => fetchOrders() });
+  const { data: orders } = useQuery({ queryKey: ["toolOrders"], queryFn: () => fetchOrders() });
   const { data: ccy } = useQuery({ queryKey: ["user-currency"], queryFn: () => fetchCcy(), staleTime: 30 * 60 * 1000 });
 
   const symbol = ccy?.symbol ?? "RM";
   const rate = ccy?.rate ?? 4.7;
   const fmt = (usd: number) => `${symbol}${(usd * rate).toFixed(2)}`;
-  const totalSpent = (orders ?? []).reduce((s, o) => s + Number(o.charge), 0);
+  const totalSpent = (orders ?? []).reduce((s, o) => s + Number(o.total_price), 0);
 
   return (
     <AppLayout>
@@ -35,23 +35,23 @@ function Dashboard() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <StatCard icon={Wallet} label="Wallet balance" value={fmt(Number(profile?.balance ?? 0))} sub={`$${Number(profile?.balance ?? 0).toFixed(2)} USD`} />
-          <StatCard icon={Receipt} label="Total orders" value={String(orders?.length ?? 0)} />
+          <StatCard icon={Receipt} label="Total purchases" value={String(orders?.length ?? 0)} />
           <StatCard icon={TrendingUp} label="Total spent" value={fmt(totalSpent)} sub={`$${totalSpent.toFixed(2)} USD`} />
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           <Link
-            to="/dashboard/new-order"
+            to="/tools/store"
             className="group rounded-xl border bg-card p-6 transition hover:border-primary/40 hover:shadow-sm lg:col-span-2"
           >
             <div className="flex items-start gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Sparkles className="h-5 w-5" />
+                <ShoppingBag className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold">Place a new order</h3>
+                <h3 className="font-semibold">Browse the tools store</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Browse services across every platform and start boosting.
+                  Premium digital tools and subscriptions — delivered instantly.
                 </p>
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
@@ -75,25 +75,25 @@ function Dashboard() {
 
         <div className="mt-8 rounded-xl border bg-card">
           <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-6 sm:py-4">
-            <h2 className="font-semibold">Recent orders</h2>
+            <h2 className="font-semibold">Recent purchases</h2>
             <Link to="/dashboard/orders" className="text-sm font-medium text-primary hover:underline">View all</Link>
           </div>
           {(orders ?? []).length === 0 ? (
             <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-              No orders yet. <Link to="/dashboard/new-order" className="font-medium text-primary hover:underline">Place your first one →</Link>
+              No purchases yet. <Link to="/tools/store" className="font-medium text-primary hover:underline">Browse the store →</Link>
             </div>
           ) : (
             <ul className="divide-y">
               {(orders ?? []).slice(0, 5).map((o) => (
                 <li key={o.id} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{o.services?.name ?? "Service"}</p>
-                    <p className="truncate text-xs text-muted-foreground">{o.link}</p>
+                    <p className="truncate text-sm font-medium">{o.product_name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-                    <span className="hidden text-sm tabular-nums sm:inline">{o.quantity.toLocaleString()}</span>
+                    <span className="hidden text-sm tabular-nums sm:inline">× {o.qty}</span>
                     <StatusBadge status={o.status} />
-                    <span className="w-16 text-right text-sm font-medium tabular-nums">${Number(o.charge).toFixed(2)}</span>
+                    <span className="w-16 text-right text-sm font-medium tabular-nums">${Number(o.total_price).toFixed(2)}</span>
                   </div>
                 </li>
               ))}
@@ -122,7 +122,6 @@ function StatusBadge({ status }: { status: string }) {
     completed: "bg-emerald-100 text-emerald-700",
     processing: "bg-blue-100 text-blue-700",
     pending: "bg-amber-100 text-amber-700",
-    partial: "bg-violet-100 text-violet-700",
     canceled: "bg-red-100 text-red-700",
     cancelled: "bg-red-100 text-red-700",
   };

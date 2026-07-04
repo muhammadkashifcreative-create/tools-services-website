@@ -1,11 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect } from "react";
-import { RefreshCw, Loader2, Clock4 } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Copy, Check, ShoppingBag } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
-import { listMyOrders, refreshOrderStatus, syncMyActiveOrders } from "@/lib/orders.functions";
-import { toast } from "sonner";
+import { listMyToolOrders } from "@/lib/toolstore.functions";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard/orders")({
@@ -14,36 +13,8 @@ export const Route = createFileRoute("/_authenticated/dashboard/orders")({
 });
 
 function OrdersPage() {
-  const fetchOrders = useServerFn(listMyOrders);
-  const refresh = useServerFn(refreshOrderStatus);
-  const sync = useServerFn(syncMyActiveOrders);
-  const qc = useQueryClient();
-  const { data: orders, isLoading } = useQuery({ queryKey: ["orders"], queryFn: () => fetchOrders() });
-
-  // Auto-sync all active orders on page mount
-  useEffect(() => {
-    sync({ data: {} }).then((result) => {
-      if (result.synced > 0) {
-        qc.invalidateQueries({ queryKey: ["orders"] });
-        if (result.refunded > 0) {
-          toast.info(`${result.refunded} order${result.refunded > 1 ? "s were" : " was"} cancelled — your balance has been refunded`);
-        }
-      }
-    }).catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const mut = useMutation({
-    mutationFn: (orderId: string) => refresh({ data: { orderId } }),
-    onSuccess: (result) => {
-      qc.invalidateQueries({ queryKey: ["orders"] });
-      if (result.refunded) {
-        toast.info("Order was cancelled — your balance has been refunded");
-      } else {
-        toast.success("Status updated");
-      }
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  const fetchOrders = useServerFn(listMyToolOrders);
+  const { data: orders, isLoading } = useQuery({ queryKey: ["toolOrders"], queryFn: () => fetchOrders() });
 
   return (
     <AppLayout>
@@ -52,54 +23,49 @@ function OrdersPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Orders</h1>
-            <p className="mt-1 text-sm text-muted-foreground sm:text-base">Track and refresh every order you've placed.</p>
+            <p className="mt-1 text-sm text-muted-foreground sm:text-base">Every tool you've purchased — codes included.</p>
           </div>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/60 bg-card/70 px-3 py-1.5 text-[11px] font-medium text-muted-foreground backdrop-blur sm:text-xs">
-            <Clock4 className="h-3.5 w-3.5 text-primary" />
-            <span>Processed within 72 business hours</span>
-          </div>
+          <Link
+            to="/tools/store"
+            className="inline-flex w-fit items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 sm:text-sm"
+            style={{ background: "var(--gradient-accent)" }}
+          >
+            <ShoppingBag className="h-3.5 w-3.5" /> Browse store
+          </Link>
         </div>
 
         <div className="mt-8 overflow-hidden rounded-xl border bg-card">
           {isLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (orders ?? []).length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">No orders yet.</div>
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              No orders yet. <Link to="/tools/store" className="font-medium text-primary hover:underline">Browse the store →</Link>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="px-5 py-3 text-left font-medium">Service</th>
-                    <th className="px-5 py-3 text-left font-medium">Link</th>
+                    <th className="px-5 py-3 text-left font-medium">Product</th>
                     <th className="px-5 py-3 text-right font-medium">Qty</th>
-                    <th className="px-5 py-3 text-right font-medium">Remains</th>
-                    <th className="px-5 py-3 text-right font-medium">Charge</th>
+                    <th className="px-5 py-3 text-right font-medium">Total</th>
                     <th className="px-5 py-3 text-left font-medium">Status</th>
-                    <th className="px-5 py-3"></th>
+                    <th className="px-5 py-3 text-left font-medium">Codes</th>
+                    <th className="px-5 py-3 text-left font-medium">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {(orders ?? []).map((o) => (
                     <tr key={o.id} className="hover:bg-accent/30">
                       <td className="px-5 py-3">
-                        <div className="font-medium">{o.services?.name ?? "—"}</div>
-                        <div className="text-xs text-muted-foreground">{o.services?.platform ?? ""}</div>
+                        <div className="font-medium">{o.product_name}</div>
+                        <div className="text-xs text-muted-foreground">#{o.id.slice(0, 8).toUpperCase()}</div>
                       </td>
-                      <td className="max-w-xs truncate px-5 py-3 text-muted-foreground">{o.link}</td>
-                      <td className="px-5 py-3 text-right tabular-nums">{o.quantity.toLocaleString()}</td>
-                      <td className="px-5 py-3 text-right tabular-nums">{o.remains ?? "—"}</td>
-                      <td className="px-5 py-3 text-right tabular-nums">${Number(o.charge).toFixed(2)}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">{o.qty}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">${Number(o.total_price).toFixed(2)}</td>
                       <td className="px-5 py-3"><StatusBadge status={o.status} /></td>
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          onClick={() => mut.mutate(o.id)}
-                          disabled={mut.isPending}
-                          className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50"
-                        >
-                          <RefreshCw className="h-3 w-3" /> Refresh
-                        </button>
-                      </td>
+                      <td className="px-5 py-3"><CodesCell codes={(o.codes as string[] | null) ?? []} /></td>
+                      <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{new Date(o.created_at).toLocaleDateString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -112,13 +78,35 @@ function OrdersPage() {
   );
 }
 
+function CodesCell({ codes }: { codes: string[] }) {
+  const [copied, setCopied] = useState(false);
+  if (!codes.length) return <span className="text-xs text-muted-foreground">—</span>;
+
+  const copy = () => {
+    navigator.clipboard?.writeText(codes.join("\n")).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="max-w-[180px] truncate font-mono text-xs">{codes[0]}{codes.length > 1 ? ` +${codes.length - 1}` : ""}</span>
+      <button
+        onClick={copy}
+        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-accent"
+        title="Copy code(s)"
+      >
+        {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+      </button>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     completed: "bg-emerald-100 text-emerald-700",
     processing: "bg-blue-100 text-blue-700",
     pending: "bg-amber-100 text-amber-700",
-    "in progress": "bg-blue-100 text-blue-700",
-    partial: "bg-violet-100 text-violet-700",
     canceled: "bg-red-100 text-red-700",
     cancelled: "bg-red-100 text-red-700",
   };

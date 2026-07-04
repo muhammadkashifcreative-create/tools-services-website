@@ -181,10 +181,10 @@ export async function sendWelcomeEmail(to: string, name: string) {
     ${h1(`Welcome to Social Padu, ${name || "there"}!`)}
     ${subtitle("Your account is ready. Here's everything you can do — starting right now.")}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 24px;">
-      ${featureRow("⚡", "Instant delivery", "Orders start processing in under 60 seconds.")}
-      ${featureRow("🔒", "Wallet-secured", "Top up once, spend on any service. No card stored.")}
-      ${featureRow("📊", "Live order tracking", "Watch your order progress in real time.")}
-      ${featureRow("🌐", "16+ platforms", "Instagram, TikTok, YouTube, Spotify and more.")}
+      ${featureRow("⚡", "Instant delivery", "Codes and activation links arrive in seconds.")}
+      ${featureRow("🔒", "Wallet-secured", "Top up once, spend on any tool. No card stored.")}
+      ${featureRow("📦", "Order history", "Every purchase and code saved in your dashboard.")}
+      ${featureRow("🛠️", "Curated catalog", "Premium software, subscriptions and accounts.")}
     </table>
     ${cta("Go to Dashboard →", `${BASE_URL}/dashboard`)}
   `;
@@ -205,57 +205,9 @@ export async function sendPaymentConfirmationEmail(
       ["New wallet balance", `$${newBalance.toFixed(2)} USD`],
       ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
     ])}
-    ${cta("Start Placing Orders →", `${BASE_URL}/dashboard/new-order`)}
+    ${cta("Browse the Tools Store →", `${BASE_URL}/tools/store`)}
   `;
   await sendEmail(to, `✅ Payment confirmed — ${localAmount} ${localCurrency} added to wallet`, layout(`${localAmount} ${localCurrency} added to your Social Padu wallet`, "Payment Confirmed", body));
-}
-
-export async function sendOrderConfirmationEmail(
-  to: string, name: string, orderId: string,
-  serviceName: string, quantity: number, charge: number, link: string,
-) {
-  const body = `
-    ${heroIcon("🚀", "#eff6ff")}
-    ${h1("Your order is processing")}
-    ${subtitle(`Hi <strong>${name || "there"}</strong>, your order has been placed successfully and will start very soon.`)}
-    ${infoCard([
-      ["Order ID", `#${orderId.slice(0, 8).toUpperCase()}`],
-      ["Service", serviceName],
-      ["Quantity", quantity.toLocaleString()],
-      ["Amount charged", `$${charge.toFixed(2)} USD`],
-      ["Target link", `<span style="font-size:11px;word-break:break-all;">${link}</span>`],
-      ["Status", `<span style="color:#2563eb;font-weight:700;">⚡ Processing</span>`],
-    ])}
-    ${alertBox("Orders typically start within <strong>60 seconds</strong> and complete within <strong>72 hours</strong>.", "info")}
-    ${cta("Track Order Live →", `${BASE_URL}/dashboard/orders`)}
-  `;
-  await sendEmail(to, `🚀 Order confirmed — ${serviceName}`, layout(`Your order for ${serviceName} is being processed`, "Order Placed", body));
-}
-
-export async function sendOrderCancelledEmail(
-  to: string, name: string, orderId: string,
-  serviceName: string, refundAmount: number, newBalance: number,
-) {
-  const body = `
-    ${heroIcon("❌", "#fef2f2")}
-    ${h1("Order cancelled — balance refunded")}
-    ${subtitle(`Hi <strong>${name || "there"}</strong>, your order was cancelled by the provider. The full amount has been automatically refunded to your wallet.`)}
-    ${infoCard([
-      ["Order ID", `#${orderId.slice(0, 8).toUpperCase()}`],
-      ["Service", serviceName],
-      ["Amount refunded", `$${refundAmount.toFixed(2)} USD`],
-      ["New wallet balance", `$${newBalance.toFixed(2)} USD`],
-      ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
-    ])}
-    ${alertBox("Your refund is available in your wallet immediately. You can place a new order any time.", "success")}
-    ${cta("Place a new order →", `${BASE_URL}/dashboard/new-order`)}
-    <p style="margin:16px 0 0;font-size:13px;color:#64748b;text-align:center;">If you believe this was a mistake, please contact our support team.</p>
-  `;
-  await sendEmail(
-    to,
-    `Order cancelled — $${refundAmount.toFixed(2)} refunded to your wallet`,
-    layout(`Order #${orderId.slice(0, 8).toUpperCase()} cancelled and refunded`, "Order Cancelled", body),
-  );
 }
 
 export async function sendCaseOpenedEmail(to: string, name: string, caseId: string, subject: string) {

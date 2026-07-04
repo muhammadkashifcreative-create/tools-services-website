@@ -29,9 +29,9 @@ function RefundPage() {
           <section>
             <h3 className="text-base font-semibold text-foreground">Eligible for Refund</h3>
             <ul className="mt-2 list-disc pl-5 space-y-2">
-              <li>Order marked as completed but no measurable delivery was received.</li>
-              <li>Service stalled significantly beyond the published estimated completion window.</li>
-              <li>Provider outage or technical failure acknowledged by our team.</li>
+              <li>Order marked as completed but no code, link, or account was delivered.</li>
+              <li>Delivered code or account is invalid, already used, or does not activate as described.</li>
+              <li>Supplier outage or technical failure acknowledged by our team.</li>
               <li>Duplicate order placed by system error.</li>
               <li>Wallet top-up completed but balance not credited (payment processing error).</li>
             </ul>
@@ -40,13 +40,11 @@ function RefundPage() {
           <section>
             <h3 className="text-base font-semibold text-foreground">Not Eligible for Refund</h3>
             <ul className="mt-2 list-disc pl-5 space-y-2">
-              <li>Incorrect target link supplied by the customer at the time of order.</li>
-              <li>Target account or post set to private mid-delivery.</li>
-              <li>Target account deleted, suspended, or renamed after order placement.</li>
-              <li>Natural drop in followers/engagement after order completion (normal platform behavior).</li>
-              <li>Refill warranty period has expired.</li>
-              <li>Order is currently in progress (partially delivered).</li>
-              <li>Change of mind after order has been dispatched to the provider.</li>
+              <li>Change of mind after the code or account details have been revealed.</li>
+              <li>Product purchased for the wrong platform, region, or requirement stated in the product description.</li>
+              <li>Account suspended or restricted due to the customer violating the vendor's terms after delivery.</li>
+              <li>Vendor-side changes to a product's features or pricing after successful delivery.</li>
+              <li>Issues reported more than 7 days after delivery, unless the product carries a longer stated warranty.</li>
             </ul>
           </section>
 

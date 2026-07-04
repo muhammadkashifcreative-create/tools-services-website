@@ -45,7 +45,8 @@ async function handlePaymentIntent(pi: any) {
 
   // tool_purchase is fulfilled client-side by confirmToolCardPurchase.
   // Skipping here prevents incorrectly crediting the wallet if the webhook fires first.
-  if (kind === "tool_purchase") return;
+  // Only wallet_deposit intents are credited below.
+  if (kind !== "wallet_deposit") return;
 
   // Idempotency — skip if already processed
   const { data: existing } = await supabaseAdmin
@@ -58,54 +59,6 @@ async function handlePaymentIntent(pi: any) {
 
   const usdAmount = Number(meta.usdAmount ?? 0);
   if (!usdAmount) return;
-
-  if (kind === "order_payment") {
-    const serviceId = meta.serviceId as string;
-    const link = meta.link as string;
-    const quantity = Number(meta.quantity);
-
-    if (!serviceId || !link || !quantity) {
-      console.error("webhook order_payment: missing fields");
-      return;
-    }
-
-    const { data: service } = await supabaseAdmin
-      .from("services")
-      .select("id, provider_service_id, name")
-      .eq("id", serviceId)
-      .maybeSingle();
-
-    if (!service) return;
-
-    let providerOrderId: string | null = null;
-    try {
-      const { placeOrder: providerPlace } = await import("@/lib/famousprovider.server");
-      const res = await providerPlace({ service: service.provider_service_id, link, quantity });
-      providerOrderId = String(res.order);
-    } catch {
-      console.error("webhook: provider order failed, crediting wallet");
-    }
-
-    if (providerOrderId) {
-      const { data: order } = await supabaseAdmin
-        .from("orders")
-        .insert({ user_id: userId, service_id: serviceId, link, quantity, charge: usdAmount, status: "processing", provider_order_id: providerOrderId })
-        .select("id").single();
-      await supabaseAdmin.from("transactions").insert({
-        user_id: userId, amount: -usdAmount, type: "order",
-        description: `stripe:${piId} — ${service.name}`,
-        reference_id: order?.id ?? null,
-      });
-    } else {
-      // Provider failed — atomically refund to wallet
-      await deltaBalance(userId, usdAmount);
-      await supabaseAdmin.from("transactions").insert({
-        user_id: userId, amount: usdAmount, type: "deposit",
-        description: `stripe:${piId} — order failed, credited to wallet`,
-      });
-    }
-    return;
-  }
 
   // wallet_deposit — atomically credit balance
   await deltaBalance(userId, usdAmount);

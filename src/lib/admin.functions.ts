@@ -10,44 +10,21 @@ export const adminListOrders = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context as never);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [{ data: smmData, error }, { data: toolData }] = await Promise.all([
-      supabaseAdmin
-        .from("orders")
-        .select("id, link, quantity, charge, status, provider_order_id, created_at, user_id, services(name, platform)")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      supabaseAdmin
-        .from("tool_orders")
-        .select("id, product_name, qty, total_price, status, created_at, user_id")
-        .order("created_at", { ascending: false })
-        .limit(200),
-    ]);
+    const { data: toolData, error } = await supabaseAdmin
+      .from("tool_orders")
+      .select("id, product_name, qty, total_price, status, created_at, user_id")
+      .order("created_at", { ascending: false })
+      .limit(200);
     if (error) throw new Error(error.message);
 
-    const allUserIds = Array.from(new Set([
-      ...(smmData ?? []).map((r) => r.user_id),
-      ...(toolData ?? []).map((r) => r.user_id),
-    ]));
+    const allUserIds = Array.from(new Set((toolData ?? []).map((r) => r.user_id)));
     const { data: profiles } = await supabaseAdmin
       .from("profiles")
       .select("id, username, full_name")
       .in("id", allUserIds);
     const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
 
-    const smm = (smmData ?? []).map((r) => ({
-      id: r.id,
-      type: "smm" as const,
-      user_id: r.user_id,
-      name: (r.services as { name?: string } | null)?.name ?? "—",
-      platform: (r.services as { platform?: string } | null)?.platform ?? "",
-      quantity: r.quantity,
-      charge: Number(r.charge),
-      status: r.status,
-      created_at: r.created_at,
-      profile: byId.get(r.user_id) ?? null,
-    }));
-
-    const tools = (toolData ?? []).map((r) => ({
+    return (toolData ?? []).map((r) => ({
       id: r.id,
       type: "tool" as const,
       user_id: r.user_id,
@@ -59,10 +36,6 @@ export const adminListOrders = createServerFn({ method: "GET" })
       created_at: r.created_at,
       profile: byId.get(r.user_id) ?? null,
     }));
-
-    return [...smm, ...tools].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    );
   });
 
 export const adminStats = createServerFn({ method: "GET" })
@@ -70,36 +43,22 @@ export const adminStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context as never);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [users, services, smmCount, toolCount, smmFull, toolFull, markupSetting] = await Promise.all([
+    const [users, toolCount, toolFull, markupSetting] = await Promise.all([
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("services").select("id", { count: "exact", head: true }).eq("is_active", true),
-      supabaseAdmin.from("orders").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("tool_orders").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("orders").select("charge, quantity, services(provider_rate)"),
       supabaseAdmin.from("tool_orders").select("total_price"),
       supabaseAdmin.from("app_settings").select("value").eq("key", "markup_percent").maybeSingle(),
     ]);
 
-    type SmmRow = { charge: number | string; quantity: number; services: { provider_rate: number | string } | null };
-    const smmRows = (smmFull.data ?? []) as unknown as SmmRow[];
-    const smmEarned = smmRows.reduce((s, r) => s + Number(r.charge ?? 0), 0);
-    const smmCost = smmRows.reduce((s, r) => {
-      const rate = Number(r.services?.provider_rate ?? 0);
-      return s + (Number(r.quantity) / 1000) * rate;
-    }, 0);
-
-    // Tool provider cost = what we paid ggsoma = total_price / (1 + markup%)
+    // Tool provider cost = what we paid upstream = total_price / (1 + markup%)
     const markupPct = Number((markupSetting.data?.value as number | null) ?? 25);
     const markupFactor = 1 + markupPct / 100;
-    const toolEarned = (toolFull.data ?? []).reduce((s, r) => s + Number(r.total_price ?? 0), 0);
-    const toolCost = toolEarned / markupFactor;
+    const totalEarned = (toolFull.data ?? []).reduce((s, r) => s + Number(r.total_price ?? 0), 0);
+    const totalCost = totalEarned / markupFactor;
 
-    const totalEarned = smmEarned + toolEarned;
-    const totalCost = smmCost + toolCost;
     return {
       users: users.count ?? 0,
-      services: services.count ?? 0,
-      orders: (smmCount.count ?? 0) + (toolCount.count ?? 0),
+      orders: toolCount.count ?? 0,
       revenue: +totalEarned.toFixed(2),
       spent: +totalCost.toFixed(2),
       profit: +(totalEarned - totalCost).toFixed(2),
@@ -123,17 +82,11 @@ export const adminListUsers = createServerFn({ method: "GET" })
     const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const emailMap = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? ""]));
 
-    const [{ data: orderAgg }, { data: toolAgg }] = await Promise.all([
-      supabaseAdmin.from("orders").select("user_id, charge").in("user_id", ids),
-      supabaseAdmin.from("tool_orders").select("user_id, total_price").in("user_id", ids),
-    ]);
+    const { data: toolAgg } = await supabaseAdmin
+      .from("tool_orders")
+      .select("user_id, total_price")
+      .in("user_id", ids);
     const agg = new Map<string, { count: number; spent: number }>();
-    for (const o of orderAgg ?? []) {
-      const cur = agg.get(o.user_id) ?? { count: 0, spent: 0 };
-      cur.count += 1;
-      cur.spent += Number(o.charge ?? 0);
-      agg.set(o.user_id, cur);
-    }
     for (const o of toolAgg ?? []) {
       const cur = agg.get(o.user_id) ?? { count: 0, spent: 0 };
       cur.count += 1;
@@ -154,35 +107,15 @@ export const adminUserOrders = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     await assertAdmin(context as never);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [{ data: smmRows, error }, { data: toolRows }] = await Promise.all([
-      supabaseAdmin
-        .from("orders")
-        .select("id, link, quantity, charge, status, created_at, services(name, platform)")
-        .eq("user_id", data.userId)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabaseAdmin
-        .from("tool_orders")
-        .select("id, product_name, qty, total_price, status, created_at")
-        .eq("user_id", data.userId)
-        .order("created_at", { ascending: false })
-        .limit(100),
-    ]);
+    const { data: toolRows, error } = await supabaseAdmin
+      .from("tool_orders")
+      .select("id, product_name, qty, total_price, status, created_at")
+      .eq("user_id", data.userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
     if (error) throw new Error(error.message);
 
-    const smm = (smmRows ?? []).map((o) => ({
-      id: o.id,
-      type: "smm" as const,
-      name: o.services?.name ?? "—",
-      platform: (o.services as { platform?: string } | null)?.platform ?? "",
-      link: o.link,
-      quantity: o.quantity,
-      charge: Number(o.charge),
-      status: o.status,
-      created_at: o.created_at,
-    }));
-
-    const tools = (toolRows ?? []).map((o) => ({
+    return (toolRows ?? []).map((o) => ({
       id: o.id,
       type: "tool" as const,
       name: o.product_name,
@@ -193,10 +126,6 @@ export const adminUserOrders = createServerFn({ method: "GET" })
       status: o.status,
       created_at: o.created_at,
     }));
-
-    return [...smm, ...tools].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    );
   });
 
 // Bootstrap: lets the first signed-in user claim admin if no admin exists yet.

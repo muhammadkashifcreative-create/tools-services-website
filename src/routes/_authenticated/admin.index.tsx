@@ -2,13 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Loader2, RefreshCw, ShieldCheck, Users, MessageSquare, ShoppingBag, DollarSign, TrendingDown, TrendingUp, Plug, CheckCircle2, Database, Activity, Zap, Globe, Clock, BarChart3, Mail, AlertCircle, Server } from "lucide-react";
+import { Loader2, ShieldCheck, Users, MessageSquare, ShoppingBag, DollarSign, TrendingDown, TrendingUp, Plug, CheckCircle2, Database, Activity, Zap, BarChart3, Mail, Server } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile } from "@/lib/wallet.functions";
-import { syncServicesFromProvider, getMarkup, updateMarkup, saveServicesConnection, getServicesConnectionStatus } from "@/lib/services.functions";
 import { adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUserOrders } from "@/lib/admin.functions";
 import { adminListAllCases, updateCaseStatus } from "@/lib/cases.functions";
-import { saveToolStoreConnection, saveToolStoreConnectionDirect, getToolStoreStatus } from "@/lib/toolstore.functions";
+import { saveToolStoreConnectionDirect, getToolStoreStatus, getMarkup, updateMarkup } from "@/lib/toolstore.functions";
 import { runDatabaseMigration } from "@/lib/migrate.server";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -73,16 +72,12 @@ function AdminBody() {
   const fetchUsers = useServerFn(adminListUsers);
   const fetchCases = useServerFn(adminListAllCases);
   const fetchMarkup = useServerFn(getMarkup);
-  const sync = useServerFn(syncServicesFromProvider);
   const saveMarkup = useServerFn(updateMarkup);
   const setCaseStatus = useServerFn(updateCaseStatus);
   const fetchUserOrders = useServerFn(adminUserOrders);
   const fetchToolStatus = useServerFn(getToolStoreStatus);
-  const saveToolConn = useServerFn(saveToolStoreConnection);
   const saveToolConnDirect = useServerFn(saveToolStoreConnectionDirect);
   const runMigration = useServerFn(runDatabaseMigration);
-  const saveServicesConn = useServerFn(saveServicesConnection);
-  const fetchServicesStatus = useServerFn(getServicesConnectionStatus);
 
   const { data: stats } = useQuery({ queryKey: ["adminStats"], queryFn: () => fetchStats(), staleTime: 0, refetchOnWindowFocus: true });
   const { data: orders } = useQuery({ queryKey: ["adminOrders"], queryFn: () => fetchOrders(), staleTime: 0, refetchOnWindowFocus: true });
@@ -90,13 +85,9 @@ function AdminBody() {
   const { data: cases } = useQuery({ queryKey: ["adminCases"], queryFn: () => fetchCases(), staleTime: 0, refetchOnWindowFocus: true });
   const { data: markup } = useQuery({ queryKey: ["markup"], queryFn: () => fetchMarkup() });
   const { data: toolStatus } = useQuery({ queryKey: ["toolStoreStatus"], queryFn: () => fetchToolStatus() });
-  const { data: servicesStatus } = useQuery({ queryKey: ["servicesConnStatus"], queryFn: () => fetchServicesStatus() });
   const [markupVal, setMarkupVal] = useState<number | null>(null);
-  const [toolConnCode, setToolConnCode] = useState("");
   const [toolApiUrl, setToolApiUrl] = useState("");
   const [toolApiKey, setToolApiKey] = useState("");
-  const [smmApiUrl, setSmmApiUrl] = useState("");
-  const [smmApiKey, setSmmApiKey] = useState("");
   const [tab, setTab] = useState<"overview" | "orders" | "users">("overview");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
@@ -121,32 +112,13 @@ function AdminBody() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const syncMut = useMutation({
-    mutationFn: () => sync(),
-    onSuccess: (r: { count: number; skipped?: number; errors?: string[] }) => {
-      const parts = [`Synced ${r.count} services`];
-      if (r.skipped) parts.push(`${r.skipped} skipped`);
-      toast.success(parts.join(" · "));
-      if (r.errors && r.errors.length) toast.warning(r.errors[0]);
-      qc.invalidateQueries({ queryKey: ["services"] });
-      qc.invalidateQueries({ queryKey: ["adminStats"] });
-    },
-    onError: (e: Error) => toast.error(e.message || "Sync failed"),
-  });
   const markupMut = useMutation({
     mutationFn: (m: number) => saveMarkup({ data: { markup: m } }),
     onSuccess: () => {
-      toast.success("Markup updated. Re-sync services to apply.");
+      toast.success("Markup updated.");
       qc.invalidateQueries({ queryKey: ["markup"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const toolConnMut = useMutation({
-    mutationFn: (code: string) => saveToolConn({ data: { code } }),
-    onSuccess: () => {
-      toast.success("Tools store connected successfully.");
-      setToolConnCode("");
-      qc.invalidateQueries({ queryKey: ["toolStoreStatus"] });
+      qc.invalidateQueries({ queryKey: ["toolProducts"] });
+      qc.invalidateQueries({ queryKey: ["toolProductsPub"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -160,17 +132,6 @@ function AdminBody() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-  const servicesConnMut = useMutation({
-    mutationFn: ({ api_url, api_key }: { api_url: string; api_key: string }) =>
-      saveServicesConn({ data: { api_url, api_key } }),
-    onSuccess: () => {
-      toast.success("Social Media Services API connected successfully. Re-sync to apply.");
-      setSmmApiUrl(""); setSmmApiKey("");
-      qc.invalidateQueries({ queryKey: ["servicesConnStatus"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   const currentMarkup = markupVal ?? markup?.markup ?? 25;
 
   return (
@@ -190,7 +151,7 @@ function AdminBody() {
                 <span className="text-xs font-semibold uppercase tracking-widest text-orange-400">Admin Control Panel</span>
               </div>
               <h1 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Social Padu Dashboard</h1>
-              <p className="mt-1 text-sm text-slate-400">Full platform control — services, users, revenue & support.</p>
+              <p className="mt-1 text-sm text-slate-400">Full platform control — tools store, users, revenue & support.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
@@ -202,8 +163,8 @@ function AdminBody() {
                 <p className="text-[10px] uppercase tracking-wider text-slate-400">Net Profit</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
-                <p className="text-2xl font-bold text-orange-400 tabular-nums">{stats?.services ?? 0}</p>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Live Services</p>
+                <p className="text-2xl font-bold text-orange-400 tabular-nums">{stats?.orders ?? 0}</p>
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Total Orders</p>
               </div>
             </div>
           </div>
@@ -236,13 +197,11 @@ function AdminBody() {
             <StatIcon icon={TrendingDown} tone="amber" label="Provider Cost" value={`$${(stats?.spent ?? 0).toFixed(2)}`} sub="What we pay upstream" />
             <StatIcon icon={TrendingUp} tone="primary" label="Net Profit" value={`$${(stats?.profit ?? 0).toFixed(2)}`} sub={`${stats?.revenue ? ((stats.profit / stats.revenue) * 100).toFixed(1) : 0}% margin`} />
             <StatIcon icon={Users} tone="default" label="Total Users" value={stats?.users ?? 0} sub="Registered accounts" />
-            <StatIcon icon={ShoppingBag} tone="default" label="Total Orders" value={stats?.orders ?? 0} sub="All-time orders placed" />
-            <StatIcon icon={Activity} tone="default" label="Active Services" value={stats?.services ?? 0} sub="Live in catalog" />
+            <StatIcon icon={ShoppingBag} tone="default" label="Total Orders" value={stats?.orders ?? 0} sub="All-time tool purchases" />
           </div>
 
           {/* System status row */}
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <SystemChip icon={Globe} label="SMM API" ok={servicesStatus?.connected} detail={servicesStatus?.configuredInDb ? "DB config" : "Env var"} />
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <SystemChip icon={Zap} label="Tools Store" ok={toolStatus?.connected} detail={toolStatus?.adminBalance != null ? `$${toolStatus.adminBalance.toFixed(2)} balance` : "—"} />
             <SystemChip icon={Server} label="Database" ok={true} detail="Supabase" />
             <SystemChip icon={Activity} label="Stripe" ok={true} detail="Payments live" />
@@ -278,34 +237,10 @@ function AdminBody() {
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border bg-card p-6 shadow-soft">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Sync provider catalog</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Pull latest services from justanotherpanel.com and apply markup.</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white" style={{ background: "var(--gradient-accent)" }}>
-                <RefreshCw className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center gap-3 rounded-lg bg-muted/40 px-4 py-3 text-sm">
-              <Activity className="h-4 w-4 text-emerald-500 shrink-0" />
-              <span className="text-muted-foreground"><span className="font-semibold text-foreground">{stats?.services ?? 0}</span> services currently active · Markup: <span className="font-semibold text-foreground">{currentMarkup}%</span></span>
-            </div>
-            <button
-              onClick={() => syncMut.mutate()}
-              disabled={syncMut.isPending}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-60"
-            >
-              {syncMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              {syncMut.isPending ? "Syncing…" : "Sync now"}
-            </button>
-          </div>
-
           <div className="rounded-xl border bg-card p-6">
             <h3 className="font-semibold">Pricing markup</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              % added on top of provider's USD cost. Selling price = provider cost × (1 + markup%). Must be &gt; 0 to avoid losses.
+              % added on top of the upstream USD cost of each tool. Selling price = provider cost × (1 + markup%). Must be &gt; 0 to avoid losses.
             </p>
             <div className="mt-4 flex items-center gap-3">
               <input
@@ -366,45 +301,6 @@ function AdminBody() {
               <p className="mt-3 text-sm">Upstream balance: <span className="font-semibold">${toolStatus.adminBalance?.toFixed(2) ?? "—"}</span></p>
             )}
           </div>
-
-          <div className="rounded-xl border bg-card p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Social Media Services API</h3>
-              {servicesStatus?.connected && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {servicesStatus?.configuredInDb
-                ? `Connected · ${servicesStatus?.apiUrl ?? ""}`
-                : servicesStatus?.connected
-                ? "Using env var fallback. Configure in DB to override."
-                : "Enter your SMM panel API URL and key."}
-            </p>
-            <div className="mt-4 space-y-2">
-              <input
-                type="text"
-                value={smmApiUrl}
-                onChange={(e) => setSmmApiUrl(e.target.value)}
-                placeholder="https://justanotherpanel.com/api/v2"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
-              />
-              <div className="flex items-center gap-2">
-                <input
-                  type="password"
-                  value={smmApiKey}
-                  onChange={(e) => setSmmApiKey(e.target.value)}
-                  placeholder="API key"
-                  className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
-                />
-                <button
-                  onClick={() => servicesConnMut.mutate({ api_url: smmApiUrl, api_key: smmApiKey })}
-                  disabled={servicesConnMut.isPending || !smmApiUrl.trim() || !smmApiKey.trim()}
-                  className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-                >
-                  {servicesConnMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
         </>)}
 
@@ -429,8 +325,8 @@ function AdminBody() {
                     <td className="px-5 py-3">{o.profile?.username ?? o.profile?.full_name ?? o.user_id.slice(0, 8)}</td>
                     <td className="px-5 py-3">
                       <div>{o.name}</div>
-                      <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${o.type === "tool" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"}`}>
-                        {o.type === "tool" ? "Tool" : o.platform || "SMM"}
+                      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-violet-700">
+                        Tool
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums">{o.quantity.toLocaleString()}</td>
@@ -509,8 +405,8 @@ function AdminBody() {
                           <td className="px-5 py-3">
                             <div className="font-medium">{o.name}</div>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${o.type === "tool" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"}`}>
-                                {o.type === "tool" ? "Tool" : o.platform || "SMM"}
+                              <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-violet-700">
+                                Tool
                               </span>
                             </div>
                           </td>

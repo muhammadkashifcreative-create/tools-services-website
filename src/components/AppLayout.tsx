@@ -2,7 +2,7 @@ import { Link, useRouter, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { LayoutDashboard, Sparkles, Wallet, Receipt, Shield, LogOut, Bell, Plus, LifeBuoy, Wrench, User } from "lucide-react";
+import { LayoutDashboard, Wallet, Receipt, Shield, LogOut, Bell, Plus, LifeBuoy, Wrench } from "lucide-react";
 import { getMyProfile } from "@/lib/wallet.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   const subNav: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
-    { to: "/dashboard/new-order", label: "New Order", icon: Sparkles },
+    { to: "/tools/store", label: "Tools Store", icon: Wrench },
     { to: "/dashboard/orders", label: "Orders", icon: Receipt },
     { to: "/dashboard/wallet", label: "Wallet", icon: Wallet },
     { to: "/dashboard/support", label: "Cases", icon: LifeBuoy },
@@ -153,11 +153,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <LanguageSwitcher />
             <Link
-              to="/dashboard/new-order"
+              to="/tools/store"
               className="hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 md:inline-flex"
               style={{ background: "var(--gradient-accent)" }}
             >
-              <Plus className="h-3.5 w-3.5" /> New order
+              <Plus className="h-3.5 w-3.5" /> Buy tools
             </Link>
             <Link
               to="/dashboard/wallet"

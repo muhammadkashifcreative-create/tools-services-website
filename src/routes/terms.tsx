@@ -26,8 +26,8 @@ function TermsPage() {
             <p className="mt-2">By creating an account or placing an order on Social Padu ("we", "us", "our"), you agree to be bound by these Terms of Service. If you do not agree, please do not use our platform.</p>
           </section>
           <section>
-            <h3 className="text-base font-semibold text-foreground">2. Services</h3>
-            <p className="mt-2">Social Padu provides social media growth services (followers, likes, views, plays, etc.) and digital tools through our partner network. We act as a reseller connecting customers with upstream providers. Delivery times and results may vary depending on the service and target platform.</p>
+            <h3 className="text-base font-semibold text-foreground">2. Products</h3>
+            <p className="mt-2">Social Padu sells digital tools — software subscriptions, license keys, activation codes, and ready-to-use accounts — sourced through our partner network. We act as a reseller connecting customers with upstream suppliers. Product availability and delivery format may vary by item.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">3. Account Registration</h3>
@@ -39,19 +39,19 @@ function TermsPage() {
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">5. Order Policy</h3>
-            <p className="mt-2">Once an order is dispatched to our upstream provider it cannot be cancelled. Ensure your target link (profile, post, video) is correct and publicly accessible before placing an order. We are not responsible for orders placed with incorrect links.</p>
+            <p className="mt-2">Digital products are delivered instantly once payment is confirmed. Because codes and account credentials are revealed at delivery, orders cannot be cancelled after dispatch. Check the product details, quantity, and total before confirming your purchase.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">6. Acceptable Use</h3>
-            <p className="mt-2">You agree not to use Social Padu for illegal purposes, hate speech, harassment, or any content that violates the terms of the target social media platform. We reserve the right to suspend accounts that misuse our services without notice or refund.</p>
+            <p className="mt-2">You agree not to use Social Padu for illegal purposes, fraud, or resale in violation of an upstream vendor's licensing terms. We reserve the right to suspend accounts that misuse our platform without notice or refund.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">7. Refunds</h3>
             <p className="mt-2">Refund requests are reviewed on a case-by-case basis. Please refer to our <a href="/refund" className="text-primary hover:underline">Refund Policy</a> for full details. Approved refunds are credited back to your wallet balance within 24 hours.</p>
           </section>
           <section>
-            <h3 className="text-base font-semibold text-foreground">8. Platform Compliance</h3>
-            <p className="mt-2">Our services use publicly available links and do not require passwords. We make no guarantees regarding compliance with third-party platform policies. Use of our services is at your own risk, and we are not liable for any consequences resulting from platform enforcement actions.</p>
+            <h3 className="text-base font-semibold text-foreground">8. Third-Party Products</h3>
+            <p className="mt-2">Products sold on Social Padu are created and operated by third-party vendors. Subscriptions and accounts remain subject to the vendor's own terms of service. We are not liable for changes a vendor makes to its product, pricing, or policies after delivery.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">9. Limitation of Liability</h3>
