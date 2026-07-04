@@ -9,6 +9,7 @@ import { adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUser
 import { adminListAllCases, updateCaseStatus } from "@/lib/cases.functions";
 import { saveToolStoreConnectionDirect, getToolStoreStatus, getMarkup, updateMarkup } from "@/lib/toolstore.functions";
 import { runDatabaseMigration } from "@/lib/migrate.server";
+import { OrderDetailModal, type OrderDetailData } from "@/components/OrderDetailModal";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -90,6 +91,7 @@ function AdminBody() {
   const [toolApiKey, setToolApiKey] = useState("");
   const [tab, setTab] = useState<"overview" | "orders" | "users">("overview");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [orderDetail, setOrderDetail] = useState<OrderDetailData | null>(null);
 
   const { data: userOrders } = useQuery({
     queryKey: ["adminUserOrders", selectedUser],
@@ -321,7 +323,22 @@ function AdminBody() {
               </thead>
               <tbody className="divide-y">
                 {(orders ?? []).map((o) => (
-                  <tr key={o.id}>
+                  <tr
+                    key={o.id}
+                    onClick={() => setOrderDetail({
+                      id: o.id,
+                      product_name: o.name,
+                      qty: o.quantity,
+                      unit_price: o.unit_price,
+                      total_price: o.charge,
+                      codes: o.codes,
+                      status: o.status,
+                      created_at: o.created_at,
+                      buyer: { name: o.profile?.full_name ?? o.profile?.username ?? o.user_id.slice(0, 8), email: o.email || null },
+                    })}
+                    className="cursor-pointer hover:bg-accent/40 transition-colors"
+                    title="View order details"
+                  >
                     <td className="px-5 py-3">{o.profile?.username ?? o.profile?.full_name ?? o.user_id.slice(0, 8)}</td>
                     <td className="px-5 py-3">
                       <div>{o.name}</div>
@@ -400,8 +417,25 @@ function AdminBody() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {(userOrders ?? []).map((o) => (
-                        <tr key={o.id}>
+                      {(userOrders ?? []).map((o) => {
+                        const buyer = (users ?? []).find((u) => u.id === selectedUser);
+                        return (
+                        <tr
+                          key={o.id}
+                          onClick={() => setOrderDetail({
+                            id: o.id,
+                            product_name: o.name,
+                            qty: o.quantity,
+                            unit_price: o.unit_price,
+                            total_price: o.charge,
+                            codes: o.codes,
+                            status: o.status,
+                            created_at: o.created_at,
+                            buyer: buyer ? { name: buyer.full_name ?? buyer.username, email: buyer.email || null } : null,
+                          })}
+                          className="cursor-pointer hover:bg-accent/40 transition-colors"
+                          title="View order details"
+                        >
                           <td className="px-5 py-3">
                             <div className="font-medium">{o.name}</div>
                             <div className="flex items-center gap-1.5 mt-0.5">
@@ -414,7 +448,7 @@ function AdminBody() {
                           <td className="px-5 py-3 text-right tabular-nums">${o.charge.toFixed(2)}</td>
                           <td className="px-5 py-3 capitalize">{o.status}</td>
                         </tr>
-                      ))}
+                      );})}
                       {(userOrders ?? []).length === 0 && (
                         <tr><td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">No orders.</td></tr>
                       )}
@@ -428,6 +462,8 @@ function AdminBody() {
 
 
       </div>
+
+      {orderDetail && <OrderDetailModal order={orderDetail} onClose={() => setOrderDetail(null)} />}
     </AppLayout>
   );
 }

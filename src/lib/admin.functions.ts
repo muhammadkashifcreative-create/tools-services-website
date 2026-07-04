@@ -12,17 +12,18 @@ export const adminListOrders = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: toolData, error } = await supabaseAdmin
       .from("tool_orders")
-      .select("id, product_name, qty, total_price, status, created_at, user_id")
+      .select("id, product_name, qty, unit_price, total_price, codes, status, created_at, user_id")
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
 
     const allUserIds = Array.from(new Set((toolData ?? []).map((r) => r.user_id)));
-    const { data: profiles } = await supabaseAdmin
-      .from("profiles")
-      .select("id, username, full_name")
-      .in("id", allUserIds);
+    const [{ data: profiles }, { data: authUsers }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, username, full_name").in("id", allUserIds),
+      supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    ]);
     const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+    const emailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? ""]));
 
     return (toolData ?? []).map((r) => ({
       id: r.id,
@@ -31,10 +32,13 @@ export const adminListOrders = createServerFn({ method: "GET" })
       name: r.product_name,
       platform: "Tools Store",
       quantity: r.qty,
+      unit_price: Number(r.unit_price),
       charge: Number(r.total_price),
+      codes: (r.codes as string[] | null) ?? [],
       status: r.status,
       created_at: r.created_at,
       profile: byId.get(r.user_id) ?? null,
+      email: emailById.get(r.user_id) ?? "",
     }));
   });
 
@@ -109,7 +113,7 @@ export const adminUserOrders = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: toolRows, error } = await supabaseAdmin
       .from("tool_orders")
-      .select("id, product_name, qty, total_price, status, created_at")
+      .select("id, product_name, qty, unit_price, total_price, codes, status, created_at")
       .eq("user_id", data.userId)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -122,7 +126,9 @@ export const adminUserOrders = createServerFn({ method: "GET" })
       platform: "Tools Store",
       link: null as string | null,
       quantity: o.qty,
+      unit_price: Number(o.unit_price),
       charge: Number(o.total_price),
+      codes: (o.codes as string[] | null) ?? [],
       status: o.status,
       created_at: o.created_at,
     }));
