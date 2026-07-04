@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { Loader2, ShoppingBag, Wrench, LogIn, Copy, Sparkles, ShieldCheck, Zap, Package, Star, X, Clock, Boxes, Tag, ChevronRight, Check, Wallet, CreditCard, Lock, CheckCircle2 } from "lucide-react";
+import { Loader2, ShoppingBag, Wrench, LogIn, Copy, Search, Sparkles, ShieldCheck, Zap, Package, Star, X, Clock, Boxes, Tag, ChevronRight, Check, Wallet, CreditCard, Lock, CheckCircle2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Toaster } from "@/components/ui/sonner";
@@ -48,6 +48,7 @@ function ToolsStorePublicPage() {
   const fetchCurrency = useServerFn(getUserCurrency);
 
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [query, setQuery] = useState("");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("product");
@@ -77,6 +78,17 @@ function ToolsStorePublicPage() {
   });
   const fxSymbol = ccy?.symbol ?? "RM";
   const fxRate = ccy?.rate ?? 4.7;
+
+  const allProducts = (prod?.products ?? []) as ToolProduct[];
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? allProducts.filter(
+        (p) =>
+          p.name_en.toLowerCase().includes(q) ||
+          (p.desc_en && stripTags(p.desc_en).toLowerCase().includes(q)) ||
+          (p.provider_name && p.provider_name.toLowerCase().includes(q)),
+      )
+    : allProducts;
 
   return (
     <div className="min-h-screen bg-background">
@@ -113,6 +125,38 @@ function ToolsStorePublicPage() {
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
 
+          {/* Search bar */}
+          {(prod?.connected ?? false) && allProducts.length > 0 && (
+            <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search products… e.g. Gemini, CapCut, Coursera"
+                  aria-label="Search products"
+                  className="w-full rounded-xl border border-border/60 bg-card py-2.5 pl-10 pr-10 text-sm text-foreground shadow-soft outline-none ring-primary/30 transition placeholder:text-muted-foreground/70 focus:border-primary/40 focus:ring-2 [&::-webkit-search-cancel-button]:hidden"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    aria-label="Clear search"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <p className="shrink-0 text-xs text-muted-foreground sm:text-sm">
+                {q
+                  ? `${filtered.length.toLocaleString()} result${filtered.length === 1 ? "" : "s"} for "${query.trim()}"`
+                  : `${allProducts.length.toLocaleString()} products`}
+              </p>
+            </div>
+          )}
+
           {(stLoading || prLoading) && !prod ? (
             <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" /></div>
           ) : prodError ? (
@@ -127,13 +171,27 @@ function ToolsStorePublicPage() {
               <h2 className="mt-3 text-lg font-bold">Store catalog coming soon</h2>
               <p className="mt-1 text-sm text-muted-foreground">The live catalog isn't connected yet. Check back shortly.</p>
             </div>
-          ) : (prod?.products ?? []).length === 0 ? (
+          ) : allProducts.length === 0 ? (
             <div className="rounded-2xl border border-border/60 bg-card p-10 text-center text-sm text-muted-foreground">
               No products available right now.
             </div>
+          ) : filtered.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-10 text-center">
+              <Search className="mx-auto h-8 w-8 text-muted-foreground" />
+              <h2 className="mt-3 text-lg font-bold">No products match "{query.trim()}"</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Try a different keyword or browse the full catalog.</p>
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="mt-5 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow transition hover:opacity-90"
+                style={{ background: "var(--gradient-accent)" }}
+              >
+                <X className="h-3.5 w-3.5" /> Clear search
+              </button>
+            </div>
           ) : (
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-              {(prod!.products as ToolProduct[]).map((p) => (
+              {filtered.map((p) => (
                 <ProductCard
                   key={p.id}
                   product={p}
