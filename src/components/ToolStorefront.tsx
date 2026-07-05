@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Package, X, Clock, Tag, ChevronRight, Check, Copy, Wallet, CreditCard, Lock, CheckCircle2, ShoppingBag, Zap, Link2 } from "lucide-react";
+import { Loader2, Package, X, Clock, Tag, ChevronRight, Check, Copy, Wallet, CheckCircle2, ShoppingBag, Zap, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { TiltCard } from "@/components/TiltCard";
 import {
@@ -9,16 +9,6 @@ import {
   purchaseToolProduct,
   type ToolProduct,
 } from "@/lib/toolstore.functions";
-import { getStripe, getStripeEnvironment, isStripeConfigured } from "@/lib/stripe";
-import { createDepositCheckout } from "@/lib/payments.functions";
-import {
-  Elements,
-  CardNumberElement,
-  CardExpiryElement,
-  CardCvcElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
 
 export function stripTags(s: string) { return s.replace(/<[^>]+>/g, ""); }
 
@@ -143,14 +133,9 @@ export function ProductCard({ product, fxSymbol, fxRate, onViewDetail }: {
   );
 }
 
-const ELEMENT_STYLE = {
-  base: { color: "#0f172a", fontFamily: "Arial,sans-serif", fontSize: "14px", "::placeholder": { color: "#94a3b8" } },
-  invalid: { color: "#ef4444" },
-};
-
 export function ProductDetailModal({ productId, purchasable, initialQty = 1, fxSymbol, fxRate, onClose, guestCta, onPurchased }: {
   productId: string;
-  /** true only on the dashboard order page — enables coupon + wallet/card payment */
+  /** true only on the dashboard order page — enables coupon + wallet payment */
   purchasable: boolean;
   initialQty?: number;
   fxSymbol: string;
@@ -161,14 +146,10 @@ export function ProductDetailModal({ productId, purchasable, initialQty = 1, fxS
   onPurchased?: () => void;
 }) {
   const fetchDetail = useServerFn(getToolProductDetail);
-  const startCheckout = useServerFn(createDepositCheckout);
   const [qty, setQty] = useState(Math.max(1, initialQty));
   const [coupon, setCoupon] = useState("");
   const [couponApplied, setCouponApplied] = useState<{ code: string; percent?: number; fixedLocal?: number } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
-  const [payMode, setPayMode] = useState<"wallet" | "card" | null>(null);
-  const [cardSecret, setCardSecret] = useState<string | null>(null);
-  const [cardLoading, setCardLoading] = useState(false);
   const [success, setSuccess] = useState<string[]>([]);
   const [copiedCodes, setCopiedCodes] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -225,18 +206,6 @@ export function ProductDetailModal({ productId, purchasable, initialQty = 1, fxS
     } else {
       setCouponApplied(null); setCouponError("Invalid coupon code");
     }
-  };
-
-  const openCardPayment = async () => {
-    if (!isStripeConfigured()) { toast.error("Card payments not configured"); return; }
-    setCardLoading(true);
-    try {
-      const res = await startCheckout({ data: { usdAmount: totalLocal / fxRate, environment: getStripeEnvironment() } });
-      if ("error" in res) { toast.error(res.error); return; }
-      setCardSecret(res.clientSecret ?? "");
-      setPayMode("card");
-    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); }
-    finally { setCardLoading(false); }
   };
 
   const deliveryLabel: Record<string, string> = {
@@ -367,32 +336,15 @@ export function ProductDetailModal({ productId, purchasable, initialQty = 1, fxS
               </div>
             )}
 
-            {/* Card form */}
-            {purchasable && payMode === "card" && cardSecret && (
-              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Card details</p>
-                <Elements stripe={getStripe()}>
-                  <ToolCardForm clientSecret={cardSecret} onSuccess={(codes) => { setCardSecret(null); setPayMode(null); afterPurchase(codes); }} onCancel={() => { setPayMode(null); setCardSecret(null); }} productId={productId} qty={qty} coupon={couponApplied?.code} />
-                </Elements>
-              </div>
-            )}
-
             {/* CTAs */}
-            {!outOfStock && payMode !== "card" && (
+            {!outOfStock && (
               purchasable ? (
-                <div className="space-y-2">
-                  <button disabled={walletMut.isPending} onClick={() => walletMut.mutate()}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90 disabled:opacity-50"
-                    style={{ background: "var(--gradient-accent)" }}>
-                    {walletMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
-                    Pay from wallet · {fxSymbol}{totalLocal.toFixed(2)}
-                  </button>
-                  <button disabled={cardLoading} onClick={openCardPayment}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-background px-4 py-3 text-sm font-semibold transition hover:bg-accent disabled:opacity-60">
-                    {cardLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                    Pay with card
-                  </button>
-                </div>
+                <button disabled={walletMut.isPending} onClick={() => walletMut.mutate()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90 disabled:opacity-50"
+                  style={{ background: "var(--gradient-accent)" }}>
+                  {walletMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+                  Pay from wallet · {fxSymbol}{totalLocal.toFixed(2)}
+                </button>
               ) : (
                 guestCta?.(totalLocal) ?? null
               )
@@ -401,65 +353,5 @@ export function ProductDetailModal({ productId, purchasable, initialQty = 1, fxS
         )}
       </div>
     </div>
-  );
-}
-
-function ToolCardForm({ clientSecret, onSuccess, onCancel, productId, qty, coupon }: {
-  clientSecret: string; onSuccess: (codes: string[]) => void; onCancel: () => void;
-  productId: string; qty: number; coupon?: string;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const purchase = useServerFn(purchaseToolProduct);
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-    setLoading(true); setError(null);
-    const cardNumber = elements.getElement(CardNumberElement);
-    if (!cardNumber) { setLoading(false); return; }
-    const { error: stripeErr, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: { card: cardNumber, billing_details: { name: name.trim() || undefined } },
-      return_url: window.location.href,
-    });
-    if (stripeErr) { setError(stripeErr.message ?? "Payment failed"); setLoading(false); return; }
-    if (paymentIntent?.status === "succeeded") {
-      try {
-        const r = await purchase({ data: { productId, qty, coupon } });
-        onSuccess(r.codes);
-      } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to deliver codes"); setLoading(false); }
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div>
-        <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Card number</label>
-        <div className="rounded-xl border border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/30"><CardNumberElement options={{ style: ELEMENT_STYLE, showIcon: true }} /></div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Expiry</label>
-          <div className="rounded-xl border border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/30"><CardExpiryElement options={{ style: ELEMENT_STYLE }} /></div>
-        </div>
-        <div>
-          <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">CVC</label>
-          <div className="rounded-xl border border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/30"><CardCvcElement options={{ style: ELEMENT_STYLE }} /></div>
-        </div>
-      </div>
-      <input type="text" placeholder="Name on card" value={name} onChange={(e) => setName(e.target.value)}
-        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 ring-primary/30" />
-      {error && <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
-      <button type="submit" disabled={!stripe || loading}
-        className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-glow disabled:opacity-60"
-        style={{ background: "var(--gradient-accent)" }}>
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-        {loading ? "Processing…" : "Pay & Get Codes"}
-      </button>
-      <button type="button" onClick={onCancel} className="w-full text-xs text-muted-foreground hover:text-foreground text-center py-1 transition">Cancel</button>
-    </form>
   );
 }

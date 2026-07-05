@@ -30,7 +30,7 @@ function PrivacyPage() {
             <ul className="mt-2 list-disc pl-5 space-y-1">
               <li><strong className="text-foreground">Account data:</strong> Your name and email address from Google OAuth sign-in.</li>
               <li><strong className="text-foreground">Order data:</strong> Products purchased, quantities, delivered codes, and transaction history.</li>
-              <li><strong className="text-foreground">Payment data:</strong> Wallet top-up amounts and Stripe payment confirmations. We do not store card numbers.</li>
+              <li><strong className="text-foreground">Payment data:</strong> Wallet top-up amounts and transaction records. We do not store card numbers.</li>
               <li><strong className="text-foreground">Usage data:</strong> Page visits, session duration, and feature usage for product improvement.</li>
               <li><strong className="text-foreground">Support data:</strong> Messages and files you submit via support cases.</li>
             </ul>
@@ -52,7 +52,6 @@ function PrivacyPage() {
             <p className="mt-2">We share limited data with the following trusted parties:</p>
             <ul className="mt-2 list-disc pl-5 space-y-1">
               <li><strong className="text-foreground">Upstream suppliers:</strong> Order details required to fulfil your purchase.</li>
-              <li><strong className="text-foreground">Stripe:</strong> Payment processing. Subject to <a href="https://stripe.com/privacy" target="_blank" rel="noopener" className="text-primary hover:underline">Stripe's Privacy Policy</a>.</li>
               <li><strong className="text-foreground">Supabase:</strong> Secure database and authentication hosting.</li>
               <li><strong className="text-foreground">Google:</strong> OAuth authentication only.</li>
             </ul>

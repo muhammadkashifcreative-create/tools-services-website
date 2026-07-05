@@ -35,7 +35,7 @@ function TermsPage() {
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">4. Wallet & Payments</h3>
-            <p className="mt-2">All transactions on Social Padu are conducted in USD (displayed in your local currency). Wallet top-ups are non-refundable except as outlined in our Refund Policy. Orders are charged from your wallet balance at the time of placement. Card payments are processed securely via Stripe.</p>
+            <p className="mt-2">All transactions on Social Padu are conducted in USD (displayed in your local currency). Wallet top-ups are non-refundable except as outlined in our Refund Policy. Orders are charged from your wallet balance at the time of placement.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">5. Order Policy</h3>

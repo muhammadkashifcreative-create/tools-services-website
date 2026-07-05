@@ -215,10 +215,9 @@ function AdminBody() {
           </div>
 
           {/* System status row */}
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-2">
             <SystemChip icon={Zap} label="Tools Store" ok={toolStatus?.connected} detail={toolStatus?.adminBalance != null ? `$${toolStatus.adminBalance.toFixed(2)} balance` : "—"} />
             <SystemChip icon={Server} label="Database" ok={true} detail="Supabase" />
-            <SystemChip icon={Activity} label="Stripe" ok={true} detail="Payments live" />
           </div>
 
           {/* Maintenance mode */}

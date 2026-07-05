@@ -5,7 +5,7 @@
  *
  * Backed by a Postgres function that runs inside a single UPDATE statement,
  * preventing the read-then-write race condition that can corrupt balances under
- * concurrent requests (e.g. simultaneous Stripe webhook + client confirmation).
+ * concurrent requests.
  *
  * Requires migration: supabase/migrations/20260701000000_atomic_balance_fn.sql
  */

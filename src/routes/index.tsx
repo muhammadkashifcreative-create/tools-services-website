@@ -11,7 +11,8 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Social Padu — Premium Digital Tools Store" },
-      { name: "description", content: "Buy premium digital tools, software subscriptions and accounts — Gemini Pro, productivity apps, learning platforms and more. Instant code delivery, secure Stripe checkout." },
+      { name: "heleket", content: "6dd94bb2" },
+      { name: "description", content: "Buy premium digital tools, software subscriptions and accounts — Gemini Pro, productivity apps, learning platforms and more. Instant code delivery, secure checkout." },
       { property: "og:title", content: "Social Padu — Premium Digital Tools Store" },
       { property: "og:description", content: "Premium digital tools and subscriptions delivered instantly. Transparent pricing, secure checkout." },
     ],
@@ -29,7 +30,7 @@ const categories: Array<{ icon: typeof Package; name: string; items: string[]; t
 const features = [
   { icon: Zap, title: "Instant delivery", desc: "Codes and activation links arrive in seconds — right on screen and saved to your order history." },
   { icon: Wallet, title: "One wallet", desc: "Top up once and pay for any tool in the catalog. No subscriptions, no minimums." },
-  { icon: Lock, title: "Secure payments", desc: "Stripe-powered checkout with end-to-end encryption. We never store your card." },
+  { icon: Lock, title: "Secure payments", desc: "Wallet-based checkout with end-to-end encryption. We never store your card." },
   { icon: ShieldCheck, title: "Curated catalog", desc: "Every product is sourced from vetted suppliers and stock-checked live before you pay." },
   { icon: Headphones, title: "24/7 support", desc: "Open a case from your dashboard and real humans answer in minutes — not days." },
   { icon: CreditCard, title: "Local currency", desc: "Prices shown in your local currency with live exchange rates. Pay what you see." },
@@ -175,7 +176,7 @@ function Landing() {
                 <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div className="h-full w-3/4" style={{background:"var(--gradient-accent)"}}/>
                 </div>
-                <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wider text-primary">Topped up · Stripe secure</p>
+                <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wider text-primary">Topped up · Secure</p>
               </div>
 
               {/* Bottom right small tile */}
@@ -324,7 +325,7 @@ function Landing() {
             {[
               { n: "01", t: "Create account", d: "Sign up free with your email in under 30 seconds. No credit card required.", icon: Sparkles, color: "#f09433" },
               { n: "02", t: "Pick your tool", d: "Browse the live catalog with real-time stock and prices in your currency.", icon: Package, color: "#e07b2e" },
-              { n: "03", t: "Pay securely", d: "Pay from your wallet or directly by card through Stripe checkout.", icon: Lock, color: "#c8621f" },
+              { n: "03", t: "Pay securely", d: "Pay from your wallet balance — top up once and spend across the catalog.", icon: Lock, color: "#c8621f" },
               { n: "04", t: "Get your code", d: "Your activation code appears instantly and stays saved in your order history.", icon: Clock4, color: "#a84e18" },
             ].map((s, idx) => {
               const Icon = s.icon;
@@ -417,7 +418,7 @@ function Landing() {
           <div className="space-y-3">
             {[
               { q: "How fast will I receive my purchase?", a: "Delivery is instant. As soon as payment is confirmed, your code, link, or account details appear on screen and are saved to your order history." },
-              { q: "Which payment methods do you accept?", a: "Stripe-powered card payments, plus a wallet you can top up once and spend across any product in the catalog." },
+              { q: "Which payment methods do you accept?", a: "A prepaid wallet you top up once and spend across any product in the catalog. Contact support to top up your wallet." },
               { q: "What if a product doesn't work?", a: "Open a support case from your dashboard with your order ID. If a delivered product is invalid or the order failed, we replace it or refund your wallet." },
               { q: "Are prices shown in my currency?", a: "Yes. We auto-detect your location and show prices in your local currency at live exchange rates. Charges are processed in that currency too." },
               { q: "Can I buy multiple codes at once?", a: "Absolutely — set the quantity at checkout, subject to live stock. For bulk or reseller pricing, contact support for a custom quote." },
