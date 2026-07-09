@@ -11,7 +11,7 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Social Padu — Premium Digital Tools Store" },
-      { name: "heleket", content: "bb731485" },
+      { name: "heleket", content: "04c9813d" },
       { name: "description", content: "Buy premium digital tools, software subscriptions and accounts — Gemini Pro, productivity apps, learning platforms and more. Instant code delivery, secure checkout." },
       { property: "og:title", content: "Social Padu — Premium Digital Tools Store" },
       { property: "og:description", content: "Premium digital tools and subscriptions delivered instantly. Transparent pricing, secure checkout." },
