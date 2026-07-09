@@ -23,7 +23,7 @@ function PrivacyPage() {
         <div className="mt-8 space-y-8 text-sm leading-relaxed text-muted-foreground">
           <section>
             <h3 className="text-base font-semibold text-foreground">1. Who We Are</h3>
-            <p className="mt-2">Social Padu ("we", "us", "our") operates the website socialpadu.my. We are committed to protecting your personal data and respecting your privacy. Contact: <a href="mailto:support@socialpadu.my" className="text-primary hover:underline">support@socialpadu.my</a></p>
+            <p className="mt-2">Social Padu ("we", "us", "our") operates the website socialpadu.my. We are committed to protecting your personal data and respecting your privacy. Contact: <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a></p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">2. Data We Collect</h3>
@@ -75,7 +75,7 @@ function PrivacyPage() {
               <li>Object to certain processing activities.</li>
               <li>Export your data in a portable format.</li>
             </ul>
-            <p className="mt-2">To exercise any of these rights, open a support case from your dashboard or email <a href="mailto:support@socialpadu.my" className="text-primary hover:underline">support@socialpadu.my</a>. We will respond within 30 days.</p>
+            <p className="mt-2">To exercise any of these rights, open a support case from your dashboard or email <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a>. We will respond within 30 days.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">8. Security</h3>

@@ -67,7 +67,7 @@ function TermsPage() {
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">12. Contact</h3>
-            <p className="mt-2">For questions about these terms, contact us at <a href="mailto:support@socialpadu.my" className="text-primary hover:underline">support@socialpadu.my</a>.</p>
+            <p className="mt-2">For questions about these terms, contact us at <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a>.</p>
           </section>
         </div>
       </main>

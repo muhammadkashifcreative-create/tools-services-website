@@ -11,6 +11,7 @@ const NAV: NavItem[] = [
   { key: "nav.home", to: "/" },
   { key: "nav.tools", to: "/tools" },
   { key: "nav.about", to: "/about" },
+  { key: "nav.contact", to: "/contact" },
   { key: "nav.faq", to: "/", hash: "faq" },
 ];
 

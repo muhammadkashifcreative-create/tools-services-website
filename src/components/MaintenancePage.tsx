@@ -35,10 +35,10 @@ export function MaintenancePage() {
             <Clock4 className="h-3.5 w-3.5 text-primary" /> Back online soon
           </span>
           <a
-            href="mailto:support@socialpadu.my"
+            href="mailto:socialpadu@gmail.com"
             className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/80 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur transition hover:border-primary/40 hover:text-foreground"
           >
-            <Mail className="h-3.5 w-3.5 text-primary" /> support@socialpadu.my
+            <Mail className="h-3.5 w-3.5 text-primary" /> socialpadu@gmail.com
           </a>
         </div>
 

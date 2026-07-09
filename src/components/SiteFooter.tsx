@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { BrandMark } from "@/components/BrandMark";
 import { useI18n } from "@/lib/i18n";
-import { ArrowRight, Facebook } from "lucide-react";
+import { ArrowRight, Facebook, Mail } from "lucide-react";
 import { useState } from "react";
 
 export function SiteFooter() {
@@ -14,8 +14,8 @@ export function SiteFooter() {
 
   const companyLinks = [
     { label: t("nav.about") ?? "About", to: "/about" },
-    { label: "Cases", to: "/dashboard/support" },
-    { label: t("nav.contact") ?? "Contact", to: "mailto:support@socialpadu.my" },
+    { label: t("nav.contact") ?? "Contact", to: "/contact" },
+    { label: t("nav.support") ?? "Support", to: "/dashboard/support" },
   ];
 
   const legalLinks = [
@@ -44,6 +44,17 @@ export function SiteFooter() {
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               {t("footer.tagline") ?? "Premium digital tools and subscriptions, delivered instantly worldwide."}
             </p>
+
+            {/* Support contact */}
+            <div className="mt-5 space-y-1.5 text-sm text-muted-foreground">
+              <p className="flex items-center gap-2">
+                <Mail className="h-4 w-4 shrink-0 text-primary" />
+                <a href="mailto:socialpadu@gmail.com" className="transition-colors hover:text-foreground">
+                  socialpadu@gmail.com
+                </a>
+              </p>
+              <p className="text-xs">Customer support available 24/7 — replies within 24 hours.</p>
+            </div>
 
             {/* Newsletter */}
             <div className="mt-6">

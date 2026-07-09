@@ -50,7 +50,7 @@ function RefundPage() {
 
           <section>
             <h3 className="text-base font-semibold text-foreground">Wallet Top-ups</h3>
-            <p className="mt-2">Wallet top-ups are non-refundable to the original payment method once credited to your account. In exceptional circumstances (e.g. fraudulent charges), please contact us immediately at <a href="mailto:support@socialpadu.my" className="text-primary hover:underline">support@socialpadu.my</a>.</p>
+            <p className="mt-2">Wallet top-ups are non-refundable to the original payment method once credited to your account. In exceptional circumstances (e.g. fraudulent charges), please contact us immediately at <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a>.</p>
           </section>
 
           <section>
@@ -60,7 +60,7 @@ function RefundPage() {
 
           <section>
             <h3 className="text-base font-semibold text-foreground">Contact Us</h3>
-            <p className="mt-2">Open a support case from your dashboard or email <a href="mailto:support@socialpadu.my" className="text-primary hover:underline">support@socialpadu.my</a> with your order details. Please include your order ID and a clear description of the issue to help us resolve it quickly.</p>
+            <p className="mt-2">Open a support case from your dashboard or email <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a> with your order details. Please include your order ID and a clear description of the issue to help us resolve it quickly.</p>
           </section>
         </div>
       </main>
