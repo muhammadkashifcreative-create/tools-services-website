@@ -7,20 +7,65 @@ export const MIN_TOPUP_USD = 5;
 export const MAX_TOPUP_USD = 5000;
 
 /**
- * Starts a crypto top-up: records a pending deposit, creates a Heleket
- * invoice for it, and returns the hosted payment page URL to redirect to.
+ * Coins offered in our own checkout UI. `currency`/`network` are Heleket API
+ * codes; picking one lets Heleket return the deposit address directly so the
+ * customer never leaves our site. Coins not listed here remain reachable via
+ * the hosted payment page (no coinId → redirect mode).
+ */
+export const TOPUP_COINS = [
+  { id: "usdt-tron", label: "USDT", networkLabel: "TRC20", currency: "USDT", network: "tron", hint: "Recommended · low fee" },
+  { id: "usdt-bsc", label: "USDT", networkLabel: "BEP20", currency: "USDT", network: "bsc", hint: "Low fee" },
+  { id: "usdt-polygon", label: "USDT", networkLabel: "Polygon", currency: "USDT", network: "polygon", hint: "Low fee" },
+  { id: "usdt-eth", label: "USDT", networkLabel: "ERC20", currency: "USDT", network: "eth", hint: "Higher network fee" },
+  { id: "btc", label: "BTC", networkLabel: "Bitcoin", currency: "BTC", network: "btc", hint: "" },
+  { id: "eth", label: "ETH", networkLabel: "Ethereum", currency: "ETH", network: "eth", hint: "" },
+  { id: "bnb", label: "BNB", networkLabel: "BEP20", currency: "BNB", network: "bsc", hint: "" },
+  { id: "sol", label: "SOL", networkLabel: "Solana", currency: "SOL", network: "sol", hint: "" },
+  { id: "ltc", label: "LTC", networkLabel: "Litecoin", currency: "LTC", network: "ltc", hint: "Low fee" },
+  { id: "trx", label: "TRX", networkLabel: "TRON", currency: "TRX", network: "tron", hint: "Low fee" },
+  { id: "ton", label: "TON", networkLabel: "TON", currency: "TON", network: "ton", hint: "" },
+  { id: "doge", label: "DOGE", networkLabel: "Dogecoin", currency: "DOGE", network: "doge", hint: "" },
+] as const;
+
+export type TopUpCoinId = (typeof TOPUP_COINS)[number]["id"];
+
+export type CreateTopUpResult =
+  | {
+      mode: "address";
+      depositId: string;
+      address: string;
+      payerAmount: string;
+      payerCurrency: string;
+      networkLabel: string;
+      qrCode: string | null;
+      expiresAt: number | null;
+      url: string | null;
+    }
+  | { mode: "redirect"; depositId: string; url: string };
+
+/**
+ * Starts a crypto top-up: records a pending deposit and creates a Heleket
+ * invoice for it. With a known coinId the deposit address comes back inline
+ * (mode "address") for our own checkout dialog; otherwise the caller
+ * redirects to the hosted payment page (mode "redirect").
  */
 export const createTopUp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) =>
-    z.object({ amount: z.number().min(MIN_TOPUP_USD).max(MAX_TOPUP_USD) }).parse(data),
+    z
+      .object({
+        amount: z.number().min(MIN_TOPUP_USD).max(MAX_TOPUP_USD),
+        coinId: z.string().max(32).optional(),
+      })
+      .parse(data),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<CreateTopUpResult> => {
     const { isHeleketConfigured, createInvoice } = await import("@/lib/heleket.server");
     if (!isHeleketConfigured()) {
       throw new Error("Crypto top-ups are not configured yet. Please contact support.");
     }
 
+    const coin = TOPUP_COINS.find((c) => c.id === data.coinId);
     const amountUsd = Math.round(data.amount * 100) / 100;
     // SITE_URL keeps callbacks pointing at production even if a request
     // arrives via a preview deployment URL.
@@ -38,17 +83,87 @@ export const createTopUp = createServerFn({ method: "POST" })
     }
 
     try {
-      const invoice = await createInvoice({ amountUsd, orderId: deposit.id, origin });
+      const invoice = await createInvoice({
+        amountUsd,
+        orderId: deposit.id,
+        origin,
+        toCurrency: coin?.currency,
+        network: coin?.network,
+      });
       await table
-        .update({ provider_uuid: invoice.uuid, payment_url: invoice.url ?? null })
+        .update({
+          provider_uuid: invoice.uuid,
+          payment_url: invoice.url ?? null,
+          payer_currency: invoice.payer_currency ?? coin?.currency ?? null,
+        })
         .eq("id", deposit.id);
-      return { url: invoice.url as string };
+
+      if (coin && invoice.address && invoice.payer_amount) {
+        return {
+          mode: "address",
+          depositId: deposit.id,
+          address: invoice.address,
+          payerAmount: invoice.payer_amount,
+          payerCurrency: invoice.payer_currency ?? coin.currency,
+          networkLabel: coin.networkLabel,
+          qrCode: invoice.address_qr_code ?? null,
+          expiresAt: invoice.expired_at ?? null,
+          url: invoice.url ?? null,
+        };
+      }
+      if (!invoice.url) throw new Error("Payment provider returned no payment page.");
+      return { mode: "redirect", depositId: deposit.id, url: invoice.url };
     } catch (e) {
       // Invoice creation failed — close the orphaned row so it never reconciles.
       await table.update({ status: "failed" }).eq("id", deposit.id).eq("status", "pending");
       console.error("Heleket invoice creation failed:", e);
+      const msg = e instanceof Error ? e.message : "";
+      // Coin-specific rejections (below minimum, coin disabled) are actionable
+      // for the user — pass them through instead of a generic error.
+      if (coin && msg && !msg.includes("not configured")) {
+        throw new Error(
+          `${coin.label} (${coin.networkLabel}) is unavailable for this amount — try another coin or a larger amount. (${msg})`,
+        );
+      }
       throw new Error("Payment provider is unavailable right now. Please try again in a minute.");
     }
+  });
+
+/**
+ * Live status for one deposit, used by the checkout dialog while it waits.
+ * Settles the deposit inline when Heleket reports it paid, so the dialog
+ * flips to success even before the webhook lands.
+ */
+export const getDepositStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ depositId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { depositsTable, settleDeposit } = await import("@/lib/deposits.server");
+    const table = await depositsTable();
+
+    const fetchRow = async () =>
+      (await table
+        .select("id, status, credited_usd")
+        .eq("id", data.depositId)
+        .eq("user_id", context.userId)
+        .maybeSingle()) as { data: { id: string; status: string; credited_usd: number | null } | null };
+
+    let { data: row } = await fetchRow();
+    if (!row) throw new Error("Deposit not found");
+
+    if (row.status === "pending") {
+      try {
+        const { getPaymentInfo } = await import("@/lib/heleket.server");
+        const info = await getPaymentInfo(data.depositId);
+        const outcome = await settleDeposit(info);
+        if (outcome !== "still_pending") ({ data: row } = await fetchRow());
+      } catch (e) {
+        // Provider hiccup — report the row as-is; the next poll retries.
+        console.error(`Deposit status check failed for ${data.depositId}:`, e);
+      }
+    }
+
+    return { status: row?.status ?? "pending", creditedUsd: Number(row?.credited_usd ?? 0) };
   });
 
 /**

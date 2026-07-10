@@ -46,10 +46,15 @@ export interface HeleketPayment {
   amount: string;
   payment_amount: string | null;
   payment_amount_usd?: string | null;
+  /** Exact crypto amount the customer must send (set when to_currency was requested). */
+  payer_amount?: string | null;
   payer_currency: string | null;
   currency: string;
   url?: string;
   address?: string | null;
+  /** data:image/png;base64 QR of the deposit address. */
+  address_qr_code?: string | null;
+  expired_at?: number;
   txid?: string | null;
   // create/info responses use payment_status; webhooks use status
   payment_status?: string;
@@ -83,15 +88,25 @@ async function heleketRequest<T>(path: string, payload: Record<string, unknown>)
 }
 
 /**
- * Creates a hosted-checkout invoice. The returned `url` is the Heleket payment
- * page where the customer picks a coin and pays; status changes arrive on
- * `${origin}/api/heleket/webhook`.
+ * Creates an invoice. With `toCurrency`/`network` set, Heleket locks the coin
+ * and the response carries the deposit `address`, exact `payer_amount` and a
+ * QR code — enough to render checkout in our own UI. Without them, the
+ * returned `url` is Heleket's hosted page with the full coin picker. Status
+ * changes arrive on `${origin}/api/heleket/webhook` either way.
  */
-export function createInvoice(opts: { amountUsd: number; orderId: string; origin: string }): Promise<HeleketPayment> {
+export function createInvoice(opts: {
+  amountUsd: number;
+  orderId: string;
+  origin: string;
+  toCurrency?: string;
+  network?: string;
+}): Promise<HeleketPayment> {
   return heleketRequest<HeleketPayment>("/payment", {
     amount: opts.amountUsd.toFixed(2),
     currency: "USD",
     order_id: opts.orderId,
+    ...(opts.toCurrency ? { to_currency: opts.toCurrency } : {}),
+    ...(opts.network ? { network: opts.network } : {}),
     url_callback: `${opts.origin}/api/heleket/webhook`,
     url_success: `${opts.origin}/dashboard/wallet?topup=success`,
     url_return: `${opts.origin}/dashboard/wallet`,

@@ -4,10 +4,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
-import { Wallet, Bitcoin, Loader2, ExternalLink } from "lucide-react";
+import { Wallet, Loader2, ExternalLink, Copy, CircleCheck, CircleX, Clock } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { getMyProfile, listMyTransactions } from "@/lib/wallet.functions";
-import { createTopUp, reconcileMyDeposits, MIN_TOPUP_USD, MAX_TOPUP_USD } from "@/lib/deposit.functions";
+import {
+  createTopUp,
+  getDepositStatus,
+  reconcileMyDeposits,
+  TOPUP_COINS,
+  MIN_TOPUP_USD,
+  MAX_TOPUP_USD,
+  type CreateTopUpResult,
+} from "@/lib/deposit.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -18,15 +27,35 @@ export const Route = createFileRoute("/_authenticated/dashboard/wallet")({
 
 const QUICK_AMOUNTS = [10, 25, 50, 100];
 
+function useCountdown(expiresAt: number | null) {
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (!expiresAt) { setLeft(null); return; }
+    const tick = () => setLeft(Math.max(0, expiresAt - Math.floor(Date.now() / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+  if (left == null) return null;
+  const h = Math.floor(left / 3600);
+  const m = Math.floor((left % 3600) / 60);
+  const s = left % 60;
+  return `${h > 0 ? `${h}:` : ""}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 function WalletPage() {
   const fetchProfile = useServerFn(getMyProfile);
   const fetchTx = useServerFn(listMyTransactions);
   const fetchCcy = useServerFn(getUserCurrency);
   const startTopUp = useServerFn(createTopUp);
+  const fetchDepositStatus = useServerFn(getDepositStatus);
   const reconcile = useServerFn(reconcileMyDeposits);
   const queryClient = useQueryClient();
 
   const [amount, setAmount] = useState("25");
+  const [coinId, setCoinId] = useState<string>(TOPUP_COINS[0].id);
+  const [payment, setPayment] = useState<Extract<CreateTopUpResult, { mode: "address" }> | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: profile } = useQuery({ queryKey: ["profile"], queryFn: () => fetchProfile() });
   const { data: tx } = useQuery({ queryKey: ["transactions"], queryFn: () => fetchTx() });
@@ -40,7 +69,29 @@ function WalletPage() {
     refetchInterval: (query) => ((query.state.data?.pending?.length ?? 0) > 0 ? 8000 : false),
   });
 
-  // When a reconcile pass credits money, refresh balance + history and tell the user.
+  // Live status for the open checkout dialog.
+  const { data: depositStatus } = useQuery({
+    queryKey: ["deposit-status", payment?.depositId],
+    queryFn: () => fetchDepositStatus({ data: { depositId: payment!.depositId } }),
+    enabled: dialogOpen && !!payment,
+    refetchInterval: (query) => {
+      const s = query.state.data?.status;
+      return s && s !== "pending" ? false : 5000;
+    },
+  });
+  const settled = depositStatus && depositStatus.status !== "pending";
+  const paidOk = settled && depositStatus.creditedUsd > 0;
+
+  // When the dialog's deposit settles, refresh balance + history.
+  useEffect(() => {
+    if (settled) {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["deposits-reconcile"] });
+    }
+  }, [settled, queryClient]);
+
+  // When a background reconcile pass credits money, refresh and tell the user.
   useEffect(() => {
     if ((deposits?.credited ?? 0) > 0) {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
@@ -49,7 +100,7 @@ function WalletPage() {
     }
   }, [deposits, queryClient]);
 
-  // Back from the Heleket payment page
+  // Back from the hosted Heleket page (used for "more coins" fallback)
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("topup") === "success") {
       window.history.replaceState(null, "", window.location.pathname);
@@ -58,12 +109,29 @@ function WalletPage() {
   }, []);
 
   const topUpMut = useMutation({
-    mutationFn: (usd: number) => startTopUp({ data: { amount: usd } }),
-    onSuccess: ({ url }) => {
-      window.location.assign(url);
+    mutationFn: (input: { amount: number; coinId?: string }) => startTopUp({ data: input }),
+    onSuccess: (result) => {
+      if (result.mode === "address") {
+        setPayment(result);
+        setDialogOpen(true);
+      } else {
+        window.location.assign(result.url);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const countdown = useCountdown(payment?.expiresAt ?? null);
+
+  const copyAddress = async () => {
+    if (!payment) return;
+    try {
+      await navigator.clipboard.writeText(payment.address);
+      toast.success("Address copied");
+    } catch {
+      toast.error("Could not copy — long-press the address to copy it manually.");
+    }
+  };
 
   const parsedAmount = Number.parseFloat(amount);
   const amountValid = Number.isFinite(parsedAmount) && parsedAmount >= MIN_TOPUP_USD && parsedAmount <= MAX_TOPUP_USD;
@@ -71,6 +139,7 @@ function WalletPage() {
   const symbol = ccy?.symbol ?? "$";
   const rate = ccy?.rate ?? 1;
   const pendingDeposits = deposits?.pending ?? [];
+  const selectedCoin = TOPUP_COINS.find((c) => c.id === coinId) ?? TOPUP_COINS[0];
 
   return (
     <AppLayout>
@@ -106,10 +175,7 @@ function WalletPage() {
                   ${usd}
                 </button>
               ))}
-            </div>
-
-            <div className="mt-3 flex items-center gap-2">
-              <div className="relative flex-1">
+              <div className="relative min-w-24 flex-1">
                 <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">$</span>
                 <input
                   type="number"
@@ -118,24 +184,48 @@ function WalletPage() {
                   step="1"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full rounded-md border bg-background py-2 pl-7 pr-3 text-sm tabular-nums outline-none ring-primary/40 focus:ring-2"
-                  placeholder="Amount in USD"
+                  className="w-full rounded-md border bg-background py-1.5 pl-7 pr-3 text-sm tabular-nums outline-none ring-primary/40 focus:ring-2"
+                  placeholder="Custom"
                 />
               </div>
+            </div>
+
+            <p className="mt-4 text-xs font-medium text-muted-foreground">Pay with</p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {TOPUP_COINS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCoinId(c.id)}
+                  className={`rounded-md border px-2 py-1.5 text-left transition-colors ${coinId === c.id ? "border-primary bg-primary/10" : "hover:bg-muted"}`}
+                >
+                  <span className="block text-xs font-semibold">{c.label}</span>
+                  <span className="block text-[10px] text-muted-foreground">{c.networkLabel}</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              disabled={!amountValid || topUpMut.isPending}
+              onClick={() => topUpMut.mutate({ amount: Math.round(parsedAmount * 100) / 100, coinId })}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {topUpMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Pay {amountValid ? `$${parsedAmount.toFixed(2)}` : ""} with {selectedCoin.label} ({selectedCoin.networkLabel})
+            </button>
+
+            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+              <span>Min ${MIN_TOPUP_USD}</span>
               <button
                 type="button"
                 disabled={!amountValid || topUpMut.isPending}
-                onClick={() => topUpMut.mutate(Math.round(parsedAmount * 100) / 100)}
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => topUpMut.mutate({ amount: Math.round(parsedAmount * 100) / 100 })}
+                className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
               >
-                {topUpMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bitcoin className="h-4 w-4" />}
-                Pay with crypto
+                More coins →
               </button>
             </div>
-
-            <p className="mt-2 text-xs text-muted-foreground">
-              Min ${MIN_TOPUP_USD} · Pay with BTC, ETH, USDT and 100+ other coins. You&apos;ll be redirected to a secure payment page.
-            </p>
 
             {pendingDeposits.length > 0 && (
               <div className="mt-3 space-y-2">
@@ -146,7 +236,7 @@ function WalletPage() {
                       ${d.amountUsd.toFixed(2)} top-up awaiting payment
                     </span>
                     {d.paymentUrl && (
-                      <a href={d.paymentUrl} className="inline-flex items-center gap-1 font-semibold underline underline-offset-2">
+                      <a href={d.paymentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold underline underline-offset-2">
                         Complete payment <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
@@ -156,6 +246,89 @@ function WalletPage() {
             )}
           </div>
         </div>
+
+        {/* In-site crypto checkout */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-md">
+            {payment && !settled && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Send {payment.payerAmount} {payment.payerCurrency}</DialogTitle>
+                  <DialogDescription>
+                    via {payment.networkLabel} network — send the exact amount to the address below.
+                  </DialogDescription>
+                </DialogHeader>
+
+                {payment.qrCode && (
+                  <div className="flex justify-center">
+                    <img src={payment.qrCode} alt="Payment address QR code" className="h-44 w-44 rounded-lg border bg-white p-2" />
+                  </div>
+                )}
+
+                <div className="rounded-md border bg-muted/40 p-3">
+                  <p className="break-all font-mono text-xs">{payment.address}</p>
+                  <button
+                    type="button"
+                    onClick={copyAddress}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
+                  >
+                    <Copy className="h-3 w-3" /> Copy address
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Waiting for payment…
+                  </span>
+                  {countdown && (
+                    <span className="inline-flex items-center gap-1 tabular-nums">
+                      <Clock className="h-3 w-3" /> {countdown}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Your balance updates automatically after network confirmation (usually 1–5 minutes).
+                  Sending a different amount or coin may delay or lose the payment.
+                </p>
+              </>
+            )}
+
+            {payment && settled && paidOk && (
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <CircleCheck className="h-12 w-12 text-emerald-500" />
+                <DialogTitle>Payment received</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  ${(depositStatus?.creditedUsd ?? 0).toFixed(2)} has been added to your wallet.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDialogOpen(false)}
+                  className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+
+            {payment && settled && !paidOk && (
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <CircleX className="h-12 w-12 text-destructive" />
+                <DialogTitle>Payment not completed</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  This payment expired or failed. No funds were credited — start a new top-up to try again.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDialogOpen(false)}
+                  className="mt-2 rounded-md border px-4 py-2 text-sm font-semibold hover:bg-muted"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Transactions */}
         <div className="mt-8 overflow-hidden rounded-xl border bg-card">
