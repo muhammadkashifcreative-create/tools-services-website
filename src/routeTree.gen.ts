@@ -24,6 +24,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as ApiHeleketWebhookRouteImport } from './routes/api/heleket/webhook'
 import { Route as ApiAuthVerifyEmailRouteImport } from './routes/api/auth/verify-email'
 import { Route as ApiAuthResetPasswordRouteImport } from './routes/api/auth/reset-password'
 import { Route as ApiAuthRegisterRouteImport } from './routes/api/auth/register'
@@ -114,6 +115,11 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const ApiHeleketWebhookRoute = ApiHeleketWebhookRouteImport.update({
+  id: '/api/heleket/webhook',
+  path: '/api/heleket/webhook',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthVerifyEmailRoute = ApiAuthVerifyEmailRouteImport.update({
   id: '/api/auth/verify-email',
@@ -222,6 +228,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
+  '/api/heleket/webhook': typeof ApiHeleketWebhookRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/dashboard/support/$caseId': typeof AuthenticatedDashboardSupportCaseIdRoute
@@ -250,6 +257,7 @@ export interface FileRoutesByTo {
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
+  '/api/heleket/webhook': typeof ApiHeleketWebhookRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/dashboard/support/$caseId': typeof AuthenticatedDashboardSupportCaseIdRoute
@@ -283,6 +291,7 @@ export interface FileRoutesById {
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
+  '/api/heleket/webhook': typeof ApiHeleketWebhookRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/dashboard/support/$caseId': typeof AuthenticatedDashboardSupportCaseIdRoute
@@ -316,6 +325,7 @@ export interface FileRouteTypes {
     | '/api/auth/register'
     | '/api/auth/reset-password'
     | '/api/auth/verify-email'
+    | '/api/heleket/webhook'
     | '/admin/'
     | '/dashboard/'
     | '/dashboard/support/$caseId'
@@ -344,6 +354,7 @@ export interface FileRouteTypes {
     | '/api/auth/register'
     | '/api/auth/reset-password'
     | '/api/auth/verify-email'
+    | '/api/heleket/webhook'
     | '/admin'
     | '/dashboard'
     | '/dashboard/support/$caseId'
@@ -376,6 +387,7 @@ export interface FileRouteTypes {
     | '/api/auth/register'
     | '/api/auth/reset-password'
     | '/api/auth/verify-email'
+    | '/api/heleket/webhook'
     | '/_authenticated/admin/'
     | '/_authenticated/dashboard/'
     | '/_authenticated/dashboard/support/$caseId'
@@ -400,6 +412,7 @@ export interface RootRouteChildren {
   ApiAuthRegisterRoute: typeof ApiAuthRegisterRoute
   ApiAuthResetPasswordRoute: typeof ApiAuthResetPasswordRoute
   ApiAuthVerifyEmailRoute: typeof ApiAuthVerifyEmailRoute
+  ApiHeleketWebhookRoute: typeof ApiHeleketWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -508,6 +521,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/api/heleket/webhook': {
+      id: '/api/heleket/webhook'
+      path: '/api/heleket/webhook'
+      fullPath: '/api/heleket/webhook'
+      preLoaderRoute: typeof ApiHeleketWebhookRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/verify-email': {
       id: '/api/auth/verify-email'
@@ -723,7 +743,18 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthRegisterRoute: ApiAuthRegisterRoute,
   ApiAuthResetPasswordRoute: ApiAuthResetPasswordRoute,
   ApiAuthVerifyEmailRoute: ApiAuthVerifyEmailRoute,
+  ApiHeleketWebhookRoute: ApiHeleketWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

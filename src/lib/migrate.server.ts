@@ -9,6 +9,7 @@ const ALL_TABLES = [
   "tool_orders",
   "cases",
   "case_messages",
+  "deposits",
 ];
 
 export const runDatabaseMigration = createServerFn({ method: "POST" })
@@ -48,6 +49,7 @@ create table if not exists transactions (id uuid default gen_random_uuid() prima
 create table if not exists tool_orders (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, product_id text not null, product_name text not null, qty integer not null, unit_price numeric(10,4) not null, total_price numeric(10,4) not null, codes jsonb default '[]' not null, status text default 'completed' not null, created_at timestamptz default now() not null);
 create table if not exists cases (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, subject text not null, category text not null, priority text default 'normal' not null, status text default 'open' not null, order_id uuid, last_activity_at timestamptz default now() not null, created_at timestamptz default now() not null);
 create table if not exists case_messages (id uuid default gen_random_uuid() primary key, case_id uuid references cases on delete cascade not null, user_id uuid references auth.users on delete cascade not null, body text not null, is_staff boolean default false not null, created_at timestamptz default now() not null);
+create table if not exists deposits (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, amount_usd numeric(12,4) not null check (amount_usd > 0), credited_usd numeric(12,4), status text default 'pending' not null, provider text default 'heleket' not null, provider_uuid text, payment_url text, payer_currency text, txid text, created_at timestamptz default now() not null, updated_at timestamptz default now() not null);
 create or replace function handle_new_user() returns trigger as $$ begin insert into public.profiles (id, full_name) values (new.id, new.raw_user_meta_data->>'name') on conflict (id) do nothing; return new; end; $$ language plpgsql security definer;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure handle_new_user();`,
