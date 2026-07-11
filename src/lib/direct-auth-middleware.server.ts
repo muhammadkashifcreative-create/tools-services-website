@@ -7,6 +7,23 @@ import { readSession } from "@/lib/direct-google-auth.server";
 export const ADMIN_EMAIL =
   process.env.ADMIN_EMAIL ?? "muhammadkashif.creative@gmail.com";
 
+/**
+ * Finds a Supabase auth user id by email, paging through the admin user list
+ * (covers up to 10k accounts). Only a fallback — sessions issued since the
+ * supabase_id cookie fix skip this entirely.
+ */
+export async function findUserIdByEmail(email: string): Promise<string | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  for (let page = 1; page <= 10; page++) {
+    const { data } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+    const users = data?.users ?? [];
+    const hit = users.find((u) => u.email === email);
+    if (hit) return hit.id;
+    if (users.length < 1000) return null; // no more pages
+  }
+  return null;
+}
+
 export const requireDirectAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
     const request = getRequest();
@@ -24,9 +41,8 @@ export const requireDirectAuth = createMiddleware({ type: "function" }).server(
     try {
       const result = await Promise.race([
         (async () => {
-          const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-          const existing = data?.users?.find((u) => u.email === session.email);
-          if (existing) return existing.id;
+          const existing = await findUserIdByEmail(session.email);
+          if (existing) return existing;
           const { data: created } = await supabaseAdmin.auth.admin.createUser({
             email: session.email,
             email_confirm: true,

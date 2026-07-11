@@ -88,6 +88,8 @@ export function createSessionCookie(user: GoogleSessionUser) {
     email: user.email,
     name: user.name,
     picture: user.picture,
+    // Lets the auth middleware skip the expensive user lookup on every request
+    supabase_id: user.supabase_id,
     exp: Math.floor(Date.now() / 1000) + MAX_AGE,
   };
   const encoded = base64Url(JSON.stringify(payload));
@@ -108,6 +110,7 @@ export function readSession(request: Request): GoogleSessionUser | null {
       email: payload.email,
       name: payload.name,
       picture: payload.picture,
+      supabase_id: payload.supabase_id,
     };
   } catch {
     return null;

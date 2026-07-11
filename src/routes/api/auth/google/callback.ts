@@ -9,12 +9,10 @@ import {
 async function findOrCreateSupabaseUser(email: string, name?: string, picture?: string): Promise<string | undefined> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // Try listing first page only (100 users max) to find by email
-    const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 100 });
-    const existing = data?.users?.find((u) => u.email === email);
+    const { findUserIdByEmail } = await import("@/lib/direct-auth-middleware.server");
+    const existing = await findUserIdByEmail(email);
     const userId = existing
-      ? existing.id
-      : (await supabaseAdmin.auth.admin.createUser({
+      ?? (await supabaseAdmin.auth.admin.createUser({
           email,
           email_confirm: true,
           user_metadata: { name, picture },
