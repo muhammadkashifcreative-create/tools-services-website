@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 
 import { Wallet, Loader2, ExternalLink, Copy, CircleCheck, CircleX, Clock } from "lucide-react";
@@ -259,11 +260,14 @@ function WalletPage() {
                   </DialogDescription>
                 </DialogHeader>
 
-                {payment.qrCode && (
-                  <div className="flex justify-center">
-                    <img src={payment.qrCode} alt="Payment address QR code" className="h-44 w-44 rounded-lg border bg-white p-2" />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="rounded-lg border bg-white p-3">
+                    <QRCodeSVG value={payment.address} size={200} level="M" aria-label="Payment address QR code" />
                   </div>
-                )}
+                  <p className="text-[11px] text-muted-foreground">
+                    Scan with your crypto wallet app (Binance, Trust Wallet, …) — not the phone camera.
+                  </p>
+                </div>
 
                 <div className="rounded-md border bg-muted/40 p-3">
                   <p className="break-all font-mono text-xs">{payment.address}</p>
