@@ -54,6 +54,7 @@ export interface HeleketPayment {
   address?: string | null;
   /** data:image/png;base64 QR of the deposit address. */
   address_qr_code?: string | null;
+  network?: string | null;
   expired_at?: number;
   txid?: string | null;
   // create/info responses use payment_status; webhooks use status
@@ -105,6 +106,9 @@ export function createInvoice(opts: {
     amount: opts.amountUsd.toFixed(2),
     currency: "USD",
     order_id: opts.orderId,
+    // Merchant absorbs the gateway commission — the customer sends exactly
+    // the invoice amount, never a padded figure.
+    subtract: 0,
     ...(opts.toCurrency ? { to_currency: opts.toCurrency } : {}),
     ...(opts.network ? { network: opts.network } : {}),
     url_callback: `${opts.origin}/api/heleket/webhook`,

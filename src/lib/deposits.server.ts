@@ -98,7 +98,7 @@ export async function settleDeposit(payment: HeleketPayment): Promise<SettleOutc
       user_id: deposit.user_id,
       amount: creditUsd,
       type: "deposit",
-      description: `Crypto top-up via Heleket${payment.payer_currency ? ` (${payment.payer_currency})` : ""} #${deposit.id.slice(0, 8).toUpperCase()}`,
+      description: `Crypto top-up${payment.payer_currency ? ` (${payment.payer_currency})` : ""} #${deposit.id.slice(0, 8).toUpperCase()}`,
     });
 
     // Notify admin on Telegram (non-blocking, same as signups/orders)

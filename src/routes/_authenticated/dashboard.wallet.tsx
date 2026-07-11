@@ -1,22 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 
-import { Wallet, Loader2, ExternalLink, Copy, CircleCheck, CircleX, Clock } from "lucide-react";
+import { Wallet, Loader2, Copy, CircleCheck, CircleX, Clock } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { getMyProfile, listMyTransactions } from "@/lib/wallet.functions";
 import {
   createTopUp,
+  resumeDeposit,
   getDepositStatus,
   reconcileMyDeposits,
   TOPUP_COINS,
   MIN_TOPUP_USD,
   MAX_TOPUP_USD,
-  type CreateTopUpResult,
+  type TopUpPayment,
 } from "@/lib/deposit.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 import { Toaster } from "@/components/ui/sonner";
@@ -49,14 +50,36 @@ function WalletPage() {
   const fetchTx = useServerFn(listMyTransactions);
   const fetchCcy = useServerFn(getUserCurrency);
   const startTopUp = useServerFn(createTopUp);
+  const resumeTopUp = useServerFn(resumeDeposit);
   const fetchDepositStatus = useServerFn(getDepositStatus);
   const reconcile = useServerFn(reconcileMyDeposits);
   const queryClient = useQueryClient();
 
+  // Coins grouped by label; entries within a group are its networks.
+  const coinGroups = useMemo(() => {
+    const groups: { label: string; entries: (typeof TOPUP_COINS)[number][] }[] = [];
+    for (const c of TOPUP_COINS) {
+      const g = groups.find((x) => x.label === c.label);
+      if (g) g.entries.push(c);
+      else groups.push({ label: c.label, entries: [c] });
+    }
+    return groups;
+  }, []);
+
   const [amount, setAmount] = useState("25");
-  const [coinId, setCoinId] = useState<string>(TOPUP_COINS[0].id);
-  const [payment, setPayment] = useState<Extract<CreateTopUpResult, { mode: "address" }> | null>(null);
+  const [coinLabel, setCoinLabel] = useState<string>(coinGroups[0].label);
+  const [coinId, setCoinId] = useState<string>(coinGroups[0].entries[0].id);
+  const [payment, setPayment] = useState<TopUpPayment | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const activeGroup = coinGroups.find((g) => g.label === coinLabel) ?? coinGroups[0];
+  const selectedCoin = TOPUP_COINS.find((c) => c.id === coinId) ?? activeGroup.entries[0];
+
+  const pickCoin = (label: string) => {
+    setCoinLabel(label);
+    const group = coinGroups.find((g) => g.label === label);
+    if (group) setCoinId(group.entries[0].id);
+  };
 
   const { data: profile } = useQuery({ queryKey: ["profile"], queryFn: () => fetchProfile() });
   const { data: tx } = useQuery({ queryKey: ["transactions"], queryFn: () => fetchTx() });
@@ -101,25 +124,26 @@ function WalletPage() {
     }
   }, [deposits, queryClient]);
 
-  // Back from the hosted Heleket page (used for "more coins" fallback)
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("topup") === "success") {
-      window.history.replaceState(null, "", window.location.pathname);
-      toast.success("Payment completed. Your balance will update as soon as the network confirms it.");
-    }
-  }, []);
+  const openPayment = (p: TopUpPayment) => {
+    setPayment(p);
+    setDialogOpen(true);
+  };
 
   const topUpMut = useMutation({
-    mutationFn: (input: { amount: number; coinId?: string }) => startTopUp({ data: input }),
-    onSuccess: (result) => {
-      if (result.mode === "address") {
-        setPayment(result);
-        setDialogOpen(true);
-      } else {
-        window.location.assign(result.url);
-      }
-    },
+    mutationFn: (input: { amount: number; coinId: string }) => startTopUp({ data: input }),
+    onSuccess: openPayment,
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resumeMut = useMutation({
+    mutationFn: (depositId: string) => resumeTopUp({ data: { depositId } }),
+    onSuccess: openPayment,
+    onError: (e: Error) => {
+      toast.info(e.message);
+      queryClient.invalidateQueries({ queryKey: ["deposits-reconcile"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
   });
 
   const countdown = useCountdown(payment?.expiresAt ?? null);
@@ -140,7 +164,6 @@ function WalletPage() {
   const symbol = ccy?.symbol ?? "$";
   const rate = ccy?.rate ?? 1;
   const pendingDeposits = deposits?.pending ?? [];
-  const selectedCoin = TOPUP_COINS.find((c) => c.id === coinId) ?? TOPUP_COINS[0];
 
   return (
     <AppLayout>
@@ -191,17 +214,31 @@ function WalletPage() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-medium text-muted-foreground">Pay with</p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {TOPUP_COINS.map((c) => (
+            <p className="mt-4 text-xs font-medium text-muted-foreground">Coin</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {coinGroups.map((g) => (
+                <button
+                  key={g.label}
+                  type="button"
+                  onClick={() => pickCoin(g.label)}
+                  className={`rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors ${coinLabel === g.label ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-3 text-xs font-medium text-muted-foreground">Network</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {activeGroup.entries.map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => setCoinId(c.id)}
-                  className={`rounded-md border px-2 py-1.5 text-left transition-colors ${coinId === c.id ? "border-primary bg-primary/10" : "hover:bg-muted"}`}
+                  className={`rounded-md border px-3 py-2 text-left transition-colors ${coinId === c.id ? "border-primary bg-primary/10" : "hover:bg-muted"}`}
                 >
-                  <span className="block text-xs font-semibold">{c.label}</span>
-                  <span className="block text-[10px] text-muted-foreground">{c.networkLabel}</span>
+                  <span className="block text-xs font-semibold">{c.networkLabel}</span>
+                  {c.hint && <span className="block text-[10px] text-muted-foreground">{c.hint}</span>}
                 </button>
               ))}
             </div>
@@ -209,24 +246,16 @@ function WalletPage() {
             <button
               type="button"
               disabled={!amountValid || topUpMut.isPending}
-              onClick={() => topUpMut.mutate({ amount: Math.round(parsedAmount * 100) / 100, coinId })}
+              onClick={() => topUpMut.mutate({ amount: Math.round(parsedAmount * 100) / 100, coinId: selectedCoin.id })}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {topUpMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Pay {amountValid ? `$${parsedAmount.toFixed(2)}` : ""} with {selectedCoin.label} ({selectedCoin.networkLabel})
+              Pay {amountValid ? `$${parsedAmount.toFixed(2)}` : ""} · {selectedCoin.label} ({selectedCoin.networkLabel})
             </button>
 
-            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Min ${MIN_TOPUP_USD}</span>
-              <button
-                type="button"
-                disabled={!amountValid || topUpMut.isPending}
-                onClick={() => topUpMut.mutate({ amount: Math.round(parsedAmount * 100) / 100 })}
-                className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
-              >
-                More coins →
-              </button>
-            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Min ${MIN_TOPUP_USD} · No extra charge — you send exactly the amount shown.
+            </p>
 
             {pendingDeposits.length > 0 && (
               <div className="mt-3 space-y-2">
@@ -236,11 +265,14 @@ function WalletPage() {
                       <Loader2 className="h-3 w-3 animate-spin" />
                       ${d.amountUsd.toFixed(2)} top-up awaiting payment
                     </span>
-                    {d.paymentUrl && (
-                      <a href={d.paymentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold underline underline-offset-2">
-                        Complete payment <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
+                    <button
+                      type="button"
+                      disabled={resumeMut.isPending}
+                      onClick={() => resumeMut.mutate(d.id)}
+                      className="font-semibold underline underline-offset-2 disabled:opacity-50"
+                    >
+                      Continue payment
+                    </button>
                   </div>
                 ))}
               </div>
@@ -293,7 +325,7 @@ function WalletPage() {
 
                 <p className="text-xs text-muted-foreground">
                   Your balance updates automatically after network confirmation (usually 1–5 minutes).
-                  Sending a different amount or coin may delay or lose the payment.
+                  Sending a different amount, coin, or network may delay or lose the payment.
                 </p>
               </>
             )}
