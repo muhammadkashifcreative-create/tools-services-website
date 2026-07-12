@@ -96,7 +96,7 @@ export const Route = createFileRoute("/api/auth/register")({
             try {
               await sendVerification(existingUser.id);
             } catch (sendError) {
-              console.error("verification email resend error");
+              console.error("verification email resend error:", sendError);
               return emailSendErrorResponse();
             }
 
@@ -144,7 +144,7 @@ export const Route = createFileRoute("/api/auth/register")({
           try {
             await sendVerification(userId);
           } catch (sendError) {
-            console.error("verification email send error");
+            console.error("verification email send error:", sendError);
             const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
             if (deleteError) console.error("created user cleanup error");
             return emailSendErrorResponse();

@@ -1,5 +1,7 @@
-const FROM = "Social Padu <noreply@socialpadu.my>";
-const FROM_SUPPORT = "Social Padu Support <noreply@socialpadu.my>";
+// EMAIL_FROM must be an address on a domain verified in Resend
+// (Resend dashboard → Domains). Falls back to the site domain.
+const FROM = process.env.EMAIL_FROM ?? "Social Padu <noreply@socialpadu.my>";
+const FROM_SUPPORT = process.env.EMAIL_FROM_SUPPORT ?? process.env.EMAIL_FROM ?? "Social Padu Support <noreply@socialpadu.my>";
 const BASE_URL = "https://www.socialpadu.my";
 const LOGO_URL = "https://www.socialpadu.my/logo.png";
 const FAVICON_URL = "https://www.socialpadu.my/favicon.png";

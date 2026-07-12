@@ -43,8 +43,8 @@ export const Route = createFileRoute("/api/auth/forgot-password")({
               try {
                 const { sendPasswordResetEmail } = await import("@/lib/email.server");
                 await sendPasswordResetEmail(user.email!, name, resetUrl);
-              } catch {
-                console.error("password reset email send error");
+              } catch (sendError) {
+                console.error("password reset email send error:", sendError);
               }
             }
           };
