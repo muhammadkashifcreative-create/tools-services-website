@@ -367,8 +367,15 @@ export const adminCreateUploadUrl = createServerFn({ method: "POST" })
     const ext = (data.filename.split(".").pop() || (data.kind === "cover" ? "png" : "pdf")).toLowerCase().replace(/[^a-z0-9]/g, "");
     const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    const { data: signed, error } = await supabaseAdmin.storage.from(bucket).createSignedUploadUrl(path);
-    if (error) throw new Error(`Upload URL failed: ${error.message}. Run the books migration first (Admin → Check Database).`);
+    let { data: signed, error } = await supabaseAdmin.storage.from(bucket).createSignedUploadUrl(path);
+    if (error) {
+      // Bucket missing (fresh project) — create it and retry once
+      await supabaseAdmin.storage
+        .createBucket(bucket, { public: data.kind === "cover" })
+        .catch(() => { /* raced another request or lacks permission — retry decides */ });
+      ({ data: signed, error } = await supabaseAdmin.storage.from(bucket).createSignedUploadUrl(path));
+    }
+    if (error || !signed) throw new Error(`Upload URL failed: ${error?.message ?? "unknown error"}.`);
 
     const publicUrl =
       data.kind === "cover"
