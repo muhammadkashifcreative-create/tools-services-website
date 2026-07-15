@@ -92,8 +92,8 @@ function Dashboard() {
                     <p className="truncate text-xs text-muted-foreground">{new Date(p.created_at).toLocaleString()}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-                    <StatusBadge status={p.status} />
-                    <span className="w-16 text-right text-sm font-medium tabular-nums">${Number(p.amount_usd).toFixed(2)}</span>
+                    <StatusBadge status={p.status === "paid" && p.delivery_status === "pending" ? "preparing" : p.status} />
+                    <span className="w-20 text-right text-sm font-medium tabular-nums">{fmt(Number(p.amount_usd))}</span>
                   </div>
                 </li>
               ))}
@@ -120,6 +120,7 @@ function StatCard({ icon: Icon, label, value, sub }: { icon: typeof Wallet; labe
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     paid: "bg-emerald-100 text-emerald-700",
+    preparing: "bg-blue-100 text-blue-700",
     pending: "bg-amber-100 text-amber-700",
     failed: "bg-red-100 text-red-700",
   };

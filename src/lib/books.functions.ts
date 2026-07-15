@@ -26,6 +26,7 @@ export type LibraryItem = {
   book: Pick<Book, "id" | "slug" | "title" | "author" | "category" | "cover_url" | "pages" | "level">;
   amount_usd: number;
   paid_at: string | null;
+  delivery_status: string;
   download_url: string | null;
 };
 
@@ -160,7 +161,7 @@ export const getMyLibrary = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const purchases = await bookPurchasesTable();
     const { data: rows, error } = await purchases
-      .select("id, book_id, amount_usd, paid_at")
+      .select("id, book_id, amount_usd, paid_at, delivery_status, delivered_file_path")
       .eq("user_id", context.userId)
       .eq("status", "paid")
       .order("paid_at", { ascending: false });
@@ -180,18 +181,28 @@ export const getMyLibrary = createServerFn({ method: "GET" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const items: LibraryItem[] = [];
-    for (const r of (rows ?? []) as Array<{ id: string; book_id: string; amount_usd: number; paid_at: string | null }>) {
+    type PurchaseRow = { id: string; book_id: string; amount_usd: number; paid_at: string | null; delivery_status: string; delivered_file_path: string | null };
+    for (const r of (rows ?? []) as PurchaseRow[]) {
       const book = byId.get(r.book_id) as (Pick<Book, "id" | "slug" | "title" | "author" | "category" | "cover_url" | "pages" | "level"> & { file_path: string | null }) | undefined;
       if (!book) continue;
+      // A per-customer delivered file wins over the book's shared PDF
+      const path = r.delivery_status === "delivered" ? (r.delivered_file_path ?? book.file_path) : null;
       let downloadUrl: string | null = null;
-      if (book.file_path) {
+      if (path) {
         const { data: signed } = await supabaseAdmin.storage
           .from("book-files")
-          .createSignedUrl(book.file_path, 3600, { download: true });
+          .createSignedUrl(path, 3600, { download: true });
         downloadUrl = signed?.signedUrl ?? null;
       }
       const { file_path: _fp, ...pub } = book;
-      items.push({ purchase_id: r.id, book: pub, amount_usd: Number(r.amount_usd), paid_at: r.paid_at, download_url: downloadUrl });
+      items.push({
+        purchase_id: r.id,
+        book: pub,
+        amount_usd: Number(r.amount_usd),
+        paid_at: r.paid_at,
+        delivery_status: r.delivery_status,
+        download_url: downloadUrl,
+      });
     }
     return { items };
   });
@@ -201,7 +212,7 @@ export const listMyBookPurchases = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const purchases = await bookPurchasesTable();
     const { data: rows, error } = await purchases
-      .select("id, book_id, amount_usd, status, created_at, paid_at")
+      .select("id, book_id, amount_usd, status, created_at, paid_at, delivery_status")
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -215,7 +226,7 @@ export const listMyBookPurchases = createServerFn({ method: "GET" })
       ? await books.select("id, title, slug, cover_url").in("id", bookIds)
       : { data: [] };
     const byId = new Map((bookRows ?? []).map((b: { id: string }) => [b.id, b]));
-    return ((rows ?? []) as Array<BookPurchaseRow & { paid_at: string | null }>).map((r) => {
+    return ((rows ?? []) as Array<BookPurchaseRow & { paid_at: string | null; delivery_status: string }>).map((r) => {
       const b = byId.get(r.book_id) as { title?: string; slug?: string; cover_url?: string | null } | undefined;
       return {
         id: r.id,
@@ -224,6 +235,7 @@ export const listMyBookPurchases = createServerFn({ method: "GET" })
         cover_url: b?.cover_url ?? null,
         amount_usd: Number(r.amount_usd),
         status: r.status,
+        delivery_status: r.delivery_status,
         created_at: r.created_at,
         paid_at: r.paid_at,
       };
@@ -308,8 +320,6 @@ export const adminUpsertBook = createServerFn({ method: "POST" })
       sort: data.sort ?? 0,
       updated_at: new Date().toISOString(),
     };
-    if (data.published && !row.file_path) throw new Error("Upload the book PDF before publishing.");
-
     if (data.id) {
       const { error } = await books.update(row).eq("id", data.id);
       if (error) throw new Error(error.message);
@@ -367,7 +377,62 @@ export const adminCreateUploadUrl = createServerFn({ method: "POST" })
     return { uploadUrl: signed.signedUrl, path, publicUrl };
   });
 
-// ---------- Status chip for admin overview ----------
+/**
+ * Marks a paid purchase as delivered. If `filePath` is given (a per-customer
+ * file uploaded via adminCreateUploadUrl), it becomes that purchase's
+ * download; otherwise the book's own PDF is used and must exist.
+ */
+export const adminDeliverPurchase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { purchaseId: string; filePath?: string | null }) =>
+    z.object({ purchaseId: z.string().uuid(), filePath: z.string().max(300).optional().nullable() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    assertAdmin(context);
+    const purchases = await bookPurchasesTable();
+    const { data: purchase, error } = await purchases
+      .select("id, user_id, book_id, status, delivery_status")
+      .eq("id", data.purchaseId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const p = purchase as { id: string; user_id: string; book_id: string; status: string; delivery_status: string } | null;
+    if (!p) throw new Error("Purchase not found.");
+    if (p.status !== "paid") throw new Error("Only paid purchases can be delivered.");
+
+    const books = await booksTable();
+    const { data: book } = await books.select("title, file_path").eq("id", p.book_id).maybeSingle();
+    const b = book as { title?: string; file_path?: string | null } | null;
+    if (!data.filePath && !b?.file_path) {
+      throw new Error("This book has no PDF yet — upload a file to deliver.");
+    }
+
+    const { error: updErr } = await purchases
+      .update({
+        delivery_status: "delivered",
+        delivered_file_path: data.filePath ?? null,
+        delivered_at: new Date().toISOString(),
+      })
+      .eq("id", p.id);
+    if (updErr) throw new Error(updErr.message);
+
+    // Tell the customer their book is ready — best-effort
+    void (async () => {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(p.user_id);
+        const email = authUser?.user?.email;
+        const name = (authUser?.user?.user_metadata as { name?: string } | null)?.name ?? "";
+        if (email) {
+          const { sendBookDeliveredEmail } = await import("@/lib/email.server");
+          await sendBookDeliveredEmail(email, name, b?.title ?? "Your book").catch(console.error);
+        }
+      } catch { /* notification is best-effort */ }
+    })();
+
+    return { ok: true };
+  });
+
+// ---------- Admin helpers ----------
 
 export const getStripeStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -375,4 +440,17 @@ export const getStripeStatus = createServerFn({ method: "GET" })
     assertAdmin(context);
     const { isStripeConfigured } = await import("@/lib/stripe.server");
     return { configured: isStripeConfigured(), webhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET) };
+  });
+
+/** Live USD→MYR rate so admin screens can show and accept prices in RM. */
+export const getMyrRate = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    try {
+      const { getFxRatesUSDBase } = await import("@/lib/fx.server");
+      const rates = await getFxRatesUSDBase();
+      const rate = Number(rates["MYR"]);
+      if (Number.isFinite(rate) && rate > 0) return { rate };
+    } catch { /* fall through to a sane default */ }
+    return { rate: 4.7 };
   });

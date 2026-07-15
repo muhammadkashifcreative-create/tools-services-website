@@ -29,6 +29,17 @@ export const runDatabaseMigration = createServerFn({ method: "POST" })
       }
     }
 
+    // Column-level check: book_purchases may exist from before manual delivery
+    if (!missing.includes("book_purchases")) {
+      const { error } = await supabaseAdmin
+        .from("book_purchases" as "services")
+        .select("delivery_status" as "*")
+        .limit(1);
+      if (error?.message?.includes("does not exist") || error?.message?.includes("schema cache")) {
+        missing.push("book_purchases.delivery_status (new columns)");
+      }
+    }
+
     if (missing.length === 0) {
       return {
         ok: true,
@@ -52,6 +63,9 @@ create table if not exists case_messages (id uuid default gen_random_uuid() prim
 create table if not exists deposits (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, amount_usd numeric(12,4) not null check (amount_usd > 0), credited_usd numeric(12,4), status text default 'pending' not null, provider text default 'heleket' not null, provider_uuid text, payment_url text, payer_currency text, txid text, created_at timestamptz default now() not null, updated_at timestamptz default now() not null);
 create table if not exists books (id uuid default gen_random_uuid() primary key, slug text unique not null, title text not null, author text, description text, category text default 'General' not null, level text default 'All levels' not null, pages integer, price_usd numeric(10,2) not null check (price_usd > 0), cover_url text, file_path text, published boolean default false not null, sort integer default 0 not null, created_at timestamptz default now() not null, updated_at timestamptz default now() not null);
 create table if not exists book_purchases (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, book_id uuid references books on delete restrict not null, amount_usd numeric(10,2) not null, currency text default 'usd' not null, stripe_session_id text unique, stripe_payment_intent text, status text default 'pending' not null, created_at timestamptz default now() not null, paid_at timestamptz);
+alter table book_purchases add column if not exists delivery_status text default 'pending' not null;
+alter table book_purchases add column if not exists delivered_file_path text;
+alter table book_purchases add column if not exists delivered_at timestamptz;
 create index if not exists book_purchases_user_idx on book_purchases (user_id, created_at desc);
 alter table books enable row level security;
 alter table book_purchases enable row level security;

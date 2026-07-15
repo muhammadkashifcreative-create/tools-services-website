@@ -59,12 +59,29 @@ export async function settleBookPurchase(session: StripeCheckoutSession): Promis
     return "still_pending"; // session still open, payment not completed yet
   }
 
+  // Instant delivery only when the book already has its PDF uploaded;
+  // otherwise the admin fulfils the purchase from the dashboard.
+  let instantDelivery = false;
+  let bookTitle = "your book";
+  if (finalStatus === "paid") {
+    const books = await booksTable();
+    const { data: book } = await books.select("title, file_path").eq("id", purchase.book_id).maybeSingle();
+    instantDelivery = Boolean((book as { file_path?: string | null } | null)?.file_path);
+    bookTitle = (book as { title?: string } | null)?.title ?? bookTitle;
+  }
+
   // Claim the row: only one caller can move it out of 'pending'.
   const { data: claimed } = await table
     .update({
       status: finalStatus,
       stripe_payment_intent: session.payment_intent,
-      ...(finalStatus === "paid" ? { paid_at: new Date().toISOString() } : {}),
+      ...(finalStatus === "paid"
+        ? {
+            paid_at: new Date().toISOString(),
+            delivery_status: instantDelivery ? "delivered" : "pending",
+            ...(instantDelivery ? { delivered_at: new Date().toISOString() } : {}),
+          }
+        : {}),
       // Promo codes can lower the charge — record what was actually paid
       ...(finalStatus === "paid" && session.amount_total != null
         ? { amount_usd: session.amount_total / 100 }
@@ -77,23 +94,23 @@ export async function settleBookPurchase(session: StripeCheckoutSession): Promis
 
   if (finalStatus !== "paid") return "failed";
 
+  const paidUsd = session.amount_total != null ? session.amount_total / 100 : Number(purchase.amount_usd);
+
   // Receipt email + admin Telegram notification — both best-effort.
   void (async () => {
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const books = await booksTable();
-      const [{ data: authUser }, { data: book }] = await Promise.all([
-        supabaseAdmin.auth.admin.getUserById(purchase.user_id),
-        books.select("title").eq("id", purchase.book_id).maybeSingle(),
-      ]);
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(purchase.user_id);
       const email = authUser?.user?.email;
       const name = (authUser?.user?.user_metadata as { name?: string } | null)?.name ?? "";
-      const title = (book as { title?: string } | null)?.title ?? "your book";
       if (email) {
         const { sendBookPurchaseEmail } = await import("@/lib/email.server");
-        await sendBookPurchaseEmail(email, name, title, Number(purchase.amount_usd)).catch(console.error);
+        await sendBookPurchaseEmail(email, name, bookTitle, paidUsd, instantDelivery).catch(console.error);
         const { notifyTelegram } = await import("@/lib/telegram.server");
-        await notifyTelegram(`📚 Book sold: "${title}" — $${Number(purchase.amount_usd).toFixed(2)} to ${email}`).catch(() => {});
+        await notifyTelegram(
+          `📚 Book sold: "${bookTitle}" — $${paidUsd.toFixed(2)} to ${email}` +
+            (instantDelivery ? "" : "\n⚠️ NEEDS DELIVERY — fulfil it in Admin → Sales"),
+        ).catch(() => {});
       }
     } catch { /* notifications are best-effort */ }
   })();

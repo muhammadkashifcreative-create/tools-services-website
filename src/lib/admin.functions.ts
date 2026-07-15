@@ -12,15 +12,21 @@ type PurchaseRow = {
   book_id: string;
   amount_usd: number;
   status: string;
+  delivery_status: string;
   created_at: string;
   paid_at: string | null;
 };
 
-async function bookTitleMap(bookIds: string[]) {
-  if (bookIds.length === 0) return new Map<string, string>();
+async function bookInfoMap(bookIds: string[]) {
+  if (bookIds.length === 0) return new Map<string, { title: string; file_path: string | null }>();
   const books = await booksTable();
-  const { data } = await books.select("id, title").in("id", bookIds);
-  return new Map(((data ?? []) as Array<{ id: string; title: string }>).map((b) => [b.id, b.title]));
+  const { data } = await books.select("id, title, file_path").in("id", bookIds);
+  return new Map(
+    ((data ?? []) as Array<{ id: string; title: string; file_path: string | null }>).map((b) => [
+      b.id,
+      { title: b.title, file_path: b.file_path },
+    ]),
+  );
 }
 
 export const adminListOrders = createServerFn({ method: "GET" })
@@ -30,7 +36,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const purchases = await bookPurchasesTable();
     const { data, error } = await purchases
-      .select("id, user_id, book_id, amount_usd, status, created_at, paid_at")
+      .select("id, user_id, book_id, amount_usd, status, delivery_status, created_at, paid_at")
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) {
@@ -40,10 +46,10 @@ export const adminListOrders = createServerFn({ method: "GET" })
     const rows = (data ?? []) as PurchaseRow[];
 
     const allUserIds = Array.from(new Set(rows.map((r) => r.user_id)));
-    const [{ data: profiles }, { data: authUsers }, titles] = await Promise.all([
+    const [{ data: profiles }, { data: authUsers }, bookInfo] = await Promise.all([
       supabaseAdmin.from("profiles").select("id, username, full_name").in("id", allUserIds),
       supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      bookTitleMap(Array.from(new Set(rows.map((r) => r.book_id)))),
+      bookInfoMap(Array.from(new Set(rows.map((r) => r.book_id)))),
     ]);
     const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
     const emailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? ""]));
@@ -51,9 +57,11 @@ export const adminListOrders = createServerFn({ method: "GET" })
     return rows.map((r) => ({
       id: r.id,
       user_id: r.user_id,
-      name: titles.get(r.book_id) ?? "Removed book",
+      name: bookInfo.get(r.book_id)?.title ?? "Removed book",
+      book_has_file: Boolean(bookInfo.get(r.book_id)?.file_path),
       charge: Number(r.amount_usd),
       status: r.status,
+      delivery_status: r.delivery_status,
       created_at: r.created_at,
       profile: byId.get(r.user_id) ?? null,
       email: emailById.get(r.user_id) ?? "",
@@ -137,11 +145,11 @@ export const adminUserOrders = createServerFn({ method: "GET" })
       throw new Error(error.message);
     }
     const typed = (rows ?? []) as PurchaseRow[];
-    const titles = await bookTitleMap(Array.from(new Set(typed.map((r) => r.book_id))));
+    const bookInfo = await bookInfoMap(Array.from(new Set(typed.map((r) => r.book_id))));
 
     return typed.map((o) => ({
       id: o.id,
-      name: titles.get(o.book_id) ?? "Removed book",
+      name: bookInfo.get(o.book_id)?.title ?? "Removed book",
       charge: Number(o.amount_usd),
       status: o.status,
       created_at: o.created_at,

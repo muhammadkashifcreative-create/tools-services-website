@@ -11,7 +11,8 @@ import { getMyProfile } from "@/lib/wallet.functions";
 import { adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUserOrders } from "@/lib/admin.functions";
 import { adminListAllCases } from "@/lib/cases.functions";
 import {
-  adminListBooks, adminUpsertBook, adminDeleteBook, adminCreateUploadUrl, getStripeStatus, type Book,
+  adminListBooks, adminUpsertBook, adminDeleteBook, adminCreateUploadUrl, adminDeliverPurchase,
+  getStripeStatus, getMyrRate, type Book,
 } from "@/lib/books.functions";
 import { runDatabaseMigration } from "@/lib/migrate.server";
 import { getMaintenanceStatus, setMaintenanceMode } from "@/lib/maintenance.functions";
@@ -89,8 +90,14 @@ function AdminBody() {
   const { data: cases } = useQuery({ queryKey: ["adminCases"], queryFn: () => fetchCases(), staleTime: 0, refetchOnWindowFocus: true });
   const { data: stripeStatus } = useQuery({ queryKey: ["stripeStatus"], queryFn: () => fetchStripe() });
   const { data: maintenance } = useQuery({ queryKey: ["maintenance"], queryFn: () => fetchMaintenance() });
+  const fetchMyr = useServerFn(getMyrRate);
+  const { data: myr } = useQuery({ queryKey: ["myrRate"], queryFn: () => fetchMyr(), staleTime: 30 * 60 * 1000 });
+  const myrRate = myr?.rate ?? 4.7;
+  const rm = (usd: number) => `RM${(usd * myrRate).toFixed(2)}`;
   const [tab, setTab] = useState<"overview" | "books" | "orders" | "users">("overview");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [delivering, setDelivering] = useState<{ id: string; name: string; email: string; bookHasFile: boolean } | null>(null);
+  const pendingDeliveries = (orders ?? []).filter((o) => o.status === "paid" && o.delivery_status === "pending").length;
 
   const { data: userOrders } = useQuery({
     queryKey: ["adminUserOrders", selectedUser],
@@ -143,7 +150,7 @@ function AdminBody() {
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
-                <p className="text-2xl font-bold text-white tabular-nums">${(stats?.revenue ?? 0).toFixed(2)}</p>
+                <p className="text-2xl font-bold text-white tabular-nums">{rm(stats?.revenue ?? 0)}</p>
                 <p className="text-[10px] uppercase tracking-wider text-slate-400">Total Revenue</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
@@ -170,6 +177,11 @@ function AdminBody() {
               className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium transition-all ${tab === k ? "bg-primary text-primary-foreground shadow-glow" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`}>
               {icon}{l}
               {count !== undefined && <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${tab === k ? "bg-white/20" : "bg-muted"}`}>{count}</span>}
+              {k === "orders" && pendingDeliveries > 0 && (
+                <span className="ml-1 animate-pulse rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {pendingDeliveries} to deliver
+                </span>
+              )}
             </button>
           ))}
           <Link to="/admin/cases" className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition-all">
@@ -181,7 +193,7 @@ function AdminBody() {
         {tab === "overview" && (<>
           {/* KPI grid */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            <StatIcon icon={DollarSign} tone="emerald" label="Total Revenue" value={`$${(stats?.revenue ?? 0).toFixed(2)}`} sub="All-time book sales" />
+            <StatIcon icon={DollarSign} tone="emerald" label="Total Revenue" value={rm(stats?.revenue ?? 0)} sub={`$${(stats?.revenue ?? 0).toFixed(2)} USD · all-time book sales`} />
             <StatIcon icon={ShoppingBag} tone="primary" label="Books Sold" value={stats?.sales ?? 0} sub="Paid purchases" />
             <StatIcon icon={BookOpen} tone="amber" label="Books Listed" value={stats?.books ?? 0} sub="In the catalog" />
             <StatIcon icon={Users} tone="default" label="Total Users" value={stats?.users ?? 0} sub="Registered accounts" />
@@ -261,7 +273,10 @@ function AdminBody() {
 
         {tab === "orders" && (
         <div className="mt-6 overflow-hidden rounded-xl border bg-card">
-          <div className="border-b px-6 py-4"><h2 className="font-semibold">All sales</h2></div>
+          <div className="border-b px-6 py-4">
+            <h2 className="font-semibold">All sales</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Paid purchases marked <strong>Needs delivery</strong> are waiting for you — click Deliver to send the book.</p>
+          </div>
           <div className="max-h-[600px] overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
@@ -269,7 +284,8 @@ function AdminBody() {
                   <th className="px-5 py-3 text-left">Customer</th>
                   <th className="px-5 py-3 text-left">Book</th>
                   <th className="px-5 py-3 text-right">Amount</th>
-                  <th className="px-5 py-3 text-left">Status</th>
+                  <th className="px-5 py-3 text-left">Payment</th>
+                  <th className="px-5 py-3 text-left">Delivery</th>
                   <th className="px-5 py-3 text-left">When</th>
                 </tr>
               </thead>
@@ -281,18 +297,42 @@ function AdminBody() {
                       {o.email && <div className="flex items-center gap-1 text-xs text-muted-foreground"><Mail className="h-3 w-3" />{o.email}</div>}
                     </td>
                     <td className="px-5 py-3">{o.name}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">${o.charge.toFixed(2)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      <div>{rm(o.charge)}</div>
+                      <div className="text-[10px] text-muted-foreground">${o.charge.toFixed(2)}</div>
+                    </td>
                     <td className="px-5 py-3 capitalize">{o.status}</td>
+                    <td className="px-5 py-3">
+                      {o.status !== "paid" ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : o.delivery_status === "delivered" ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Delivered</span>
+                      ) : (
+                        <button
+                          onClick={() => setDelivering({ id: o.id, name: o.name, email: o.email, bookHasFile: o.book_has_file })}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-2.5 py-1 text-xs font-bold text-white hover:bg-amber-600"
+                        >
+                          <UploadCloud className="h-3 w-3" /> Needs delivery — Deliver
+                        </button>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-muted-foreground">{new Date(o.created_at).toLocaleString()}</td>
                   </tr>
                 ))}
                 {(orders ?? []).length === 0 && (
-                  <tr><td colSpan={5} className="px-5 py-12 text-center text-muted-foreground">No sales yet.</td></tr>
+                  <tr><td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">No sales yet.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
+        )}
+
+        {delivering && (
+          <DeliverModal
+            purchase={delivering}
+            onClose={() => setDelivering(null)}
+          />
         )}
 
         {tab === "users" && (
@@ -328,7 +368,7 @@ function AdminBody() {
                           <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{(u as { email?: string }).email || "—"}</div>
                         </td>
                         <td className="px-5 py-3 text-right tabular-nums">{u.orders}</td>
-                        <td className="px-5 py-3 text-right tabular-nums font-medium text-emerald-600">${u.spent.toFixed(2)}</td>
+                        <td className="px-5 py-3 text-right tabular-nums font-medium text-emerald-600">{rm(u.spent)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -353,7 +393,7 @@ function AdminBody() {
                       {(userOrders ?? []).map((o) => (
                         <tr key={o.id} className="hover:bg-accent/40 transition-colors">
                           <td className="px-5 py-3 font-medium">{o.name}</td>
-                          <td className="px-5 py-3 text-right tabular-nums">${o.charge.toFixed(2)}</td>
+                          <td className="px-5 py-3 text-right tabular-nums">{rm(o.charge)}</td>
                           <td className="px-5 py-3 capitalize">{o.status}</td>
                         </tr>
                       ))}
@@ -373,6 +413,101 @@ function AdminBody() {
   );
 }
 
+// ─── Manual delivery ───────────────────────────────────────────────────────────
+
+function DeliverModal({ purchase, onClose }: {
+  purchase: { id: string; name: string; email: string; bookHasFile: boolean };
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const deliver = useServerFn(adminDeliverPurchase);
+  const createUploadUrl = useServerFn(adminCreateUploadUrl);
+  const [uploading, setUploading] = useState(false);
+  const [filePath, setFilePath] = useState<string | null>(null);
+  const [fileName, setFileName] = useState("");
+
+  async function upload(file: File) {
+    setUploading(true);
+    try {
+      const { uploadUrl, path } = await createUploadUrl({ data: { kind: "file", filename: file.name } });
+      const res = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+      setFilePath(path);
+      setFileName(file.name);
+      toast.success("File uploaded — ready to deliver.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const mut = useMutation({
+    mutationFn: () => deliver({ data: { purchaseId: purchase.id, filePath } }),
+    onSuccess: () => {
+      toast.success("Delivered — the customer can now download it and has been emailed.");
+      qc.invalidateQueries({ queryKey: ["adminOrders"] });
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const canDeliver = Boolean(filePath || purchase.bookHasFile) && !uploading;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border bg-card p-6 shadow-elegant">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold">Deliver book</h3>
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">{purchase.name}</span> for{" "}
+          <span className="font-semibold text-foreground">{purchase.email || "customer"}</span>
+        </p>
+
+        <div className="mt-5 space-y-3 text-sm">
+          {purchase.bookHasFile ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400">
+              This book already has its PDF uploaded — deliver it as-is, or upload a different file just for this customer below.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
+              This book has no PDF in the catalog — upload the file to deliver to this customer.
+            </div>
+          )}
+
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-accent">
+            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="h-3.5 w-3.5" />}
+            {filePath ? "Replace file" : "Upload file for this customer"}
+            <input type="file" accept=".pdf,application/pdf" className="hidden" disabled={uploading}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
+          </label>
+          {fileName && <p className="inline-flex items-center gap-1 text-xs text-emerald-600"><Check className="h-3 w-3" /> {fileName}</p>}
+        </div>
+
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button onClick={onClose} className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent">Cancel</button>
+          <button
+            onClick={() => mut.mutate()}
+            disabled={!canDeliver || mut.isPending}
+            className="inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
+            style={{ background: "var(--gradient-accent)" }}
+          >
+            {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Deliver {filePath ? "uploaded file" : "book PDF"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Books manager ─────────────────────────────────────────────────────────────
 
 type AdminBook = Book & { file_path: string | null; sales: number };
@@ -384,7 +519,10 @@ function BooksTab() {
   const qc = useQueryClient();
   const fetchBooks = useServerFn(adminListBooks);
   const deleteBook = useServerFn(adminDeleteBook);
+  const fetchMyr = useServerFn(getMyrRate);
   const { data, isLoading } = useQuery({ queryKey: ["adminBooks"], queryFn: () => fetchBooks() });
+  const { data: myr } = useQuery({ queryKey: ["myrRate"], queryFn: () => fetchMyr(), staleTime: 30 * 60 * 1000 });
+  const myrRate = myr?.rate ?? 4.7;
   const [editing, setEditing] = useState<AdminBook | "new" | null>(null);
 
   const delMut = useMutation({
@@ -459,7 +597,10 @@ function BooksTab() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-right tabular-nums">${Number(b.price_usd).toFixed(2)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      <div>RM{(Number(b.price_usd) * myrRate).toFixed(2)}</div>
+                      <div className="text-[10px] text-muted-foreground">${Number(b.price_usd).toFixed(2)}</div>
+                    </td>
                     <td className="px-5 py-3 text-right tabular-nums">{b.sales}</td>
                     <td className="px-5 py-3">
                       {b.published ? (
@@ -498,6 +639,7 @@ function BooksTab() {
       {editing && (
         <BookEditor
           book={editing === "new" ? null : editing}
+          myrRate={myrRate}
           onClose={() => setEditing(null)}
         />
       )}
@@ -505,7 +647,7 @@ function BooksTab() {
   );
 }
 
-function BookEditor({ book, onClose }: { book: AdminBook | null; onClose: () => void }) {
+function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRate: number; onClose: () => void }) {
   const qc = useQueryClient();
   const upsert = useServerFn(adminUpsertBook);
   const createUploadUrl = useServerFn(adminCreateUploadUrl);
@@ -515,7 +657,8 @@ function BookEditor({ book, onClose }: { book: AdminBook | null; onClose: () => 
   const [category, setCategory] = useState(book?.category ?? CATEGORY_SUGGESTIONS[0]);
   const [level, setLevel] = useState(book?.level ?? "All levels");
   const [pages, setPages] = useState(book?.pages ? String(book.pages) : "");
-  const [price, setPrice] = useState(book ? String(book.price_usd) : "");
+  // Admin thinks in RM; the store charges USD via Stripe, so convert on save
+  const [price, setPrice] = useState(book ? (Number(book.price_usd) * myrRate).toFixed(2) : "");
   const [description, setDescription] = useState(book?.description ?? "");
   const [coverUrl, setCoverUrl] = useState(book?.cover_url ?? "");
   const [filePath, setFilePath] = useState(book?.file_path ?? "");
@@ -553,7 +696,7 @@ function BookEditor({ book, onClose }: { book: AdminBook | null; onClose: () => 
           category: category.trim() || "General",
           level,
           pages: pages.trim() ? Number(pages) : null,
-          price_usd: Number(price),
+          price_usd: +(Number(price) / myrRate).toFixed(2),
           description: description.trim() || null,
           cover_url: coverUrl || null,
           file_path: filePath || null,
@@ -594,12 +737,15 @@ function BookEditor({ book, onClose }: { book: AdminBook | null; onClose: () => 
               className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring" />
           </label>
           <label className="text-sm">
-            <span className="mb-1.5 block font-medium">Price (USD) *</span>
+            <span className="mb-1.5 block font-medium">Price (RM) *</span>
             <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-              <input type="number" min={0.5} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="9.99"
-                className="w-full rounded-md border bg-background py-2 pl-7 pr-3 text-sm tabular-nums outline-none focus:ring-2 ring-ring" />
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">RM</span>
+              <input type="number" min={1} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="49.00"
+                className="w-full rounded-md border bg-background py-2 pl-9 pr-3 text-sm tabular-nums outline-none focus:ring-2 ring-ring" />
             </div>
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              ≈ ${Number.isFinite(Number(price)) && Number(price) > 0 ? (Number(price) / myrRate).toFixed(2) : "0.00"} USD — Stripe charges in USD
+            </span>
           </label>
           <label className="text-sm">
             <span className="mb-1.5 block font-medium">Category</span>
@@ -648,7 +794,7 @@ function BookEditor({ book, onClose }: { book: AdminBook | null; onClose: () => 
 
           {/* PDF upload */}
           <div className="text-sm">
-            <span className="mb-1.5 block font-medium">Book PDF {published && !filePath ? <span className="text-destructive">*</span> : ""}</span>
+            <span className="mb-1.5 block font-medium">Book PDF <span className="font-normal text-muted-foreground">(optional)</span></span>
             <div className="flex items-center gap-3">
               <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-accent">
                 {uploading === "file" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="h-3.5 w-3.5" />}
@@ -664,7 +810,7 @@ function BookEditor({ book, onClose }: { book: AdminBook | null; onClose: () => 
             <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} className="h-4 w-4 accent-[#e07b2e]" />
             <span>
               <span className="font-semibold">Published</span>
-              <span className="ml-2 text-xs text-muted-foreground">Visible in the public library. Requires the PDF to be uploaded.</span>
+              <span className="ml-2 text-xs text-muted-foreground">Visible in the public library. Without a PDF, you deliver each sale yourself from the Sales tab.</span>
             </span>
           </label>
         </div>

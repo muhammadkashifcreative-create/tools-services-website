@@ -31,7 +31,7 @@ function LibraryPage() {
     reconcile()
       .then((r) => {
         if (r.settled > 0 || fromCheckout.current) {
-          toast.success("Payment confirmed — your book is ready to download!");
+          toast.success("Payment confirmed! If your book shows 'being prepared', we'll email you as soon as it's delivered.");
           qc.invalidateQueries({ queryKey: ["myLibrary"] });
           qc.invalidateQueries({ queryKey: ["bookPurchases"] });
         }
@@ -103,8 +103,12 @@ function LibraryPage() {
                         >
                           <Download className="h-3.5 w-3.5" /> Download PDF
                         </a>
+                      ) : item.delivery_status !== "delivered" ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:bg-blue-950/20 dark:text-blue-400">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Being prepared — we'll email you when it's ready
+                        </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">File being prepared — contact support if this persists.</span>
+                        <span className="text-xs text-muted-foreground">Download unavailable — contact support and we'll fix it.</span>
                       )}
                     </div>
                   </div>

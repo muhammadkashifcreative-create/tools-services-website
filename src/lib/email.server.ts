@@ -193,7 +193,24 @@ export async function sendWelcomeEmail(to: string, name: string) {
   await sendEmail(to, "Welcome to Social Padu 🎉", layout("Your account is ready to use", "Welcome", body));
 }
 
-export async function sendBookPurchaseEmail(to: string, name: string, bookTitle: string, amountUsd: number) {
+export async function sendBookPurchaseEmail(to: string, name: string, bookTitle: string, amountUsd: number, delivered: boolean) {
+  if (!delivered) {
+    const body = `
+      ${heroIcon("📦", "#fff7ed")}
+      ${h1("Payment received — delivery on the way")}
+      ${subtitle(`Hi <strong>${name || "there"}</strong>, thanks for your purchase! Your book is being prepared and will appear in your library shortly. We'll email you the moment it's ready to download.`)}
+      ${infoCard([
+        ["Book", bookTitle],
+        ["Amount paid", `$${amountUsd.toFixed(2)} USD`],
+        ["Delivery", `<span style="color:#b45309;font-weight:700;">Being prepared</span>`],
+        ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
+      ])}
+      ${cta("View My Library →", `${BASE_URL}/dashboard/library`)}
+      <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;text-align:center;">Questions? Open a support case from your dashboard and we'll help right away.</p>
+    `;
+    await sendEmail(to, `📦 Order received — "${bookTitle}" is being prepared`, layout(`We're preparing "${bookTitle}" for you`, "Order Received", body));
+    return;
+  }
   const body = `
     ${heroIcon("📚", "#f0fdf4")}
     ${h1("Your book is ready!")}
@@ -201,13 +218,24 @@ export async function sendBookPurchaseEmail(to: string, name: string, bookTitle:
     ${infoCard([
       ["Book", bookTitle],
       ["Amount paid", `$${amountUsd.toFixed(2)} USD`],
-      ["Delivery", "Instant PDF download"],
+      ["Delivery", "PDF download"],
       ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
     ])}
     ${cta("Download from My Library →", `${BASE_URL}/dashboard/library`)}
     <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;text-align:center;">Problem with your download? Open a support case from your dashboard and we'll fix it fast.</p>
   `;
   await sendEmail(to, `📚 Your book "${bookTitle}" is ready to download`, layout(`"${bookTitle}" is waiting in your library`, "Purchase Confirmed", body));
+}
+
+export async function sendBookDeliveredEmail(to: string, name: string, bookTitle: string) {
+  const body = `
+    ${heroIcon("📚", "#f0fdf4")}
+    ${h1("Your book has been delivered!")}
+    ${subtitle(`Hi <strong>${name || "there"}</strong>, good news — <strong>${bookTitle}</strong> is now in your library, ready to download. It's yours for life, so come back for it any time.`)}
+    ${cta("Download from My Library →", `${BASE_URL}/dashboard/library`)}
+    <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;text-align:center;">Problem with your download? Open a support case from your dashboard and we'll fix it fast.</p>
+  `;
+  await sendEmail(to, `📚 "${bookTitle}" has been delivered — download it now`, layout(`"${bookTitle}" is ready in your library`, "Book Delivered", body));
 }
 
 export async function sendPaymentConfirmationEmail(

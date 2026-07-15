@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { BookOpen, Loader2, ShoppingBag } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { listMyBookPurchases } from "@/lib/books.functions";
+import { getUserCurrency } from "@/lib/geo.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard/orders")({
   head: () => ({ meta: [{ title: "Purchases — Social Padu" }] }),
@@ -12,7 +13,12 @@ export const Route = createFileRoute("/_authenticated/dashboard/orders")({
 
 function PurchasesPage() {
   const fetchPurchases = useServerFn(listMyBookPurchases);
+  const fetchCcy = useServerFn(getUserCurrency);
   const { data: purchases, isLoading } = useQuery({ queryKey: ["bookPurchases"], queryFn: () => fetchPurchases() });
+  const { data: ccy } = useQuery({ queryKey: ["user-currency"], queryFn: () => fetchCcy(), staleTime: 30 * 60 * 1000 });
+  const symbol = ccy?.symbol ?? "$";
+  const rate = ccy?.rate ?? 1;
+  const fmt = (usd: number) => `${symbol}${(usd * rate).toFixed(2)}`;
 
   return (
     <AppLayout>
@@ -45,7 +51,8 @@ function PurchasesPage() {
                   <tr>
                     <th className="px-5 py-3 text-left font-medium">Book</th>
                     <th className="px-5 py-3 text-right font-medium">Price</th>
-                    <th className="px-5 py-3 text-left font-medium">Status</th>
+                    <th className="px-5 py-3 text-left font-medium">Payment</th>
+                    <th className="px-5 py-3 text-left font-medium">Delivery</th>
                     <th className="px-5 py-3 text-left font-medium">Date</th>
                     <th className="px-5 py-3" />
                   </tr>
@@ -68,15 +75,27 @@ function PurchasesPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums">${Number(p.amount_usd).toFixed(2)}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">
+                        <div>{fmt(Number(p.amount_usd))}</div>
+                        <div className="text-[10px] text-muted-foreground">${Number(p.amount_usd).toFixed(2)} USD</div>
+                      </td>
                       <td className="px-5 py-3"><StatusBadge status={p.status} /></td>
+                      <td className="px-5 py-3">
+                        {p.status !== "paid" ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : p.delivery_status === "delivered" ? (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Delivered</span>
+                        ) : (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Being prepared</span>
+                        )}
+                      </td>
                       <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{new Date(p.created_at).toLocaleDateString()}</td>
                       <td className="px-5 py-3 text-right">
-                        {p.status === "paid" ? (
+                        {p.status === "paid" && p.delivery_status === "delivered" ? (
                           <Link to="/dashboard/library" className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent">
                             <BookOpen className="h-3 w-3" /> Open
                           </Link>
-                        ) : p.book_slug ? (
+                        ) : p.status !== "paid" && p.book_slug ? (
                           <Link to="/books/$slug" params={{ slug: p.book_slug }} className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent">
                             <ShoppingBag className="h-3 w-3" /> Retry
                           </Link>
