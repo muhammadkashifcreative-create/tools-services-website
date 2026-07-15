@@ -6,7 +6,7 @@ import { Loader2, Search, X, BookOpen, Sparkles, ShieldCheck, Zap, Download } fr
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { BookCard } from "@/components/BookCard";
-import { listBooksPublic, type Book } from "@/lib/books.functions";
+import { listBooksPublic, type CatalogBook } from "@/lib/books.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 
 export const Route = createFileRoute("/books/")({
@@ -45,7 +45,7 @@ function BooksCatalogPage() {
   const fxSymbol = ccy?.symbol ?? "$";
   const fxRate = ccy?.rate ?? 1;
 
-  const allBooks = (data?.books ?? []) as Book[];
+  const allBooks = (data?.books ?? []) as CatalogBook[];
   const categories = useMemo(
     () => Array.from(new Set(allBooks.map((b) => b.category))).sort(),
     [allBooks],

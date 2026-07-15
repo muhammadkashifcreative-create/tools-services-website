@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
-import { booksTable, bookPurchasesTable, settleBookPurchase, type BookPurchaseRow } from "@/lib/book-purchases.server";
+import { booksTable, bookPurchasesTable, bookReviewsTable, settleBookPurchase, type BookPurchaseRow } from "@/lib/book-purchases.server";
 
 const SITE_URL = process.env.SITE_URL ?? "https://www.socialpadu.my";
 
@@ -38,6 +38,25 @@ const PUBLIC_BOOK_COLS = "id, slug, title, author, description, category, level,
 
 // ---------- Public catalog ----------
 
+export type CatalogBook = Book & { rating_avg: number | null; rating_count: number };
+
+async function ratingSummary(): Promise<Map<string, { avg: number; count: number }>> {
+  const summary = new Map<string, { avg: number; count: number }>();
+  try {
+    const reviews = await bookReviewsTable();
+    const { data } = await reviews.select("book_id, rating");
+    const agg = new Map<string, { sum: number; count: number }>();
+    for (const r of (data ?? []) as Array<{ book_id: string; rating: number }>) {
+      const cur = agg.get(r.book_id) ?? { sum: 0, count: 0 };
+      cur.sum += r.rating;
+      cur.count += 1;
+      agg.set(r.book_id, cur);
+    }
+    for (const [id, { sum, count }] of agg) summary.set(id, { avg: +(sum / count).toFixed(1), count });
+  } catch { /* reviews table missing — no ratings yet */ }
+  return summary;
+}
+
 export const listBooksPublic = createServerFn({ method: "GET" }).handler(async () => {
   const books = await booksTable();
   const { data, error } = await books
@@ -47,10 +66,17 @@ export const listBooksPublic = createServerFn({ method: "GET" }).handler(async (
     .order("created_at", { ascending: false });
   if (error) {
     // Table missing = store not set up yet; show an empty catalog, not an error
-    if (error.message.includes("does not exist") || error.message.includes("schema cache")) return { books: [] as Book[] };
+    if (error.message.includes("does not exist") || error.message.includes("schema cache")) return { books: [] as CatalogBook[] };
     throw new Error(error.message);
   }
-  return { books: (data ?? []) as Book[] };
+  const ratings = await ratingSummary();
+  return {
+    books: ((data ?? []) as Book[]).map((b) => ({
+      ...b,
+      rating_avg: ratings.get(b.id)?.avg ?? null,
+      rating_count: ratings.get(b.id)?.count ?? 0,
+    })) as CatalogBook[],
+  };
 });
 
 export const getBookBySlugPublic = createServerFn({ method: "GET" })
@@ -152,6 +178,133 @@ export const reconcileMyPurchases = createServerFn({ method: "POST" })
       } catch { /* next reconcile retries */ }
     }
     return { settled };
+  });
+
+// ---------- Reviews (text-only, verified buyers) ----------
+
+export type BookReview = {
+  id: string;
+  rating: number;
+  body: string;
+  author: string;
+  created_at: string;
+};
+
+export const listBookReviews = createServerFn({ method: "GET" })
+  .inputValidator((d: { bookId: string }) => z.object({ bookId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    try {
+      const reviews = await bookReviewsTable();
+      const { data: rows, error } = await reviews
+        .select("id, user_id, rating, body, created_at")
+        .eq("book_id", data.bookId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+
+      const userIds = Array.from(new Set((rows ?? []).map((r: { user_id: string }) => r.user_id)));
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: profiles } = userIds.length
+        ? await supabaseAdmin.from("profiles").select("id, full_name, username").in("id", userIds)
+        : { data: [] };
+      const nameById = new Map(
+        (profiles ?? []).map((p) => [p.id, (p.full_name || p.username || "Verified reader") as string]),
+      );
+
+      const list = ((rows ?? []) as Array<{ id: string; user_id: string; rating: number; body: string; created_at: string }>).map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        body: r.body,
+        author: nameById.get(r.user_id) ?? "Verified reader",
+        created_at: r.created_at,
+      })) as BookReview[];
+
+      const count = list.length;
+      const avg = count ? +(list.reduce((s, r) => s + r.rating, 0) / count).toFixed(1) : null;
+      return { reviews: list, avg, count };
+    } catch {
+      // Reviews table missing — behave as "no reviews yet"
+      return { reviews: [] as BookReview[], avg: null as number | null, count: 0 };
+    }
+  });
+
+/** The signed-in user's own review + whether they're allowed to write one. */
+export const getMyBookReview = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { bookId: string }) => z.object({ bookId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const purchases = await bookPurchasesTable();
+    const { data: owned } = await purchases
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("book_id", data.bookId)
+      .eq("status", "paid")
+      .limit(1);
+    const canReview = Boolean(owned && owned.length > 0);
+
+    let mine: { id: string; rating: number; body: string } | null = null;
+    try {
+      const reviews = await bookReviewsTable();
+      const { data: row } = await reviews
+        .select("id, rating, body")
+        .eq("book_id", data.bookId)
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      mine = (row ?? null) as { id: string; rating: number; body: string } | null;
+    } catch { /* table missing */ }
+
+    return { canReview, mine };
+  });
+
+export const upsertMyBookReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { bookId: string; rating: number; body: string }) =>
+    z.object({
+      bookId: z.string().uuid(),
+      rating: z.number().int().min(1).max(5),
+      body: z.string().trim().min(10, "Please write at least a few words.").max(2000),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    // Verified buyers only — a paid purchase of this exact book
+    const purchases = await bookPurchasesTable();
+    const { data: owned } = await purchases
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("book_id", data.bookId)
+      .eq("status", "paid")
+      .limit(1);
+    if (!owned || owned.length === 0) {
+      throw new Error("Only verified buyers can review this book.");
+    }
+
+    const reviews = await bookReviewsTable();
+    const { error } = await reviews.upsert(
+      {
+        book_id: data.bookId,
+        user_id: context.userId,
+        rating: data.rating,
+        body: data.body,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "book_id,user_id" },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Owner can remove their own review; the admin can remove any. */
+export const deleteBookReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { reviewId: string }) => z.object({ reviewId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const reviews = await bookReviewsTable();
+    const isAdmin = (context as { email?: string }).email === ADMIN_EMAIL;
+    let query = reviews.delete().eq("id", data.reviewId);
+    if (!isAdmin) query = query.eq("user_id", context.userId);
+    const { error } = await query;
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 // ---------- Library & purchase history ----------
@@ -320,14 +473,31 @@ export const adminUpsertBook = createServerFn({ method: "POST" })
       sort: data.sort ?? 0,
       updated_at: new Date().toISOString(),
     };
+    let bookId: string;
     if (data.id) {
       const { error } = await books.update(row).eq("id", data.id);
       if (error) throw new Error(error.message);
-      return { ok: true, id: data.id };
+      bookId = data.id;
+    } else {
+      const { data: inserted, error } = await books.insert(row).select("id").single();
+      if (error) throw new Error(error.message);
+      bookId = (inserted as { id: string }).id;
     }
-    const { data: inserted, error } = await books.insert(row).select("id").single();
-    if (error) throw new Error(error.message);
-    return { ok: true, id: (inserted as { id: string }).id };
+
+    // First time this book goes live → newsletter to all subscribed users.
+    // announceBook claims books.announced_at, so this only ever happens once.
+    let announcement: { sent: number } | { error: string } | null = null;
+    if (data.published) {
+      try {
+        const { announceBook } = await import("@/lib/newsletter.server");
+        const result = await announceBook(bookId);
+        if (!("alreadyAnnounced" in result)) announcement = { sent: result.sent };
+      } catch (e) {
+        announcement = { error: (e as Error).message };
+      }
+    }
+
+    return { ok: true, id: bookId, announcement };
   });
 
 export const adminDeleteBook = createServerFn({ method: "POST" })

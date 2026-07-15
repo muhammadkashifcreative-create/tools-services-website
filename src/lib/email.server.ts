@@ -227,6 +227,64 @@ export async function sendBookPurchaseEmail(to: string, name: string, bookTitle:
   await sendEmail(to, `📚 Your book "${bookTitle}" is ready to download`, layout(`"${bookTitle}" is waiting in your library`, "Purchase Confirmed", body));
 }
 
+export type AnnouncementRecipient = { email: string; name: string; unsubUrl: string };
+
+/**
+ * New-book launch newsletter, sent via Resend's batch endpoint (100 per call).
+ * Each email is personalised with the recipient's name and unsubscribe link.
+ * Returns how many emails were accepted by Resend.
+ */
+export async function sendNewBookAnnouncement(
+  recipients: AnnouncementRecipient[],
+  book: { slug: string; title: string; author: string | null; description: string | null; category: string; cover_url: string | null },
+  priceLabel: string,
+): Promise<number> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("RESEND_API_KEY is not configured");
+
+  const bookUrl = `${BASE_URL}/books/${book.slug}`;
+  const desc = (book.description ?? "").trim();
+  const shortDesc = desc.length > 260 ? `${desc.slice(0, 257)}…` : desc;
+
+  const buildBody = (name: string, unsubUrl: string) => `
+    ${book.cover_url
+      ? `<div style="text-align:center;margin-bottom:24px;"><a href="${bookUrl}"><img src="${book.cover_url}" alt="${book.title} cover" width="180" style="display:inline-block;border:0;max-width:180px;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,0.18);"/></a></div>`
+      : heroIcon("📘", "#fff7ed")}
+    <p style="margin:0 0 6px;text-align:center;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#e07b2e;">New release · ${book.category}</p>
+    ${h1(`${book.title}`)}
+    ${subtitle(`Hi <strong>${name || "there"}</strong>, we just added a new guide book to the library${book.author ? ` by <strong>${book.author}</strong>` : ""}.${shortDesc ? `<br/><br/>${shortDesc}` : ""}`)}
+    ${infoCard([
+      ["Price", priceLabel],
+      ["Format", "PDF · digital download"],
+    ])}
+    ${cta("View the Book →", bookUrl)}
+    <p style="margin:28px 0 0;font-size:11px;color:#cbd5e1;text-align:center;">Don't want new-book announcements? <a href="${unsubUrl}" style="color:#94a3b8;">Unsubscribe</a> — account emails are unaffected.</p>
+  `;
+
+  const subject = `📘 New guide book: ${book.title}`;
+  let sent = 0;
+  for (let i = 0; i < recipients.length; i += 100) {
+    const chunk = recipients.slice(i, i + 100);
+    const payload = chunk.map((r) => ({
+      from: FROM,
+      to: r.email,
+      subject,
+      html: layout(`New in the library: ${book.title}`, "New Release", buildBody(r.name, r.unsubUrl)),
+    }));
+    const res = await fetch("https://api.resend.com/emails/batch", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      sent += chunk.length;
+    } else {
+      console.error(`Announcement batch failed (${res.status}):`, await res.text().catch(() => ""));
+    }
+  }
+  return sent;
+}
+
 export async function sendBookDeliveredEmail(to: string, name: string, bookTitle: string) {
   const body = `
     ${heroIcon("📚", "#f0fdf4")}

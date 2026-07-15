@@ -11,6 +11,7 @@ const ALL_TABLES = [
   "deposits",
   "books",
   "book_purchases",
+  "book_reviews",
 ];
 
 export const runDatabaseMigration = createServerFn({ method: "POST" })
@@ -29,14 +30,20 @@ export const runDatabaseMigration = createServerFn({ method: "POST" })
       }
     }
 
-    // Column-level check: book_purchases may exist from before manual delivery
-    if (!missing.includes("book_purchases")) {
+    // Column-level checks: tables may exist from before newer features
+    const columnChecks: Array<[string, string]> = [
+      ["book_purchases", "delivery_status"],
+      ["books", "announced_at"],
+      ["profiles", "marketing_opt_out"],
+    ];
+    for (const [table, column] of columnChecks) {
+      if (missing.includes(table)) continue;
       const { error } = await supabaseAdmin
-        .from("book_purchases" as "services")
-        .select("delivery_status" as "*")
+        .from(table as "services")
+        .select(column as "*")
         .limit(1);
       if (error?.message?.includes("does not exist") || error?.message?.includes("schema cache")) {
-        missing.push("book_purchases.delivery_status (new columns)");
+        missing.push(`${table}.${column} (new column)`);
       }
     }
 
@@ -67,8 +74,12 @@ alter table book_purchases add column if not exists delivery_status text default
 alter table book_purchases add column if not exists delivered_file_path text;
 alter table book_purchases add column if not exists delivered_at timestamptz;
 create index if not exists book_purchases_user_idx on book_purchases (user_id, created_at desc);
+create table if not exists book_reviews (id uuid default gen_random_uuid() primary key, book_id uuid references books on delete cascade not null, user_id uuid references auth.users on delete cascade not null, rating integer not null check (rating between 1 and 5), body text not null, created_at timestamptz default now() not null, updated_at timestamptz default now() not null, unique (book_id, user_id));
+alter table books add column if not exists announced_at timestamptz;
+alter table profiles add column if not exists marketing_opt_out boolean default false not null;
 alter table books enable row level security;
 alter table book_purchases enable row level security;
+alter table book_reviews enable row level security;
 insert into storage.buckets (id, name, public) values ('book-covers', 'book-covers', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('book-files', 'book-files', false) on conflict (id) do nothing;
 create or replace function handle_new_user() returns trigger as $$ begin insert into public.profiles (id, full_name) values (new.id, new.raw_user_meta_data->>'name') on conflict (id) do nothing; return new; end; $$ language plpgsql security definer;

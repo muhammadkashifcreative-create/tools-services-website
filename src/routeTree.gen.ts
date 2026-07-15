@@ -23,6 +23,7 @@ import { Route as ToolsIndexRouteImport } from './routes/tools.index'
 import { Route as BooksIndexRouteImport } from './routes/books.index'
 import { Route as ToolsStoreRouteImport } from './routes/tools.store'
 import { Route as BooksSlugRouteImport } from './routes/books.$slug'
+import { Route as ApiUnsubscribeRouteImport } from './routes/api/unsubscribe'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
@@ -113,6 +114,11 @@ const BooksSlugRoute = BooksSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
   getParentRoute: () => BooksRoute,
+} as any)
+const ApiUnsubscribeRoute = ApiUnsubscribeRouteImport.update({
+  id: '/api/unsubscribe',
+  path: '/api/unsubscribe',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
@@ -238,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/tools': typeof ToolsRouteWithChildren
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/api/unsubscribe': typeof ApiUnsubscribeRoute
   '/books/$slug': typeof BooksSlugRoute
   '/tools/store': typeof ToolsStoreRoute
   '/books/': typeof BooksIndexRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
   '/terms': typeof TermsRoute
+  '/api/unsubscribe': typeof ApiUnsubscribeRoute
   '/books/$slug': typeof BooksSlugRoute
   '/tools/store': typeof ToolsStoreRoute
   '/books': typeof BooksIndexRoute
@@ -308,6 +316,7 @@ export interface FileRoutesById {
   '/tools': typeof ToolsRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/api/unsubscribe': typeof ApiUnsubscribeRoute
   '/books/$slug': typeof BooksSlugRoute
   '/tools/store': typeof ToolsStoreRoute
   '/books/': typeof BooksIndexRoute
@@ -346,6 +355,7 @@ export interface FileRouteTypes {
     | '/tools'
     | '/admin'
     | '/dashboard'
+    | '/api/unsubscribe'
     | '/books/$slug'
     | '/tools/store'
     | '/books/'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/refund'
     | '/terms'
+    | '/api/unsubscribe'
     | '/books/$slug'
     | '/tools/store'
     | '/books'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/tools'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
+    | '/api/unsubscribe'
     | '/books/$slug'
     | '/tools/store'
     | '/books/'
@@ -451,6 +463,7 @@ export interface RootRouteChildren {
   RefundRoute: typeof RefundRoute
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
+  ApiUnsubscribeRoute: typeof ApiUnsubscribeRoute
   ApiAuthForgotPasswordRoute: typeof ApiAuthForgotPasswordRoute
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
@@ -562,6 +575,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/books/$slug'
       preLoaderRoute: typeof BooksSlugRouteImport
       parentRoute: typeof BooksRoute
+    }
+    '/api/unsubscribe': {
+      id: '/api/unsubscribe'
+      path: '/api/unsubscribe'
+      fullPath: '/api/unsubscribe'
+      preLoaderRoute: typeof ApiUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
@@ -824,6 +844,7 @@ const rootRouteChildren: RootRouteChildren = {
   RefundRoute: RefundRoute,
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
+  ApiUnsubscribeRoute: ApiUnsubscribeRoute,
   ApiAuthForgotPasswordRoute: ApiAuthForgotPasswordRoute,
   ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
   ApiAuthLoginRoute: ApiAuthLoginRoute,

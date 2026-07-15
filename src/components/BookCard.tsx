@@ -1,9 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Star } from "lucide-react";
 import type { Book } from "@/lib/books.functions";
 
-export function BookCard({ book, fxSymbol, fxRate }: { book: Book; fxSymbol: string; fxRate: number }) {
+type RatedBook = Book & { rating_avg?: number | null; rating_count?: number };
+
+export function BookCard({ book, fxSymbol, fxRate }: { book: RatedBook; fxSymbol: string; fxRate: number }) {
   const local = Number(book.price_usd) * fxRate;
+  const rated = (book.rating_count ?? 0) > 0 && book.rating_avg != null;
   return (
     <Link
       to="/books/$slug"
@@ -31,6 +34,13 @@ export function BookCard({ book, fxSymbol, fxRate }: { book: Book; fxSymbol: str
       <div className="flex flex-1 flex-col p-4">
         <h3 className="line-clamp-2 text-sm font-bold leading-snug sm:text-base">{book.title}</h3>
         {book.author && <p className="mt-1 text-xs text-muted-foreground">by {book.author}</p>}
+        {rated && (
+          <p className="mt-1.5 inline-flex items-center gap-1 text-xs">
+            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+            <span className="font-semibold">{book.rating_avg}</span>
+            <span className="text-muted-foreground">({book.rating_count} review{book.rating_count === 1 ? "" : "s"})</span>
+          </p>
+        )}
         <div className="mt-auto flex items-end justify-between pt-4">
           <div>
             <p className="text-lg font-bold tabular-nums text-gradient">

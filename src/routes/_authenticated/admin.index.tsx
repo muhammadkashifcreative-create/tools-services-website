@@ -703,8 +703,15 @@ function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRat
           published,
         },
       }),
-    onSuccess: () => {
+    onSuccess: (r: { ok: boolean; id: string; announcement: { sent: number } | { error: string } | null }) => {
       toast.success(book ? "Book updated." : "Book created.");
+      if (r.announcement) {
+        if ("sent" in r.announcement) {
+          toast.success(`📣 Launch announcement emailed to ${r.announcement.sent} reader${r.announcement.sent === 1 ? "" : "s"}.`);
+        } else {
+          toast.error(`Book saved, but the launch email failed: ${r.announcement.error}`);
+        }
+      }
       qc.invalidateQueries({ queryKey: ["adminBooks"] });
       qc.invalidateQueries({ queryKey: ["booksPub"] });
       qc.invalidateQueries({ queryKey: ["adminStats"] });
@@ -810,7 +817,7 @@ function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRat
             <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} className="h-4 w-4 accent-[#e07b2e]" />
             <span>
               <span className="font-semibold">Published</span>
-              <span className="ml-2 text-xs text-muted-foreground">Visible in the public library. Without a PDF, you deliver each sale yourself from the Sales tab.</span>
+              <span className="ml-2 text-xs text-muted-foreground">Visible in the public library. First publish emails a launch announcement to all subscribed users. Without a PDF, you deliver each sale yourself from the Sales tab.</span>
             </span>
           </label>
         </div>

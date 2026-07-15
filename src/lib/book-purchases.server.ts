@@ -35,6 +35,11 @@ export async function bookPurchasesTable() {
   return (supabaseAdmin as unknown as SupabaseClient).from("book_purchases");
 }
 
+export async function bookReviewsTable() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return (supabaseAdmin as unknown as SupabaseClient).from("book_reviews");
+}
+
 export type SettleOutcome = "granted" | "already_settled" | "still_pending" | "failed" | "not_found";
 
 export async function settleBookPurchase(session: StripeCheckoutSession): Promise<SettleOutcome> {
