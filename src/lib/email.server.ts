@@ -183,14 +183,31 @@ export async function sendWelcomeEmail(to: string, name: string) {
     ${h1(`Welcome to Social Padu, ${name || "there"}!`)}
     ${subtitle("Your account is ready. Here's everything you can do — starting right now.")}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 24px;">
-      ${featureRow("⚡", "Instant delivery", "Codes and activation links arrive in seconds.")}
-      ${featureRow("🔒", "Wallet-secured", "Top up once, spend on any tool. No card stored.")}
-      ${featureRow("📦", "Order history", "Every purchase and code saved in your dashboard.")}
-      ${featureRow("🛠️", "Curated catalog", "Premium software, subscriptions and accounts.")}
+      ${featureRow("📚", "Guide books", "Step-by-step PDF books for Excel, Photoshop, Python, AI tools and more.")}
+      ${featureRow("⚡", "Instant download", "Your book is ready the second payment clears.")}
+      ${featureRow("🔒", "Secure checkout", "Card payments handled end-to-end by Stripe. No card stored.")}
+      ${featureRow("♾️", "Yours for life", "Every book stays in your library — re-download any time.")}
     </table>
-    ${cta("Go to Dashboard →", `${BASE_URL}/dashboard`)}
+    ${cta("Browse the Library →", `${BASE_URL}/books`)}
   `;
   await sendEmail(to, "Welcome to Social Padu 🎉", layout("Your account is ready to use", "Welcome", body));
+}
+
+export async function sendBookPurchaseEmail(to: string, name: string, bookTitle: string, amountUsd: number) {
+  const body = `
+    ${heroIcon("📚", "#f0fdf4")}
+    ${h1("Your book is ready!")}
+    ${subtitle(`Hi <strong>${name || "there"}</strong>, thanks for your purchase. Your guide book is waiting in your library — download it any time, as often as you like.`)}
+    ${infoCard([
+      ["Book", bookTitle],
+      ["Amount paid", `$${amountUsd.toFixed(2)} USD`],
+      ["Delivery", "Instant PDF download"],
+      ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
+    ])}
+    ${cta("Download from My Library →", `${BASE_URL}/dashboard/library`)}
+    <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;text-align:center;">Problem with your download? Open a support case from your dashboard and we'll fix it fast.</p>
+  `;
+  await sendEmail(to, `📚 Your book "${bookTitle}" is ready to download`, layout(`"${bookTitle}" is waiting in your library`, "Purchase Confirmed", body));
 }
 
 export async function sendPaymentConfirmationEmail(
@@ -207,7 +224,7 @@ export async function sendPaymentConfirmationEmail(
       ["New wallet balance", `$${newBalance.toFixed(2)} USD`],
       ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
     ])}
-    ${cta("Place an Order →", `${BASE_URL}/dashboard/new-order`)}
+    ${cta("Browse the Library →", `${BASE_URL}/books`)}
   `;
   await sendEmail(to, `✅ Payment confirmed — ${localAmount} ${localCurrency} added to wallet`, layout(`${localAmount} ${localCurrency} added to your Social Padu wallet`, "Payment Confirmed", body));
 }

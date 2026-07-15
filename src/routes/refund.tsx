@@ -23,44 +23,42 @@ function RefundPage() {
         <div className="mt-8 space-y-8 text-sm leading-relaxed text-muted-foreground">
           <section>
             <h3 className="text-base font-semibold text-foreground">Overview</h3>
-            <p className="mt-2">All refund requests are reviewed manually by our team. To request a refund, open a support case from your dashboard with your order ID, a description of the issue, and any relevant screenshots. We aim to resolve all requests within 24–48 hours.</p>
+            <p className="mt-2">Our books are digital downloads, so the full content becomes available the moment payment is confirmed. Because of that, refunds are limited to the situations below. All requests are reviewed manually — open a support case from your dashboard with your purchase ID and a description of the issue. We aim to resolve all requests within 24–48 hours.</p>
           </section>
 
           <section>
             <h3 className="text-base font-semibold text-foreground">Eligible for Refund</h3>
             <ul className="mt-2 list-disc pl-5 space-y-2">
-              <li>Order marked as completed but no code, link, or account was delivered.</li>
-              <li>Delivered code or account is invalid, already used, or does not activate as described.</li>
-              <li>Supplier outage or technical failure acknowledged by our team.</li>
-              <li>Duplicate order placed by system error.</li>
-              <li>Wallet top-up completed but balance not credited (payment processing error).</li>
+              <li>You were charged but the book never appeared in your library.</li>
+              <li>The downloaded file is corrupt, incomplete, or unreadable, and we cannot supply a working copy.</li>
+              <li>The book's content is materially different from its description on the product page.</li>
+              <li>Duplicate purchase of the same book caused by a system error.</li>
             </ul>
           </section>
 
           <section>
             <h3 className="text-base font-semibold text-foreground">Not Eligible for Refund</h3>
             <ul className="mt-2 list-disc pl-5 space-y-2">
-              <li>Change of mind after the code or account details have been revealed.</li>
-              <li>Product purchased for the wrong platform, region, or requirement stated in the product description.</li>
-              <li>Account suspended or restricted due to the customer violating the vendor's terms after delivery.</li>
-              <li>Vendor-side changes to a product's features or pricing after successful delivery.</li>
-              <li>Issues reported more than 7 days after delivery, unless the product carries a longer stated warranty.</li>
+              <li>Change of mind after the book has been downloaded.</li>
+              <li>The book covers the software version stated in its description, but you needed a different version.</li>
+              <li>General dissatisfaction with writing style or depth when the description and page count were accurate.</li>
+              <li>Issues reported more than 14 days after purchase.</li>
             </ul>
           </section>
 
           <section>
-            <h3 className="text-base font-semibold text-foreground">Wallet Top-ups</h3>
-            <p className="mt-2">Wallet top-ups are non-refundable to the original payment method once credited to your account. In exceptional circumstances (e.g. fraudulent charges), please contact us immediately at <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a>.</p>
+            <h3 className="text-base font-semibold text-foreground">How Refunds Are Issued</h3>
+            <p className="mt-2">Approved refunds are returned to your original payment method through Stripe. Depending on your bank, the money typically appears within 5–10 business days. Access to the refunded book is removed from your library.</p>
           </section>
 
           <section>
-            <h3 className="text-base font-semibold text-foreground">How Refunds Are Issued</h3>
-            <p className="mt-2">All approved refunds are credited to your Social Padu wallet balance within 24 hours of approval. Wallet credits can be used for any future order on our platform.</p>
+            <h3 className="text-base font-semibold text-foreground">Legacy Wallet Balances</h3>
+            <p className="mt-2">If your account holds a wallet balance from our earlier store, it remains usable where offered and is not refundable to the original payment method. For questions about a wallet balance, contact <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a>.</p>
           </section>
 
           <section>
             <h3 className="text-base font-semibold text-foreground">Contact Us</h3>
-            <p className="mt-2">Open a support case from your dashboard or email <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a> with your order details. Please include your order ID and a clear description of the issue to help us resolve it quickly.</p>
+            <p className="mt-2">Open a support case from your dashboard or email <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a>. Please include your purchase ID and a clear description of the issue to help us resolve it quickly.</p>
           </section>
         </div>
       </main>

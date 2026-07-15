@@ -1,9 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// /tools redirects to /tools/store (public catalog)
+// Retired tools-store URL — redirects to the book library.
 export const Route = createFileRoute("/tools/")({
   beforeLoad: () => {
-    throw redirect({ to: "/tools/store" });
+    throw redirect({ to: "/books", replace: true });
   },
   component: () => null,
 });

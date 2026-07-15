@@ -16,8 +16,6 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { CookieConsent } from "@/components/CookieConsent";
 import { I18nProvider } from "@/lib/i18n";
-import { AnnouncementBar } from "@/components/AnnouncementBar";
-import { DiscountPopup } from "@/components/DiscountPopup";
 import { PremiumLoader } from "@/components/PremiumLoader";
 import { MaintenancePage } from "@/components/MaintenancePage";
 import { getMaintenanceStatus } from "@/lib/maintenance.functions";
@@ -87,11 +85,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Social Padu — Premium Digital Tools Store" },
-      { name: "description", content: "Social Padu — buy premium digital tools, software subscriptions and accounts with instant delivery." },
+      { title: "Social Padu — Software Guide Books" },
+      { name: "description", content: "Social Padu — practical guide books for computer software. Step-by-step PDF guides with instant download after secure checkout." },
       { name: "author", content: "Social Padu" },
       { property: "og:title", content: "Social Padu" },
-      { property: "og:description", content: "Premium digital tools and subscriptions — instant delivery, one wallet." },
+      { property: "og:description", content: "Software guide books — buy once, download instantly, keep forever." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
@@ -148,10 +146,8 @@ function RootComponent() {
       <I18nProvider>
         <PremiumLoader />
         <MaintenanceGate>
-          <AnnouncementBar />
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
-          <DiscountPopup />
           <CookieConsent />
         </MaintenanceGate>
       </I18nProvider>

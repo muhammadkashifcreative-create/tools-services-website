@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  ShieldCheck, Zap, ArrowRight, Check, Sparkles, Clock4, Headphones,
-  Lock, Star, Wallet, Package, KeyRound, Boxes, CreditCard, BadgeCheck,
+  ArrowRight, Check, Sparkles, Clock4, Headphones,
+  Lock, Star, BookOpen, Download, CreditCard, Palette, Code2, Bot, Briefcase, Infinity as InfinityIcon, Globe2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -10,37 +10,37 @@ import { SiteFooter } from "@/components/SiteFooter";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Social Padu — Premium Digital Tools Store" },
+      { title: "Social Padu — Software Guide Books" },
       { name: "heleket", content: "04c9813d" },
-      { name: "description", content: "Buy premium digital tools, software subscriptions and accounts — Gemini Pro, productivity apps, learning platforms and more. Instant code delivery, secure checkout." },
-      { property: "og:title", content: "Social Padu — Premium Digital Tools Store" },
-      { property: "og:description", content: "Premium digital tools and subscriptions delivered instantly. Transparent pricing, secure checkout." },
+      { name: "description", content: "Practical guide books for computer software — Excel, Photoshop, Python, AI tools and more. Step-by-step PDF guides, instant download after secure card checkout." },
+      { property: "og:title", content: "Social Padu — Software Guide Books" },
+      { property: "og:description", content: "Step-by-step software guide books. Buy once, download instantly, keep forever." },
     ],
   }),
   component: Landing,
 });
 
-const categories: Array<{ icon: typeof Package; name: string; items: string[]; tint: string }> = [
-  { icon: Sparkles, name: "AI & Productivity", items: ["AI assistants", "Writing tools", "Office suites"], tint: "from-violet-500/20 to-indigo-500/20" },
-  { icon: Boxes, name: "Creative Software", items: ["Video editing", "Design apps", "Photo tools"], tint: "from-pink-500/20 to-orange-500/20" },
-  { icon: BadgeCheck, name: "Learning & Courses", items: ["Course platforms", "Language apps", "Certifications"], tint: "from-emerald-500/20 to-green-500/20" },
-  { icon: KeyRound, name: "Subscriptions & Keys", items: ["Activation codes", "License keys", "Premium accounts"], tint: "from-amber-500/20 to-red-500/20" },
+const categories: Array<{ icon: typeof BookOpen; name: string; items: string[]; tint: string }> = [
+  { icon: Briefcase, name: "Office & Productivity", items: ["Excel & spreadsheets", "Word & documents", "Presentations"], tint: "from-emerald-500/20 to-green-500/20" },
+  { icon: Palette, name: "Design & Creative", items: ["Photo editing", "Illustration tools", "Video editing"], tint: "from-pink-500/20 to-orange-500/20" },
+  { icon: Code2, name: "Development & Coding", items: ["Programming languages", "Code editors", "Databases"], tint: "from-violet-500/20 to-indigo-500/20" },
+  { icon: Bot, name: "AI & Automation", items: ["AI assistants", "Prompt writing", "Workflow automation"], tint: "from-amber-500/20 to-red-500/20" },
 ];
 
 const features = [
-  { icon: Zap, title: "Instant delivery", desc: "Codes and activation links arrive in seconds — right on screen and saved to your order history." },
-  { icon: Wallet, title: "One wallet", desc: "Top up once and pay for any tool in the catalog. No subscriptions, no minimums." },
-  { icon: Lock, title: "Secure payments", desc: "Wallet-based checkout with end-to-end encryption. We never store your card." },
-  { icon: ShieldCheck, title: "Curated catalog", desc: "Every product is sourced from vetted suppliers and stock-checked live before you pay." },
+  { icon: Download, title: "Instant download", desc: "Your PDF is ready the second payment clears — on screen and saved to your library forever." },
+  { icon: InfinityIcon, title: "Yours for life", desc: "Buy once, keep forever. Re-download any book from your library as many times as you like." },
+  { icon: BookOpen, title: "Step-by-step guides", desc: "Written for real people — clear chapters, screenshots and exercises that take you from basics to mastery." },
+  { icon: Lock, title: "Secure card checkout", desc: "Payments handled end-to-end by Stripe. We never see or store your card details." },
   { icon: Headphones, title: "24/7 support", desc: "Open a case from your dashboard and real humans answer in minutes — not days." },
-  { icon: CreditCard, title: "Local currency", desc: "Prices shown in your local currency with live exchange rates. Pay what you see." },
+  { icon: Globe2, title: "Local currency", desc: "Prices shown in your local currency with live exchange rates, so you know exactly what you pay." },
 ];
 
 const stats = [
-  { v: "100+", l: "Products in catalog" },
-  { v: "< 60s", l: "Avg. delivery time" },
+  { v: "PDF", l: "High-quality format" },
+  { v: "< 60s", l: "Checkout to download" },
+  { v: "∞", l: "Lifetime re-downloads" },
   { v: "24/7", l: "Live support" },
-  { v: "4.9/5", l: "Customer rating" },
 ];
 
 const fadeUp = {
@@ -60,10 +60,10 @@ function Landing() {
         <div aria-hidden className="pointer-events-none absolute -right-24 top-1/3 h-96 w-96 rounded-full blur-3xl animate-blob" style={{ animationDelay: "-6s", background: "oklch(0.70 0.22 30 / 0.20)" }} />
 
         <div aria-hidden className="pointer-events-none absolute left-4 top-1/2 hidden -translate-y-1/2 -rotate-90 select-none text-[10px] font-medium uppercase tracking-[0.4em] text-muted-foreground/70 lg:block">
-          EST · 2026 — Social Padu™ Tools Store
+          EST · 2026 — Social Padu™ Guide Books
         </div>
         <div aria-hidden className="pointer-events-none absolute right-6 top-1/2 hidden -translate-y-1/2 rotate-90 select-none text-[10px] font-medium uppercase tracking-[0.4em] text-muted-foreground/70 lg:block">
-          v.2026 / Instant Delivery / Live Stock
+          v.2026 / Instant Download / Learn Faster
         </div>
 
         <div className="relative mx-auto grid min-h-[88vh] max-w-7xl grid-cols-12 items-center gap-6 px-4 pb-10 pt-16 sm:px-8 sm:pt-20 lg:pb-16 lg:pt-28">
@@ -77,17 +77,17 @@ function Landing() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
               </span>
-              Live · Premium Digital Tools Store
+              Software Guide Books · Digital Bookstore
             </motion.div>
 
             <motion.h1
               initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.05 }}
               className="font-display text-[clamp(2.75rem,7vw,5.75rem)] font-bold leading-[0.95] tracking-[-0.035em]"
             >
-              Premium tools,<br />
-              delivered in <span className="italic font-medium text-muted-foreground/80">seconds</span><br />
+              Master any software,<br />
+              one <span className="italic font-medium text-muted-foreground/80">guide book</span><br />
               <span className="relative inline-block">
-                <span className="shimmer-text">not days.</span>
+                <span className="shimmer-text">at a time.</span>
                 <svg aria-hidden viewBox="0 0 300 12" className="absolute -bottom-1 left-0 h-3 w-full text-primary/70" preserveAspectRatio="none">
                   <path d="M2 8 C 60 2, 140 12, 298 4" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round"/>
                 </svg>
@@ -98,7 +98,7 @@ function Landing() {
               initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.12 }}
               className="mt-8 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg"
             >
-              Software subscriptions, AI assistants, learning platforms and license keys — all in one store. <span className="font-semibold text-foreground">Pay from your wallet or card</span>, get your activation code instantly.
+              Practical, step-by-step guide books for Excel, Photoshop, Python, AI tools and more. <span className="font-semibold text-foreground">Pay securely by card</span>, download your PDF instantly, keep it forever.
             </motion.p>
 
             <motion.div
@@ -106,11 +106,11 @@ function Landing() {
               className="mt-10 flex flex-col items-start gap-3 sm:flex-row sm:items-center"
             >
               <Link
-                to="/tools/store"
+                to="/books"
                 className="group inline-flex items-center gap-2 rounded-full px-7 py-4 text-sm font-semibold text-primary-foreground shadow-glow transition hover:-translate-y-0.5 hover:opacity-95"
                 style={{ background: "var(--gradient-accent)" }}
               >
-                Browse the store
+                Browse the library
                 <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
               </Link>
               <Link
@@ -135,8 +135,8 @@ function Landing() {
                 <div className="flex gap-0.5 text-amber-500">
                   {Array.from({length:5}).map((_,i)=>(<Star key={i} className="h-3.5 w-3.5 fill-current"/>))}
                 </div>
-                <span className="font-medium text-foreground">4.9/5</span>
-                <span>· Trusted in Malaysia & beyond</span>
+                <span className="font-medium text-foreground">Loved by learners</span>
+                <span>· From Malaysia to the world</span>
               </div>
             </motion.div>
           </div>
@@ -149,45 +149,45 @@ function Landing() {
               transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
               className="relative mx-auto aspect-[4/5] w-full max-w-md"
             >
-              {/* Order delivered panel */}
+              {/* Download ready panel */}
               <div className="absolute right-0 top-0 w-[78%] overflow-hidden rounded-3xl border border-border/60 bg-card/80 p-6 shadow-elegant backdrop-blur-xl animate-float">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Order delivered</p>
-                <p className="mt-2 font-display text-3xl font-bold tracking-tight">Gemini Pro</p>
-                <p className="mt-1 text-xs text-muted-foreground">18-month subscription</p>
-                <div className="mt-4 rounded-xl border border-dashed border-primary/40 bg-background/60 px-3 py-2.5 font-mono text-sm font-bold tracking-widest">
-                  XK4F-92JD-QW7P
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Download ready</p>
+                <p className="mt-2 font-display text-3xl font-bold tracking-tight">Excel Mastery</p>
+                <p className="mt-1 text-xs text-muted-foreground">From zero to power user · 214 pages</p>
+                <div className="mt-4 flex items-center gap-2 rounded-xl border border-dashed border-primary/40 bg-background/60 px-3 py-2.5 text-sm font-bold">
+                  <Download className="h-4 w-4 text-primary" /> excel-mastery.pdf
                 </div>
                 <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
-                  <Check className="h-3.5 w-3.5"/> Delivered in 42 seconds
+                  <Check className="h-3.5 w-3.5"/> Delivered in 12 seconds
                 </div>
               </div>
 
-              {/* Offset wallet tile */}
+              {/* Offset library tile */}
               <div className="absolute -left-2 top-[42%] w-[58%] rotate-[-3deg] rounded-2xl border border-border/60 bg-card/90 p-4 shadow-elegant backdrop-blur-xl animate-float-slow">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl text-primary-foreground shadow-glow" style={{background:"var(--gradient-accent)"}}>
-                    <Wallet className="h-5 w-5"/>
+                    <BookOpen className="h-5 w-5"/>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Wallet balance</p>
-                    <p className="text-sm font-semibold tabular-nums">RM 184.50</p>
+                    <p className="text-xs text-muted-foreground">My Library</p>
+                    <p className="text-sm font-semibold tabular-nums">7 books owned</p>
                   </div>
                 </div>
                 <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div className="h-full w-3/4" style={{background:"var(--gradient-accent)"}}/>
                 </div>
-                <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wider text-primary">Topped up · Secure</p>
+                <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wider text-primary">Lifetime access · Re-download anytime</p>
               </div>
 
               {/* Bottom right small tile */}
               <div className="absolute bottom-2 right-6 w-[50%] rotate-[4deg] rounded-2xl border border-border/60 bg-card/90 p-4 shadow-elegant backdrop-blur-xl animate-float">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-primary">
-                    <Package className="h-4 w-4"/>
+                    <CreditCard className="h-4 w-4"/>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">In stock</p>
-                    <p className="truncate text-sm font-semibold">Live catalog</p>
+                    <p className="text-xs text-muted-foreground">Paid with card</p>
+                    <p className="truncate text-sm font-semibold">Stripe secure</p>
                   </div>
                 </div>
               </div>
@@ -221,12 +221,12 @@ function Landing() {
       <section id="categories" className="relative border-t border-border/60 py-16 sm:py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-10 text-center sm:mb-16">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Catalog</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Library</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-              One store. <span className="text-gradient">Every tool.</span>
+              One library. <span className="text-gradient">Every skill.</span>
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-              From AI assistants to creative software and course platforms — find the subscription you need, pay once, activate instantly.
+              From spreadsheets to AI assistants — find the guide book for the software you want to master, pay once, download instantly.
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -255,8 +255,8 @@ function Landing() {
                       </li>
                     ))}
                   </ul>
-                  <Link to="/tools/store" className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-primary group-hover:gap-2 transition-all">
-                    Browse products <ArrowRight className="h-3.5 w-3.5" />
+                  <Link to="/books" className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-primary group-hover:gap-2 transition-all">
+                    Browse books <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </motion.div>
               );
@@ -270,7 +270,7 @@ function Landing() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-10 text-center sm:mb-16">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Why Social Padu</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Built for people who value their time.</h2>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Built for people who learn by doing.</h2>
           </div>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {features.map((f, idx) => {
@@ -310,10 +310,10 @@ function Landing() {
               <Sparkles className="h-3 w-3" /> How it works
             </span>
             <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-              Yours in <span className="text-gradient">four steps.</span>
+              Reading in <span className="text-gradient">four steps.</span>
             </h2>
             <p className="mt-3 text-muted-foreground text-sm sm:text-base max-w-md mx-auto">
-              From sign-up to activation code — the whole process takes under 2 minutes.
+              From sign-up to your first page — the whole process takes under 2 minutes.
             </p>
           </div>
 
@@ -323,10 +323,10 @@ function Landing() {
             </div>
 
             {[
-              { n: "01", t: "Create account", d: "Sign up free with your email in under 30 seconds. No credit card required.", icon: Sparkles, color: "#f09433" },
-              { n: "02", t: "Pick your tool", d: "Browse the live catalog with real-time stock and prices in your currency.", icon: Package, color: "#e07b2e" },
-              { n: "03", t: "Pay securely", d: "Pay from your wallet balance — top up once and spend across the catalog.", icon: Lock, color: "#c8621f" },
-              { n: "04", t: "Get your code", d: "Your activation code appears instantly and stays saved in your order history.", icon: Clock4, color: "#a84e18" },
+              { n: "01", t: "Create account", d: "Sign up free with your email in under 30 seconds. No card required to browse.", icon: Sparkles, color: "#f09433" },
+              { n: "02", t: "Pick your book", d: "Browse the library by category — Office, Design, Coding, AI — with prices in your currency.", icon: BookOpen, color: "#e07b2e" },
+              { n: "03", t: "Pay with card", d: "Secure Stripe checkout. Your payment details never touch our servers.", icon: Lock, color: "#c8621f" },
+              { n: "04", t: "Download & learn", d: "Your PDF is ready instantly and stays in your library for life.", icon: Clock4, color: "#a84e18" },
             ].map((s, idx) => {
               const Icon = s.icon;
               return (
@@ -363,11 +363,11 @@ function Landing() {
 
           <div className="mt-12 text-center">
             <Link
-              to="/tools/store"
+              to="/books"
               className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white shadow-glow transition hover:opacity-90"
               style={{ background: "var(--gradient-accent)" }}
             >
-              <Sparkles className="h-4 w-4" /> Browse the store — no account needed
+              <Sparkles className="h-4 w-4" /> Browse the library — no account needed
             </Link>
           </div>
         </div>
@@ -377,14 +377,14 @@ function Landing() {
       <section className="border-t border-border/60 bg-muted/30 py-16 sm:py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-10 text-center sm:mb-12">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Loved by customers</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Loved by readers</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">What people say.</h2>
           </div>
           <div className="grid gap-5 md:grid-cols-3">
             {[
-              { name: "Marco D.", role: "Freelance designer", quote: "Bought a creative suite subscription and had the code before my coffee was ready. Prices beat everywhere else I checked." },
-              { name: "Sasha L.", role: "Student", quote: "The course platform account worked immediately. Wallet top-up plus instant delivery is exactly how this should work." },
-              { name: "Elena R.", role: "Small business owner", quote: "AI assistant subscription for a fraction of the retail price. Support answered my question within minutes." },
+              { name: "Marco D.", role: "Freelance designer", quote: "The Photoshop guide paid for itself in a week. Clear chapters, real examples, and I could start reading seconds after paying." },
+              { name: "Sasha L.", role: "Student", quote: "Finally an Excel book that doesn't assume I already know Excel. Downloaded it instantly and it lives in my library whenever I need it." },
+              { name: "Elena R.", role: "Small business owner", quote: "Bought the AI tools guide to speed up my admin work. Practical from page one — and support answered my question within minutes." },
             ].map((t) => (
               <div key={t.name} className="rounded-2xl border border-border/60 bg-card p-7 shadow-soft">
                 <div className="flex gap-0.5 text-amber-500">
@@ -417,11 +417,11 @@ function Landing() {
           </div>
           <div className="space-y-3">
             {[
-              { q: "How fast will I receive my purchase?", a: "Delivery is instant. As soon as payment is confirmed, your code, link, or account details appear on screen and are saved to your order history." },
-              { q: "Which payment methods do you accept?", a: "A prepaid wallet you top up once and spend across any product in the catalog. Contact support to top up your wallet." },
-              { q: "What if a product doesn't work?", a: "Open a support case from your dashboard with your order ID. If a delivered product is invalid or the order failed, we replace it or refund your wallet." },
-              { q: "Are prices shown in my currency?", a: "Yes. We auto-detect your location and show prices in your local currency at live exchange rates. Charges are processed in that currency too." },
-              { q: "Can I buy multiple codes at once?", a: "Absolutely — set the quantity at checkout, subject to live stock. For bulk or reseller pricing, contact support for a custom quote." },
+              { q: "How do I receive my book?", a: "Instantly. As soon as your payment is confirmed, the PDF is available to download from your Library — and it stays there for life, so you can re-download it any time, on any device." },
+              { q: "What format are the books in?", a: "High-quality PDF, readable on any phone, tablet, laptop or e-reader. No DRM hoops — the book you buy is yours to keep." },
+              { q: "Which payment methods do you accept?", a: "Credit and debit cards, processed securely by Stripe. Depending on your country, Stripe may also offer local payment methods at checkout." },
+              { q: "Are prices shown in my currency?", a: "Yes. We auto-detect your location and show prices in your local currency at live exchange rates. The charge itself is processed in USD." },
+              { q: "What if I have a problem with a book?", a: "Open a support case from your dashboard with your purchase ID. If a download is broken or you were charged without receiving access, we fix it or refund you — see our refund policy for digital goods." },
             ].map((f) => (
               <details key={f.q} className="group rounded-xl border border-border/60 bg-card p-5 shadow-soft open:shadow-elegant">
                 <summary className="flex cursor-pointer items-center justify-between gap-4 text-left font-semibold marker:hidden [&::-webkit-details-marker]:hidden">
@@ -440,20 +440,20 @@ function Landing() {
         <div className="absolute inset-0 brand-gradient" aria-hidden />
         <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-            Ready to <span className="text-gradient">upgrade?</span>
+            Ready to <span className="text-gradient">level up?</span>
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Premium digital tools at honest prices — instant delivery, secure checkout, real support.
+            Practical software guide books at honest prices — instant download, secure checkout, real support.
           </p>
           <Link
-            to="/tools/store"
+            to="/books"
             className="mt-10 inline-flex items-center gap-2 rounded-xl px-8 py-4 text-sm font-semibold text-primary-foreground shadow-glow transition hover:opacity-95"
             style={{ background: "var(--gradient-accent)" }}
           >
-            Browse the store <ArrowRight className="h-4 w-4" />
+            Browse the library <ArrowRight className="h-4 w-4" />
           </Link>
           <ul className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            {["No subscription fees", "Pay as you go", "Instant delivery"].map((x) => (
+            {["Buy once, keep forever", "Instant PDF download", "Secure Stripe checkout"].map((x) => (
               <li key={x} className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-500" /> {x}</li>
             ))}
           </ul>

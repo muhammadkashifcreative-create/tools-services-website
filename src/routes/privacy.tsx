@@ -29,8 +29,8 @@ function PrivacyPage() {
             <h3 className="text-base font-semibold text-foreground">2. Data We Collect</h3>
             <ul className="mt-2 list-disc pl-5 space-y-1">
               <li><strong className="text-foreground">Account data:</strong> Your name and email address from Google OAuth sign-in.</li>
-              <li><strong className="text-foreground">Order data:</strong> Products purchased, quantities, delivered codes, and transaction history.</li>
-              <li><strong className="text-foreground">Payment data:</strong> Wallet top-up amounts and transaction records. We do not store card numbers.</li>
+              <li><strong className="text-foreground">Purchase data:</strong> Books purchased, download activity, and transaction history.</li>
+              <li><strong className="text-foreground">Payment data:</strong> Purchase amounts and Stripe transaction references. Card payments are processed by Stripe — we never see or store card numbers.</li>
               <li><strong className="text-foreground">Usage data:</strong> Page visits, session duration, and feature usage for product improvement.</li>
               <li><strong className="text-foreground">Support data:</strong> Messages and files you submit via support cases.</li>
             </ul>
@@ -51,9 +51,10 @@ function PrivacyPage() {
             <h3 className="text-base font-semibold text-foreground">4. Data Sharing</h3>
             <p className="mt-2">We share limited data with the following trusted parties:</p>
             <ul className="mt-2 list-disc pl-5 space-y-1">
-              <li><strong className="text-foreground">Upstream suppliers:</strong> Order details required to fulfil your purchase.</li>
-              <li><strong className="text-foreground">Supabase:</strong> Secure database and authentication hosting.</li>
+              <li><strong className="text-foreground">Stripe:</strong> Payment processing — your email and purchase amount are shared to complete checkout.</li>
+              <li><strong className="text-foreground">Supabase:</strong> Secure database, file storage and authentication hosting.</li>
               <li><strong className="text-foreground">Google:</strong> OAuth authentication only.</li>
+              <li><strong className="text-foreground">Resend:</strong> Delivery of transactional emails (receipts, account notifications).</li>
             </ul>
             <p className="mt-2">We never sell your personal data to third parties.</p>
           </section>

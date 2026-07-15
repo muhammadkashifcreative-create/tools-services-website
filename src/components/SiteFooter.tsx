@@ -9,7 +9,7 @@ export function SiteFooter() {
   const [email, setEmail] = useState("");
 
   const productLinks = [
-    { label: t("nav.tools") ?? "Tools Store", to: "/tools" },
+    { label: t("nav.books") ?? "Guide Books", to: "/books" },
   ];
 
   const companyLinks = [
@@ -42,7 +42,7 @@ export function SiteFooter() {
               <BrandMark size={240} />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              {t("footer.tagline") ?? "Premium digital tools and subscriptions, delivered instantly worldwide."}
+              {t("footer.tagline") ?? "Practical guide books for computer software — instant digital download, worldwide."}
             </p>
 
             {/* Support contact */}

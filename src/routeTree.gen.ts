@@ -14,16 +14,20 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as RefundRouteImport } from './routes/refund'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as BooksRouteImport } from './routes/books'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ToolsIndexRouteImport } from './routes/tools.index'
+import { Route as BooksIndexRouteImport } from './routes/books.index'
 import { Route as ToolsStoreRouteImport } from './routes/tools.store'
+import { Route as BooksSlugRouteImport } from './routes/books.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as ApiHeleketWebhookRouteImport } from './routes/api/heleket/webhook'
 import { Route as ApiAuthVerifyEmailRouteImport } from './routes/api/auth/verify-email'
 import { Route as ApiAuthResetPasswordRouteImport } from './routes/api/auth/reset-password'
@@ -36,7 +40,7 @@ import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api/auth/for
 import { Route as AuthenticatedDashboardWalletRouteImport } from './routes/_authenticated/dashboard.wallet'
 import { Route as AuthenticatedDashboardSupportRouteImport } from './routes/_authenticated/dashboard.support'
 import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
-import { Route as AuthenticatedDashboardNewOrderRouteImport } from './routes/_authenticated/dashboard.new-order'
+import { Route as AuthenticatedDashboardLibraryRouteImport } from './routes/_authenticated/dashboard.library'
 import { Route as AuthenticatedAdminCasesRouteImport } from './routes/_authenticated/admin.cases'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
 import { Route as AuthenticatedDashboardSupportCaseIdRouteImport } from './routes/_authenticated/dashboard.support.$caseId'
@@ -66,6 +70,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BooksRoute = BooksRouteImport.update({
+  id: '/books',
+  path: '/books',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -90,10 +99,20 @@ const ToolsIndexRoute = ToolsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ToolsRoute,
 } as any)
+const BooksIndexRoute = BooksIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BooksRoute,
+} as any)
 const ToolsStoreRoute = ToolsStoreRouteImport.update({
   id: '/store',
   path: '/store',
   getParentRoute: () => ToolsRoute,
+} as any)
+const BooksSlugRoute = BooksSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BooksRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
@@ -115,6 +134,11 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe/webhook',
+  path: '/api/stripe/webhook',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHeleketWebhookRoute = ApiHeleketWebhookRouteImport.update({
   id: '/api/heleket/webhook',
@@ -179,10 +203,10 @@ const AuthenticatedDashboardOrdersRoute =
     path: '/orders',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
-const AuthenticatedDashboardNewOrderRoute =
-  AuthenticatedDashboardNewOrderRouteImport.update({
-    id: '/new-order',
-    path: '/new-order',
+const AuthenticatedDashboardLibraryRoute =
+  AuthenticatedDashboardLibraryRouteImport.update({
+    id: '/library',
+    path: '/library',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
 const AuthenticatedAdminCasesRoute = AuthenticatedAdminCasesRouteImport.update({
@@ -206,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
+  '/books': typeof BooksRouteWithChildren
   '/contact': typeof ContactRoute
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
@@ -213,10 +238,12 @@ export interface FileRoutesByFullPath {
   '/tools': typeof ToolsRouteWithChildren
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/books/$slug': typeof BooksSlugRoute
   '/tools/store': typeof ToolsStoreRoute
+  '/books/': typeof BooksIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/admin/cases': typeof AuthenticatedAdminCasesRoute
-  '/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
+  '/dashboard/library': typeof AuthenticatedDashboardLibraryRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
@@ -229,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
   '/api/heleket/webhook': typeof ApiHeleketWebhookRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/dashboard/support/$caseId': typeof AuthenticatedDashboardSupportCaseIdRoute
@@ -242,10 +270,12 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
   '/terms': typeof TermsRoute
+  '/books/$slug': typeof BooksSlugRoute
   '/tools/store': typeof ToolsStoreRoute
+  '/books': typeof BooksIndexRoute
   '/tools': typeof ToolsIndexRoute
   '/admin/cases': typeof AuthenticatedAdminCasesRoute
-  '/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
+  '/dashboard/library': typeof AuthenticatedDashboardLibraryRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
@@ -258,6 +288,7 @@ export interface FileRoutesByTo {
   '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
   '/api/heleket/webhook': typeof ApiHeleketWebhookRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/dashboard/support/$caseId': typeof AuthenticatedDashboardSupportCaseIdRoute
@@ -269,6 +300,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
+  '/books': typeof BooksRouteWithChildren
   '/contact': typeof ContactRoute
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
@@ -276,10 +308,12 @@ export interface FileRoutesById {
   '/tools': typeof ToolsRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/books/$slug': typeof BooksSlugRoute
   '/tools/store': typeof ToolsStoreRoute
+  '/books/': typeof BooksIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/_authenticated/admin/cases': typeof AuthenticatedAdminCasesRoute
-  '/_authenticated/dashboard/new-order': typeof AuthenticatedDashboardNewOrderRoute
+  '/_authenticated/dashboard/library': typeof AuthenticatedDashboardLibraryRoute
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/_authenticated/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
   '/_authenticated/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
@@ -292,6 +326,7 @@ export interface FileRoutesById {
   '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
   '/api/heleket/webhook': typeof ApiHeleketWebhookRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/dashboard/support/$caseId': typeof AuthenticatedDashboardSupportCaseIdRoute
@@ -303,6 +338,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/auth'
+    | '/books'
     | '/contact'
     | '/privacy'
     | '/refund'
@@ -310,10 +346,12 @@ export interface FileRouteTypes {
     | '/tools'
     | '/admin'
     | '/dashboard'
+    | '/books/$slug'
     | '/tools/store'
+    | '/books/'
     | '/tools/'
     | '/admin/cases'
-    | '/dashboard/new-order'
+    | '/dashboard/library'
     | '/dashboard/orders'
     | '/dashboard/support'
     | '/dashboard/wallet'
@@ -326,6 +364,7 @@ export interface FileRouteTypes {
     | '/api/auth/reset-password'
     | '/api/auth/verify-email'
     | '/api/heleket/webhook'
+    | '/api/stripe/webhook'
     | '/admin/'
     | '/dashboard/'
     | '/dashboard/support/$caseId'
@@ -339,10 +378,12 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/refund'
     | '/terms'
+    | '/books/$slug'
     | '/tools/store'
+    | '/books'
     | '/tools'
     | '/admin/cases'
-    | '/dashboard/new-order'
+    | '/dashboard/library'
     | '/dashboard/orders'
     | '/dashboard/support'
     | '/dashboard/wallet'
@@ -355,6 +396,7 @@ export interface FileRouteTypes {
     | '/api/auth/reset-password'
     | '/api/auth/verify-email'
     | '/api/heleket/webhook'
+    | '/api/stripe/webhook'
     | '/admin'
     | '/dashboard'
     | '/dashboard/support/$caseId'
@@ -365,6 +407,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/about'
     | '/auth'
+    | '/books'
     | '/contact'
     | '/privacy'
     | '/refund'
@@ -372,10 +415,12 @@ export interface FileRouteTypes {
     | '/tools'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
+    | '/books/$slug'
     | '/tools/store'
+    | '/books/'
     | '/tools/'
     | '/_authenticated/admin/cases'
-    | '/_authenticated/dashboard/new-order'
+    | '/_authenticated/dashboard/library'
     | '/_authenticated/dashboard/orders'
     | '/_authenticated/dashboard/support'
     | '/_authenticated/dashboard/wallet'
@@ -388,6 +433,7 @@ export interface FileRouteTypes {
     | '/api/auth/reset-password'
     | '/api/auth/verify-email'
     | '/api/heleket/webhook'
+    | '/api/stripe/webhook'
     | '/_authenticated/admin/'
     | '/_authenticated/dashboard/'
     | '/_authenticated/dashboard/support/$caseId'
@@ -399,6 +445,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRoute
+  BooksRoute: typeof BooksRouteWithChildren
   ContactRoute: typeof ContactRoute
   PrivacyRoute: typeof PrivacyRoute
   RefundRoute: typeof RefundRoute
@@ -413,6 +460,7 @@ export interface RootRouteChildren {
   ApiAuthResetPasswordRoute: typeof ApiAuthResetPasswordRoute
   ApiAuthVerifyEmailRoute: typeof ApiAuthVerifyEmailRoute
   ApiHeleketWebhookRoute: typeof ApiHeleketWebhookRoute
+  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -452,6 +500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/books': {
+      id: '/books'
+      path: '/books'
+      fullPath: '/books'
+      preLoaderRoute: typeof BooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -487,12 +542,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsIndexRouteImport
       parentRoute: typeof ToolsRoute
     }
+    '/books/': {
+      id: '/books/'
+      path: '/'
+      fullPath: '/books/'
+      preLoaderRoute: typeof BooksIndexRouteImport
+      parentRoute: typeof BooksRoute
+    }
     '/tools/store': {
       id: '/tools/store'
       path: '/store'
       fullPath: '/tools/store'
       preLoaderRoute: typeof ToolsStoreRouteImport
       parentRoute: typeof ToolsRoute
+    }
+    '/books/$slug': {
+      id: '/books/$slug'
+      path: '/$slug'
+      fullPath: '/books/$slug'
+      preLoaderRoute: typeof BooksSlugRouteImport
+      parentRoute: typeof BooksRoute
     }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
@@ -521,6 +590,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/api/stripe/webhook': {
+      id: '/api/stripe/webhook'
+      path: '/api/stripe/webhook'
+      fullPath: '/api/stripe/webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/heleket/webhook': {
       id: '/api/heleket/webhook'
@@ -606,11 +682,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardOrdersRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
-    '/_authenticated/dashboard/new-order': {
-      id: '/_authenticated/dashboard/new-order'
-      path: '/new-order'
-      fullPath: '/dashboard/new-order'
-      preLoaderRoute: typeof AuthenticatedDashboardNewOrderRouteImport
+    '/_authenticated/dashboard/library': {
+      id: '/_authenticated/dashboard/library'
+      path: '/library'
+      fullPath: '/dashboard/library'
+      preLoaderRoute: typeof AuthenticatedDashboardLibraryRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
     '/_authenticated/admin/cases': {
@@ -666,7 +742,7 @@ const AuthenticatedDashboardSupportRouteWithChildren =
   )
 
 interface AuthenticatedDashboardRouteChildren {
-  AuthenticatedDashboardNewOrderRoute: typeof AuthenticatedDashboardNewOrderRoute
+  AuthenticatedDashboardLibraryRoute: typeof AuthenticatedDashboardLibraryRoute
   AuthenticatedDashboardOrdersRoute: typeof AuthenticatedDashboardOrdersRoute
   AuthenticatedDashboardSupportRoute: typeof AuthenticatedDashboardSupportRouteWithChildren
   AuthenticatedDashboardWalletRoute: typeof AuthenticatedDashboardWalletRoute
@@ -675,7 +751,7 @@ interface AuthenticatedDashboardRouteChildren {
 
 const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
   {
-    AuthenticatedDashboardNewOrderRoute: AuthenticatedDashboardNewOrderRoute,
+    AuthenticatedDashboardLibraryRoute: AuthenticatedDashboardLibraryRoute,
     AuthenticatedDashboardOrdersRoute: AuthenticatedDashboardOrdersRoute,
     AuthenticatedDashboardSupportRoute:
       AuthenticatedDashboardSupportRouteWithChildren,
@@ -700,6 +776,18 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
+interface BooksRouteChildren {
+  BooksSlugRoute: typeof BooksSlugRoute
+  BooksIndexRoute: typeof BooksIndexRoute
+}
+
+const BooksRouteChildren: BooksRouteChildren = {
+  BooksSlugRoute: BooksSlugRoute,
+  BooksIndexRoute: BooksIndexRoute,
+}
+
+const BooksRouteWithChildren = BooksRoute._addFileChildren(BooksRouteChildren)
 
 interface ToolsRouteChildren {
   ToolsStoreRoute: typeof ToolsStoreRoute
@@ -730,6 +818,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AboutRoute: AboutRoute,
   AuthRoute: AuthRoute,
+  BooksRoute: BooksRouteWithChildren,
   ContactRoute: ContactRoute,
   PrivacyRoute: PrivacyRoute,
   RefundRoute: RefundRoute,
@@ -744,6 +833,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthResetPasswordRoute: ApiAuthResetPasswordRoute,
   ApiAuthVerifyEmailRoute: ApiAuthVerifyEmailRoute,
   ApiHeleketWebhookRoute: ApiHeleketWebhookRoute,
+  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

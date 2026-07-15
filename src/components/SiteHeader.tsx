@@ -9,7 +9,7 @@ type NavItem = { key: string; to: string; hash?: string };
 
 const NAV: NavItem[] = [
   { key: "nav.home", to: "/" },
-  { key: "nav.tools", to: "/tools" },
+  { key: "nav.books", to: "/books" },
   { key: "nav.about", to: "/about" },
   { key: "nav.contact", to: "/contact" },
   { key: "nav.faq", to: "/", hash: "faq" },

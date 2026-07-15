@@ -27,31 +27,31 @@ function TermsPage() {
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">2. Products</h3>
-            <p className="mt-2">Social Padu sells digital tools — software subscriptions, license keys, activation codes, and ready-to-use accounts — sourced through our partner network. We act as a reseller connecting customers with upstream suppliers. Product availability and delivery format may vary by item.</p>
+            <p className="mt-2">Social Padu sells digital guide books — downloadable PDF ebooks that teach you how to use computer software. Each purchase grants you a personal, non-transferable licence to download and read the book. Books are delivered digitally through your account library; no physical product is shipped.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">3. Account Registration</h3>
             <p className="mt-2">You must register using a valid Google account. You are responsible for maintaining the confidentiality of your account and all activity that occurs under it. You must be at least 18 years old to use our services.</p>
           </section>
           <section>
-            <h3 className="text-base font-semibold text-foreground">4. Wallet & Payments</h3>
-            <p className="mt-2">All transactions on Social Padu are conducted in USD (displayed in your local currency). Wallet top-ups are non-refundable except as outlined in our Refund Policy. Orders are charged from your wallet balance at the time of placement.</p>
+            <h3 className="text-base font-semibold text-foreground">4. Payments</h3>
+            <p className="mt-2">All purchases are charged in USD (displayed in your local currency for reference) and processed securely by Stripe. We never see or store your card details. Any legacy wallet balance on your account remains subject to our Refund Policy.</p>
           </section>
           <section>
-            <h3 className="text-base font-semibold text-foreground">5. Order Policy</h3>
-            <p className="mt-2">Digital products are delivered instantly once payment is confirmed. Because codes and account credentials are revealed at delivery, orders cannot be cancelled after dispatch. Check the product details, quantity, and total before confirming your purchase.</p>
+            <h3 className="text-base font-semibold text-foreground">5. Delivery & Cancellation</h3>
+            <p className="mt-2">Books are delivered instantly once payment is confirmed — the download appears in your account library. Because the full content becomes accessible immediately, purchases cannot be cancelled once the download has been made available. Check the book description and price before confirming your purchase.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">6. Acceptable Use</h3>
-            <p className="mt-2">You agree not to use Social Padu for illegal purposes, fraud, or resale in violation of an upstream vendor's licensing terms. We reserve the right to suspend accounts that misuse our platform without notice or refund.</p>
+            <p className="mt-2">Books are licensed for your personal use. You agree not to redistribute, resell, publicly share, or upload purchased books, and not to use the platform for fraud or other illegal purposes. We reserve the right to suspend accounts that misuse our platform without notice or refund.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">7. Refunds</h3>
-            <p className="mt-2">Refund requests are reviewed on a case-by-case basis. Please refer to our <a href="/refund" className="text-primary hover:underline">Refund Policy</a> for full details. Approved refunds are credited back to your wallet balance within 24 hours.</p>
+            <p className="mt-2">Refund requests are reviewed on a case-by-case basis. Please refer to our <a href="/refund" className="text-primary hover:underline">Refund Policy</a> for full details. Approved refunds are returned to your original payment method via Stripe.</p>
           </section>
           <section>
-            <h3 className="text-base font-semibold text-foreground">8. Third-Party Products</h3>
-            <p className="mt-2">Products sold on Social Padu are created and operated by third-party vendors. Subscriptions and accounts remain subject to the vendor's own terms of service. We are not liable for changes a vendor makes to its product, pricing, or policies after delivery.</p>
+            <h3 className="text-base font-semibold text-foreground">8. Intellectual Property & Trademarks</h3>
+            <p className="mt-2">All books sold on Social Padu are protected by copyright. Purchasing a book does not transfer ownership of its content. Software names mentioned in our books (e.g. Microsoft Excel, Adobe Photoshop) are trademarks of their respective owners; Social Padu is an independent publisher and is not affiliated with or endorsed by those companies.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">9. Limitation of Liability</h3>
