@@ -302,7 +302,7 @@ function Page({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Toaster />
-      <div className="relative min-h-screen overflow-hidden bg-background flex items-center justify-center px-4 py-12">
+      <div className="relative min-h-dvh overflow-hidden bg-background flex items-center justify-center px-4 py-12">
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
           <div className="absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full opacity-25 blur-3xl" style={{ background: "oklch(0.78 0.20 50)" }} />
           <div className="absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full opacity-20 blur-3xl" style={{ background: "oklch(0.72 0.22 35)" }} />

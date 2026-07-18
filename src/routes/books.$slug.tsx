@@ -61,7 +61,7 @@ function BookDetailPage() {
 
   if (!book) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-dvh bg-background">
         <SiteHeader />
         <div className="mx-auto max-w-3xl px-4 py-24 text-center">
           <BookOpen className="mx-auto h-10 w-10 text-muted-foreground" />
@@ -79,7 +79,7 @@ function BookDetailPage() {
   const local = Number(book.price_usd) * fxRate;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <SiteHeader />
       <Toaster />
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">

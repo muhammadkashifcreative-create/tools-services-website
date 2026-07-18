@@ -3,7 +3,7 @@ import { BrandMark } from "@/components/BrandMark";
 
 export function MaintenancePage() {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background px-4">
+    <div className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-background px-4">
       {/* Ambient glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
         <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full blur-3xl" style={{ background: "oklch(0.72 0.20 50 / 0.14)" }} />

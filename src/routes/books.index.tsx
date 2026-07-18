@@ -64,7 +64,7 @@ function BooksCatalogPage() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <SiteHeader />
       <section className="relative overflow-hidden brand-gradient">
         <div className="absolute inset-0 grid-pattern opacity-50" aria-hidden />

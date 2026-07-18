@@ -17,7 +17,7 @@ export const Route = createFileRoute("/about")({
 
 function AboutPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <SiteHeader />
       <main className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
 
