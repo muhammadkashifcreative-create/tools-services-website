@@ -296,15 +296,15 @@ function ReviewsSection({ bookId, bookSlug, authed }: { bookId: string; bookSlug
               onChange={(e) => setBody(e.target.value)}
               rows={3}
               maxLength={2000}
-              placeholder="What did you learn? Who would you recommend it to? (text only)"
+              placeholder="What did you learn? Who would you recommend it to? (text only, minimum 10 characters)"
               className="mt-3 w-full rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm outline-none ring-primary/30 focus:border-primary/40 focus:ring-2"
             />
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[11px] text-muted-foreground">
+              <p className={`text-[11px] ${rating === 0 || body.trim().length < 10 ? "font-medium text-amber-600" : "text-muted-foreground"}`}>
                 {rating === 0
                   ? "Select a star rating to continue."
                   : body.trim().length < 10
-                    ? `Write at least ${10 - body.trim().length} more character${10 - body.trim().length === 1 ? "" : "s"}.`
+                    ? `Reviews need a minimum of 10 characters — ${10 - body.trim().length} more to go.`
                     : "Posting as a verified buyer. Reviews are text only."}
               </p>
               <div className="flex items-center gap-2">
