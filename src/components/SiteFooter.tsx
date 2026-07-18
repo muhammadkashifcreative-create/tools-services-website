@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { BrandMark } from "@/components/BrandMark";
 import { useI18n } from "@/lib/i18n";
-import { ArrowRight, Facebook, Mail } from "lucide-react";
+import { ArrowRight, Mail } from "lucide-react";
 import { useState } from "react";
 
 export function SiteFooter() {
@@ -24,10 +24,6 @@ export function SiteFooter() {
     { label: "Refunds", to: "/refund" },
   ];
 
-  const socialLinks = [
-    { icon: Facebook, href: "https://www.facebook.com/share/1Br9BxZdvj/?mibextid=wwXIfr", label: "Facebook" },
-  ];
-
   return (
     <footer className="relative border-t border-border/40 bg-muted/10">
       {/* Subtle top gradient line */}
@@ -35,7 +31,7 @@ export function SiteFooter() {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Main footer grid */}
-        <div className="grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
+        <div className="grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-10 lg:gap-8">
           {/* Brand column */}
           <div className="lg:col-span-4">
             <Link to="/" className="inline-block">
@@ -134,27 +130,6 @@ export function SiteFooter() {
                 </li>
               ))}
             </ul>
-          </div>
-
-          {/* Social links */}
-          <div className="lg:col-span-2">
-            <p className="mb-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Follow
-            </p>
-            <div className="flex flex-wrap gap-2.5">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={social.label}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/40 bg-card/50 text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-soft"
-                >
-                  <social.icon className="h-4 w-4" />
-                </a>
-              ))}
-            </div>
           </div>
         </div>
 

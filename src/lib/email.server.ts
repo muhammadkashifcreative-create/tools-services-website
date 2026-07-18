@@ -348,3 +348,49 @@ export async function sendCaseReplyEmail(to: string, name: string, caseId: strin
   `;
   await sendEmail(to, `Re: ${subject}`, layout("Support team replied to your case", "Support Reply", body), FROM_SUPPORT);
 }
+
+// ─── Refunds ─────────────────────────────────────────────────────────────────
+
+export async function sendRefundRequestedEmail(to: string, name: string, bookTitle: string, amountUsd: number) {
+  const body = `
+    ${heroIcon("🧾", "#eff6ff")}
+    ${h1("Refund request received")}
+    ${subtitle(`Hi <strong>${name || "there"}</strong>, we've received your refund request for <strong>${bookTitle}</strong>. Our team will review it and get back to you — nothing is refunded until it's approved.`)}
+    ${infoCard([
+      ["Book", bookTitle],
+      ["Amount", `$${amountUsd.toFixed(2)} USD`],
+      ["Status", `<span style="color:#2563eb;font-weight:700;">Under review</span>`],
+      ["Requested at", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
+    ])}
+    ${alertBox("Refunds are reviewed manually and are usually resolved within 1–2 business days.", "info")}
+    ${cta("View my purchases →", `${BASE_URL}/dashboard/orders`)}
+  `;
+  await sendEmail(to, `Refund request received — ${bookTitle}`, layout("We've received your refund request", "Refunds", body), FROM_SUPPORT);
+}
+
+export async function sendRefundApprovedEmail(to: string, name: string, bookTitle: string, amountUsd: number) {
+  const body = `
+    ${heroIcon("💸", "#f0fdf4")}
+    ${h1("Your refund has been approved")}
+    ${subtitle(`Hi <strong>${name || "there"}</strong>, good news — your refund for <strong>${bookTitle}</strong> has been approved and sent back to your original payment method.`)}
+    ${infoCard([
+      ["Book", bookTitle],
+      ["Refunded", `$${amountUsd.toFixed(2)} USD`],
+      ["Status", `<span style="color:#15803d;font-weight:700;">Refunded</span>`],
+    ])}
+    ${alertBox("It can take 5–10 business days for the refund to appear on your statement, depending on your bank.", "info")}
+  `;
+  await sendEmail(to, `Refund approved — ${bookTitle}`, layout("Your refund has been approved", "Refunds", body), FROM_SUPPORT);
+}
+
+export async function sendRefundRejectedEmail(to: string, name: string, bookTitle: string, note?: string) {
+  const body = `
+    ${heroIcon("📄", "#fffbeb")}
+    ${h1("Update on your refund request")}
+    ${subtitle(`Hi <strong>${name || "there"}</strong>, after reviewing your refund request for <strong>${bookTitle}</strong>, we're unable to approve it at this time.`)}
+    ${note ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #e07b2e;border-radius:0 10px 10px 0;padding:20px 24px;margin:20px 0;"><p style="margin:0 0 10px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.12em;">Note from our team</p><p style="margin:0;font-size:14px;color:#334155;line-height:1.75;white-space:pre-wrap;">${note}</p></div>` : ""}
+    ${subtitle(`If you think this is a mistake, reply to this email or open a support case and we'll take another look.`)}
+    ${cta("Contact support →", `${BASE_URL}/dashboard/support`)}
+  `;
+  await sendEmail(to, `Update on your refund request — ${bookTitle}`, layout("Update on your refund request", "Refunds", body), FROM_SUPPORT);
+}

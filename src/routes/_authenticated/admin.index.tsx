@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
   Loader2, ShieldCheck, Users, MessageSquare, ShoppingBag, DollarSign, BookOpen,
-  Database, Zap, BarChart3, Mail, Server, Plus, Pencil, Trash2, UploadCloud, X, Check,
+  Database, Zap, BarChart3, Mail, Server, Plus, Pencil, Trash2, UploadCloud, X, Check, Star, Undo2,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile } from "@/lib/wallet.functions";
@@ -12,8 +12,9 @@ import { adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUser
 import { adminListAllCases } from "@/lib/cases.functions";
 import {
   adminListBooks, adminUpsertBook, adminDeleteBook, adminCreateUploadUrl, adminDeliverPurchase,
-  getStripeStatus, getMyrRate, type Book,
+  adminListAllReviews, deleteBookReview, getStripeStatus, getMyrRate, type Book, type AdminReview,
 } from "@/lib/books.functions";
+import { adminListRefunds, adminResolveRefund, type AdminRefund } from "@/lib/refunds.functions";
 import { runDatabaseMigration } from "@/lib/migrate.server";
 import { getMaintenanceStatus, setMaintenanceMode } from "@/lib/maintenance.functions";
 import { toast } from "sonner";
@@ -88,13 +89,18 @@ function AdminBody() {
   const { data: orders } = useQuery({ queryKey: ["adminOrders"], queryFn: () => fetchOrders(), staleTime: 0, refetchOnWindowFocus: true });
   const { data: users } = useQuery({ queryKey: ["adminUsers"], queryFn: () => fetchUsers(), staleTime: 0, refetchOnWindowFocus: true });
   const { data: cases } = useQuery({ queryKey: ["adminCases"], queryFn: () => fetchCases(), staleTime: 0, refetchOnWindowFocus: true });
+  const fetchReviews = useServerFn(adminListAllReviews);
+  const { data: reviewsData } = useQuery({ queryKey: ["adminReviews"], queryFn: () => fetchReviews(), staleTime: 0, refetchOnWindowFocus: true });
+  const fetchRefunds = useServerFn(adminListRefunds);
+  const { data: refundsData } = useQuery({ queryKey: ["adminRefunds"], queryFn: () => fetchRefunds(), staleTime: 0, refetchOnWindowFocus: true });
+  const pendingRefunds = (refundsData?.refunds ?? []).filter((r) => r.refund_status === "requested").length;
   const { data: stripeStatus } = useQuery({ queryKey: ["stripeStatus"], queryFn: () => fetchStripe() });
   const { data: maintenance } = useQuery({ queryKey: ["maintenance"], queryFn: () => fetchMaintenance() });
   const fetchMyr = useServerFn(getMyrRate);
   const { data: myr } = useQuery({ queryKey: ["myrRate"], queryFn: () => fetchMyr(), staleTime: 30 * 60 * 1000 });
   const myrRate = myr?.rate ?? 4.7;
   const rm = (usd: number) => `RM${(usd * myrRate).toFixed(2)}`;
-  const [tab, setTab] = useState<"overview" | "books" | "orders" | "users">("overview");
+  const [tab, setTab] = useState<"overview" | "books" | "orders" | "users" | "reviews" | "refunds">("overview");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [delivering, setDelivering] = useState<{ id: string; name: string; email: string; bookHasFile: boolean } | null>(null);
   const pendingDeliveries = (orders ?? []).filter((o) => o.status === "paid" && o.delivery_status === "pending").length;
@@ -172,6 +178,8 @@ function AdminBody() {
             ["books", "Books", <BookOpen key="b" className="h-3.5 w-3.5" />, stats?.books],
             ["orders", "Sales", <ShoppingBag key="or" className="h-3.5 w-3.5" />, stats?.sales],
             ["users", "Users", <Users key="u" className="h-3.5 w-3.5" />, stats?.users],
+            ["reviews", "Reviews", <Star key="rv" className="h-3.5 w-3.5" />, reviewsData?.reviews.length],
+            ["refunds", "Refunds", <Undo2 key="rf" className="h-3.5 w-3.5" />, refundsData?.refunds.length],
           ] as const).map(([k, l, icon, count]) => (
             <button key={k} onClick={() => setTab(k as typeof tab)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium transition-all ${tab === k ? "bg-primary text-primary-foreground shadow-glow" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`}>
@@ -180,6 +188,11 @@ function AdminBody() {
               {k === "orders" && pendingDeliveries > 0 && (
                 <span className="ml-1 animate-pulse rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
                   {pendingDeliveries} to deliver
+                </span>
+              )}
+              {k === "refunds" && pendingRefunds > 0 && (
+                <span className="ml-1 animate-pulse rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {pendingRefunds} to review
                 </span>
               )}
             </button>
@@ -270,6 +283,10 @@ function AdminBody() {
         </>)}
 
         {tab === "books" && <BooksTab />}
+
+        {tab === "reviews" && <ReviewsTab />}
+
+        {tab === "refunds" && <RefundsTab rm={rm} />}
 
         {tab === "orders" && (
         <div className="mt-6 overflow-hidden rounded-xl border bg-card">
@@ -656,6 +673,7 @@ function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRat
   const [author, setAuthor] = useState(book?.author ?? "");
   const [category, setCategory] = useState(book?.category ?? CATEGORY_SUGGESTIONS[0]);
   const [level, setLevel] = useState(book?.level ?? "All levels");
+  const [language, setLanguage] = useState(book?.language ?? "English");
   const [pages, setPages] = useState(book?.pages ? String(book.pages) : "");
   // Admin thinks in RM; the store charges USD via Stripe, so convert on save
   const [price, setPrice] = useState(book ? (Number(book.price_usd) * myrRate).toFixed(2) : "");
@@ -695,6 +713,7 @@ function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRat
           author: author.trim() || null,
           category: category.trim() || "General",
           level,
+          language: language.trim() || null,
           pages: pages.trim() ? Number(pages) : null,
           price_usd: +(Number(price) / myrRate).toFixed(2),
           description: description.trim() || null,
@@ -760,6 +779,14 @@ function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRat
               className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring" />
             <datalist id="book-categories">
               {CATEGORY_SUGGESTIONS.map((c) => <option key={c} value={c} />)}
+            </datalist>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1.5 block font-medium">Language</span>
+            <input value={language} onChange={(e) => setLanguage(e.target.value)} list="book-languages" placeholder="English"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring" />
+            <datalist id="book-languages">
+              {["English", "Malay", "Chinese", "Tamil", "Arabic", "Indonesian"].map((l) => <option key={l} value={l} />)}
             </datalist>
           </label>
           <div className="grid grid-cols-2 gap-3">
@@ -835,6 +862,160 @@ function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRat
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Refund approvals ───────────────────────────────────────────────────────────
+
+function RefundsTab({ rm }: { rm: (usd: number) => string }) {
+  const qc = useQueryClient();
+  const fetchRefunds = useServerFn(adminListRefunds);
+  const resolve = useServerFn(adminResolveRefund);
+  const { data, isLoading } = useQuery({ queryKey: ["adminRefunds"], queryFn: () => fetchRefunds() });
+  const refunds = (data?.refunds ?? []) as AdminRefund[];
+
+  const mut = useMutation({
+    mutationFn: (v: { purchaseId: string; action: "approve" | "reject" }) => resolve({ data: v }),
+    onSuccess: (r) => {
+      toast.success(r.action === "refunded" ? "Refund approved — money returned to the customer via Stripe." : "Refund request declined.");
+      qc.invalidateQueries({ queryKey: ["adminRefunds"] });
+      qc.invalidateQueries({ queryKey: ["adminOrders"] });
+      qc.invalidateQueries({ queryKey: ["adminStats"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="mt-6 overflow-hidden rounded-xl border bg-card">
+      <div className="border-b px-6 py-4">
+        <h2 className="font-semibold">Refund requests</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">Customers request refunds and <strong>you approve before any money is returned</strong>. Approving issues the Stripe refund automatically.</p>
+      </div>
+      {data && !data.ready && (
+        <div className="m-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
+          Refunds need a database update. Go to <strong>Overview → Check Database</strong> and run the SQL it gives you, then come back.
+        </div>
+      )}
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : refunds.length === 0 ? (
+        <div className="px-6 py-12 text-center text-sm text-muted-foreground">No refund requests.</div>
+      ) : (
+        <div className="max-h-[600px] divide-y overflow-auto">
+          {refunds.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-start gap-4 px-6 py-4 hover:bg-accent/30 transition-colors">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{r.book_title}</span>
+                  <span className="tabular-nums text-sm text-muted-foreground">{rm(r.amount_usd)} · ${r.amount_usd.toFixed(2)}</span>
+                  <RefundStatusPill status={r.refund_status} />
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" />{r.customer_email || r.customer_name || "customer"}</span>
+                  {r.refund_requested_at && <span>· {new Date(r.refund_requested_at).toLocaleString()}</span>}
+                </div>
+                {r.refund_reason && <p className="mt-2 rounded-lg bg-muted/40 px-3 py-2 text-sm text-muted-foreground">“{r.refund_reason}”</p>}
+              </div>
+              {r.refund_status === "requested" && (
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={() => { if (confirm(`Decline the refund request for "${r.book_title}"?`)) mut.mutate({ purchaseId: r.id, action: "reject" }); }}
+                    disabled={mut.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent disabled:opacity-50"
+                  >
+                    <X className="h-3.5 w-3.5" /> Reject
+                  </button>
+                  <button
+                    onClick={() => { if (confirm(`Approve and refund ${rm(r.amount_usd)} to ${r.customer_email || "the customer"}? This returns the money via Stripe.`)) mut.mutate({ purchaseId: r.id, action: "approve" }); }}
+                    disabled={mut.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {mut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve &amp; refund
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RefundStatusPill({ status }: { status: string }) {
+  const cls: Record<string, string> = {
+    requested: "bg-blue-100 text-blue-700",
+    refunded: "bg-emerald-100 text-emerald-700",
+    rejected: "bg-muted text-muted-foreground",
+  };
+  const label: Record<string, string> = { requested: "Awaiting review", refunded: "Refunded", rejected: "Declined" };
+  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls[status] ?? "bg-muted text-muted-foreground"}`}>{label[status] ?? status}</span>;
+}
+
+// ─── Review moderation ──────────────────────────────────────────────────────────
+
+function ReviewsTab() {
+  const qc = useQueryClient();
+  const fetchReviews = useServerFn(adminListAllReviews);
+  const removeReview = useServerFn(deleteBookReview);
+  const { data, isLoading } = useQuery({ queryKey: ["adminReviews"], queryFn: () => fetchReviews() });
+  const reviews = (data?.reviews ?? []) as AdminReview[];
+
+  const delMut = useMutation({
+    mutationFn: (id: string) => removeReview({ data: { reviewId: id } }),
+    onSuccess: () => {
+      toast.success("Review deleted.");
+      qc.invalidateQueries({ queryKey: ["adminReviews"] });
+      qc.invalidateQueries({ queryKey: ["booksPub"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="mt-6 overflow-hidden rounded-xl border bg-card">
+      <div className="border-b px-6 py-4">
+        <h2 className="font-semibold">Customer reviews</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">Every live review from verified buyers. Remove any that break your guidelines — the rating averages update instantly.</p>
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : reviews.length === 0 ? (
+        <div className="px-6 py-12 text-center text-sm text-muted-foreground">No reviews yet.</div>
+      ) : (
+        <div className="max-h-[600px] divide-y overflow-auto">
+          {reviews.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-start gap-4 px-6 py-4 hover:bg-accent/30 transition-colors">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star key={n} className={`h-3.5 w-3.5 ${n <= r.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
+                    ))}
+                  </span>
+                  <span className="text-xs font-semibold">{r.author}</span>
+                  <span className="text-xs text-muted-foreground">on</span>
+                  {r.book_slug ? (
+                    <Link to="/books/$slug" params={{ slug: r.book_slug }} className="text-xs font-medium text-primary hover:underline">{r.book_title}</Link>
+                  ) : (
+                    <span className="text-xs font-medium">{r.book_title}</span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground">· {new Date(r.created_at).toLocaleDateString()}</span>
+                </div>
+                <p className="mt-1.5 whitespace-pre-wrap text-sm text-muted-foreground">{r.body}</p>
+              </div>
+              <button
+                onClick={() => { if (confirm(`Delete this review by ${r.author}?`)) delMut.mutate(r.id); }}
+                disabled={delMut.isPending}
+                title="Delete review"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-destructive hover:bg-destructive/10 disabled:opacity-40"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

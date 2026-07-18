@@ -115,6 +115,22 @@ export async function retrieveCheckoutSession(sessionId: string): Promise<Stripe
   return stripeRequest<StripeCheckoutSession>("GET", `/checkout/sessions/${sessionId}`);
 }
 
+export interface StripeRefund {
+  id: string;
+  status: string; // pending | succeeded | failed | canceled | requires_action
+  amount: number;
+  currency: string;
+  payment_intent: string;
+}
+
+/** Full refund of a payment intent. Amount defaults to the full charge. */
+export async function createRefund(paymentIntentId: string, amountCents?: number): Promise<StripeRefund> {
+  return stripeRequest<StripeRefund>("POST", "/refunds", {
+    payment_intent: paymentIntentId,
+    ...(amountCents != null ? { amount: amountCents } : {}),
+  });
+}
+
 /**
  * Verifies a Stripe webhook signature (Stripe-Signature header).
  * Format: t=<unix>,v1=<hmac-sha256 hex of "<t>.<payload>">

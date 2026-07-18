@@ -34,9 +34,18 @@ export const Route = createFileRoute("/books/$slug")({
 });
 
 function BookDetailPage() {
-  const { book } = Route.useLoaderData() as { book: Book | null };
+  const { book, soldCount } = Route.useLoaderData() as { book: Book | null; soldCount: number };
   const fetchCurrency = useServerFn(getUserCurrency);
   const checkout = useServerFn(createBookCheckout);
+  const fetchReviews = useServerFn(listBookReviews);
+
+  // Rating summary for the header — shares the ["bookReviews", id] cache with
+  // the reviews section below, so React Query only fetches it once.
+  const { data: reviewSummary } = useQuery({
+    queryKey: ["bookReviews", book?.id],
+    queryFn: () => fetchReviews({ data: { bookId: book!.id } }),
+    enabled: !!book,
+  });
 
   const [authed, setAuthed] = useState<boolean | null>(null);
   useEffect(() => {
@@ -115,11 +124,35 @@ function BookDetailPage() {
             <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{book.title}</h1>
             {book.author && <p className="mt-2 text-sm text-muted-foreground">by <span className="font-semibold text-foreground">{book.author}</span></p>}
 
+            {/* Rating + social proof */}
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+              {(reviewSummary?.count ?? 0) > 0 && (
+                <a href="#reviews" className="inline-flex items-center gap-2 text-sm transition hover:opacity-80">
+                  <Stars value={reviewSummary!.avg ?? 0} />
+                  <span className="font-semibold text-foreground">{reviewSummary!.avg}</span>
+                  <span className="text-muted-foreground">· {reviewSummary!.count} review{reviewSummary!.count === 1 ? "" : "s"}</span>
+                </a>
+              )}
+              {soldCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                  <BadgeCheck className="h-4 w-4" /> {soldCount} sold
+                </span>
+              )}
+            </div>
+
             <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
               <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 font-medium">{book.level}</span>
               {book.pages && <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 font-medium">{book.pages} pages</span>}
               <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 font-medium">PDF · digital download</span>
             </div>
+
+            {/* Book details / specs */}
+            <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-2xl border border-border/60 bg-card p-5 shadow-soft sm:grid-cols-4">
+              <Spec label="Total pages" value={book.pages ? String(book.pages) : "—"} />
+              <Spec label="Language" value={book.language ?? "English"} />
+              <Spec label="Published" value={new Date(book.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short" })} />
+              <Spec label="Copies sold" value={soldCount > 0 ? String(soldCount) : "New"} />
+            </dl>
 
             {book.description && (
               <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-muted-foreground sm:text-base">{book.description}</p>
@@ -165,6 +198,15 @@ function BookDetailPage() {
         <ReviewsSection bookId={book.id} authed={authed} bookSlug={book.slug} />
       </div>
       <SiteFooter />
+    </div>
+  );
+}
+
+function Spec({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-sm font-semibold text-foreground">{value}</dd>
     </div>
   );
 }
@@ -234,7 +276,7 @@ function ReviewsSection({ bookId, bookSlug, authed }: { bookId: string; bookSlug
   const reviews = (data?.reviews ?? []) as BookReview[];
 
   return (
-    <section className="mt-14 max-w-3xl">
+    <section id="reviews" className="mt-14 max-w-3xl scroll-mt-24">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Reader reviews</h2>

@@ -39,7 +39,7 @@ export const getCase = createServerFn({ method: "GET" })
     if (!c) throw new Error("Case not found");
     const { data: msgs, error: mErr } = await context.supabase
       .from("case_messages")
-      .select("id, user_id, is_staff, body, attachments, created_at")
+      .select("id, author_id, is_staff, body, created_at")
       .eq("case_id", data.caseId)
       .order("created_at", { ascending: true });
     if (mErr) throw new Error(mErr.message);
@@ -72,7 +72,7 @@ export const createCase = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const { error: mErr } = await context.supabase
       .from("case_messages")
-      .insert({ case_id: c.id, user_id: context.userId, is_staff: false, body: data.body });
+      .insert({ case_id: c.id, author_id: context.userId, is_staff: false, body: data.body });
     if (mErr) throw new Error(mErr.message);
 
     // Send case opened email (non-blocking)
@@ -106,7 +106,7 @@ export const addCaseMessage = createServerFn({ method: "POST" })
     const admin = isAdmin(context as never);
     const { error } = await context.supabase
       .from("case_messages")
-      .insert({ case_id: data.caseId, user_id: context.userId, is_staff: admin, body: data.body });
+      .insert({ case_id: data.caseId, author_id: context.userId, is_staff: admin, body: data.body });
     if (error) throw new Error(error.message);
 
     // If admin replied, notify the customer

@@ -1,10 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { BookOpen, Loader2, ShoppingBag } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, Loader2, ShoppingBag, Undo2, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { listMyBookPurchases } from "@/lib/books.functions";
+import { requestBookRefund } from "@/lib/refunds.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard/orders")({
   head: () => ({ meta: [{ title: "Purchases — Social Padu" }] }),
@@ -19,9 +23,11 @@ function PurchasesPage() {
   const symbol = ccy?.symbol ?? "$";
   const rate = ccy?.rate ?? 1;
   const fmt = (usd: number) => `${symbol}${(usd * rate).toFixed(2)}`;
+  const [refundFor, setRefundFor] = useState<{ id: string; title: string } | null>(null);
 
   return (
     <AppLayout>
+      <Toaster />
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
           <div className="min-w-0">
@@ -90,16 +96,31 @@ function PurchasesPage() {
                         )}
                       </td>
                       <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{new Date(p.created_at).toLocaleDateString()}</td>
-                      <td className="px-5 py-3 text-right">
-                        {p.status === "paid" && p.delivery_status === "delivered" ? (
-                          <Link to="/dashboard/library" className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent">
-                            <BookOpen className="h-3 w-3" /> Open
-                          </Link>
-                        ) : p.status !== "paid" && p.book_slug ? (
-                          <Link to="/books/$slug" params={{ slug: p.book_slug }} className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent">
-                            <ShoppingBag className="h-3 w-3" /> Retry
-                          </Link>
-                        ) : null}
+                      <td className="px-5 py-3">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          {p.status === "paid" && p.delivery_status === "delivered" && (
+                            <Link to="/dashboard/library" className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent">
+                              <BookOpen className="h-3 w-3" /> Open
+                            </Link>
+                          )}
+                          {p.status !== "paid" && p.book_slug && (
+                            <Link to="/books/$slug" params={{ slug: p.book_slug }} className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent">
+                              <ShoppingBag className="h-3 w-3" /> Retry
+                            </Link>
+                          )}
+                          {p.status === "paid" && (
+                            (p.refund_status ?? "none") === "none" ? (
+                              <button
+                                onClick={() => setRefundFor({ id: p.id, title: p.book_title })}
+                                className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
+                              >
+                                <Undo2 className="h-3 w-3" /> Request refund
+                              </button>
+                            ) : (
+                              <RefundBadge status={p.refund_status ?? "none"} />
+                            )
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -109,8 +130,75 @@ function PurchasesPage() {
           )}
         </div>
       </div>
+
+      {refundFor && <RefundModal purchaseId={refundFor.id} bookTitle={refundFor.title} onClose={() => setRefundFor(null)} />}
     </AppLayout>
   );
+}
+
+function RefundModal({ purchaseId, bookTitle, onClose }: { purchaseId: string; bookTitle: string; onClose: () => void }) {
+  const qc = useQueryClient();
+  const submit = useServerFn(requestBookRefund);
+  const [reason, setReason] = useState("");
+
+  const mut = useMutation({
+    mutationFn: () => submit({ data: { purchaseId, reason: reason.trim() } }),
+    onSuccess: () => {
+      toast.success("Refund request sent — we'll review it and email you.");
+      qc.invalidateQueries({ queryKey: ["bookPurchases"] });
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border bg-card p-6 shadow-elegant">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold">Request a refund</h3>
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          For <span className="font-semibold text-foreground">{bookTitle}</span>. Our team reviews every request — no money is returned until it's approved.
+        </p>
+        <label className="mt-4 block text-sm">
+          <span className="mb-1.5 block font-medium">Why are you requesting a refund?</span>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={4}
+            maxLength={1000}
+            placeholder="Tell us what went wrong so we can make it right…"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 ring-ring"
+          />
+        </label>
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <button onClick={onClose} className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent">Cancel</button>
+          <button
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending || reason.trim().length < 5}
+            className="inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
+            style={{ background: "var(--gradient-accent)" }}
+          >
+            {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
+            Submit request
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RefundBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    requested: { label: "Refund requested", cls: "bg-blue-100 text-blue-700" },
+    refunded: { label: "Refunded", cls: "bg-emerald-100 text-emerald-700" },
+    rejected: { label: "Refund declined", cls: "bg-muted text-muted-foreground" },
+  };
+  const s = map[status];
+  if (!s) return null;
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${s.cls}`}>{s.label}</span>;
 }
 
 function StatusBadge({ status }: { status: string }) {

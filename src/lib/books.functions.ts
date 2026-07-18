@@ -19,7 +19,13 @@ export type Book = {
   published: boolean;
   sort: number;
   created_at: string;
+  language: string | null;
 };
+
+/** True when an error is Postgres/PostgREST reporting a missing table or column. */
+function isMissingColumn(msg?: string | null): boolean {
+  return !!msg && (msg.includes("does not exist") || msg.includes("schema cache"));
+}
 
 export type LibraryItem = {
   purchase_id: string;
@@ -83,13 +89,39 @@ export const getBookBySlugPublic = createServerFn({ method: "GET" })
   .inputValidator((d: { slug: string }) => z.object({ slug: z.string().min(1) }).parse(d))
   .handler(async ({ data }) => {
     const books = await booksTable();
-    const { data: book, error } = await books
-      .select(PUBLIC_BOOK_COLS)
-      .eq("slug", data.slug)
-      .eq("published", true)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    return { book: (book ?? null) as Book | null };
+    const selectBook = (cols: string) =>
+      books.select(cols).eq("slug", data.slug).eq("published", true).maybeSingle();
+
+    // `language` is a newer column — fall back to the base columns if the
+    // migration hasn't run yet so the storefront never 500s.
+    let book: Book | null = null;
+    const withLang = await selectBook(`${PUBLIC_BOOK_COLS}, language`);
+    if (withLang.error) {
+      if (isMissingColumn(withLang.error.message)) {
+        const base = await selectBook(PUBLIC_BOOK_COLS);
+        if (base.error) throw new Error(base.error.message);
+        book = base.data ? { ...(base.data as unknown as Book), language: null } : null;
+      } else {
+        throw new Error(withLang.error.message);
+      }
+    } else {
+      book = (withLang.data ?? null) as Book | null;
+    }
+
+    // How many copies have sold — real paid purchases, best-effort.
+    let soldCount = 0;
+    if (book) {
+      try {
+        const purchases = await bookPurchasesTable();
+        const { count } = await purchases
+          .select("id", { count: "exact", head: true })
+          .eq("book_id", book.id)
+          .eq("status", "paid");
+        soldCount = count ?? 0;
+      } catch { /* purchases unavailable — treat as 0 sold */ }
+    }
+
+    return { book, soldCount };
   });
 
 // ---------- Checkout (Stripe) ----------
@@ -307,6 +339,67 @@ export const deleteBookReview = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---------- Admin: review moderation ----------
+
+export type AdminReview = {
+  id: string;
+  book_id: string;
+  book_title: string;
+  book_slug: string | null;
+  rating: number;
+  body: string;
+  author: string;
+  created_at: string;
+};
+
+/** Every live review across all books, so the admin can moderate/delete them. */
+export const adminListAllReviews = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    assertAdmin(context);
+    try {
+      const reviews = await bookReviewsTable();
+      const { data: rows, error } = await reviews
+        .select("id, book_id, user_id, rating, body, created_at")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) {
+        if (isMissingColumn(error.message)) return { reviews: [] as AdminReview[] };
+        throw error;
+      }
+      const rl = (rows ?? []) as Array<{ id: string; book_id: string; user_id: string; rating: number; body: string; created_at: string }>;
+      if (rl.length === 0) return { reviews: [] as AdminReview[] };
+
+      const bookIds = Array.from(new Set(rl.map((r) => r.book_id)));
+      const userIds = Array.from(new Set(rl.map((r) => r.user_id)));
+
+      const books = await booksTable();
+      const { data: bookRows } = await books.select("id, title, slug").in("id", bookIds);
+      const bookById = new Map((bookRows ?? []).map((b: { id: string; title: string; slug: string }) => [b.id, b]));
+
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: profiles } = await supabaseAdmin.from("profiles").select("id, full_name, username").in("id", userIds);
+      const nameById = new Map(
+        (profiles ?? []).map((p) => [p.id, (p.full_name || p.username || "Verified reader") as string]),
+      );
+
+      return {
+        reviews: rl.map((r) => ({
+          id: r.id,
+          book_id: r.book_id,
+          book_title: bookById.get(r.book_id)?.title ?? "Removed book",
+          book_slug: bookById.get(r.book_id)?.slug ?? null,
+          rating: r.rating,
+          body: r.body,
+          author: nameById.get(r.user_id) ?? "Verified reader",
+          created_at: r.created_at,
+        })) as AdminReview[],
+      };
+    } catch {
+      return { reviews: [] as AdminReview[] };
+    }
+  });
+
 // ---------- Library & purchase history ----------
 
 export const getMyLibrary = createServerFn({ method: "GET" })
@@ -360,26 +453,43 @@ export const getMyLibrary = createServerFn({ method: "GET" })
     return { items };
   });
 
+type MyPurchaseRow = BookPurchaseRow & {
+  paid_at: string | null;
+  delivery_status: string;
+  refund_status?: string | null;
+  refund_reason?: string | null;
+};
+
 export const listMyBookPurchases = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const purchases = await bookPurchasesTable();
-    const { data: rows, error } = await purchases
-      .select("id, book_id, amount_usd, status, created_at, paid_at, delivery_status")
-      .eq("user_id", context.userId)
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (error) {
-      if (error.message.includes("does not exist") || error.message.includes("schema cache")) return [];
-      throw new Error(error.message);
+    const BASE_COLS = "id, book_id, amount_usd, status, created_at, paid_at, delivery_status";
+    const runSelect = (cols: string) =>
+      purchases.select(cols).eq("user_id", context.userId).order("created_at", { ascending: false }).limit(200);
+
+    // Include refund fields when available; fall back if the migration is new.
+    let rows: MyPurchaseRow[] = [];
+    const withRefund = await runSelect(`${BASE_COLS}, refund_status, refund_reason`);
+    if (withRefund.error) {
+      if (!isMissingColumn(withRefund.error.message)) throw new Error(withRefund.error.message);
+      const base = await runSelect(BASE_COLS);
+      if (base.error) {
+        if (isMissingColumn(base.error.message)) return [];
+        throw new Error(base.error.message);
+      }
+      rows = (base.data ?? []) as unknown as MyPurchaseRow[];
+    } else {
+      rows = (withRefund.data ?? []) as unknown as MyPurchaseRow[];
     }
-    const bookIds = Array.from(new Set((rows ?? []).map((r: { book_id: string }) => r.book_id)));
+
+    const bookIds = Array.from(new Set(rows.map((r) => r.book_id)));
     const books = await booksTable();
     const { data: bookRows } = bookIds.length
       ? await books.select("id, title, slug, cover_url").in("id", bookIds)
       : { data: [] };
     const byId = new Map((bookRows ?? []).map((b: { id: string }) => [b.id, b]));
-    return ((rows ?? []) as Array<BookPurchaseRow & { paid_at: string | null; delivery_status: string }>).map((r) => {
+    return rows.map((r) => {
       const b = byId.get(r.book_id) as { title?: string; slug?: string; cover_url?: string | null } | undefined;
       return {
         id: r.id,
@@ -389,6 +499,8 @@ export const listMyBookPurchases = createServerFn({ method: "GET" })
         amount_usd: Number(r.amount_usd),
         status: r.status,
         delivery_status: r.delivery_status,
+        refund_status: (r.refund_status ?? "none") as string,
+        refund_reason: r.refund_reason ?? null,
         created_at: r.created_at,
         paid_at: r.paid_at,
       };
@@ -402,15 +514,25 @@ export const adminListBooks = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     assertAdmin(context);
     const books = await booksTable();
-    const { data, error } = await books
-      .select(`${PUBLIC_BOOK_COLS}, file_path`)
-      .order("sort", { ascending: true })
-      .order("created_at", { ascending: false });
-    if (error) {
-      if (error.message.includes("does not exist") || error.message.includes("schema cache")) {
-        return { ready: false, books: [] as Array<Book & { file_path: string | null; sales: number }> };
+    const orderBooks = (cols: string) =>
+      books.select(cols).order("sort", { ascending: true }).order("created_at", { ascending: false });
+
+    // Try to include the newer `language` column; degrade gracefully if the
+    // migration hasn't run (missing column) or the tables don't exist yet.
+    let data: Array<Book & { file_path: string | null }> = [];
+    const withLang = await orderBooks(`${PUBLIC_BOOK_COLS}, file_path, language`);
+    if (withLang.error) {
+      if (!isMissingColumn(withLang.error.message)) throw new Error(withLang.error.message);
+      const base = await orderBooks(`${PUBLIC_BOOK_COLS}, file_path`);
+      if (base.error) {
+        if (isMissingColumn(base.error.message)) {
+          return { ready: false, books: [] as Array<Book & { file_path: string | null; sales: number }> };
+        }
+        throw new Error(base.error.message);
       }
-      throw new Error(error.message);
+      data = ((base.data ?? []) as unknown as Array<Book & { file_path: string | null }>).map((b) => ({ ...b, language: null }));
+    } else {
+      data = (withLang.data ?? []) as unknown as Array<Book & { file_path: string | null }>;
     }
 
     const purchases = await bookPurchasesTable();
@@ -436,6 +558,7 @@ const upsertSchema = z.object({
   description: z.string().max(5000).optional().nullable(),
   category: z.string().min(1).max(60),
   level: z.string().min(1).max(40),
+  language: z.string().max(60).optional().nullable(),
   pages: z.number().int().positive().max(5000).optional().nullable(),
   price_usd: z.number().positive().max(999),
   cover_url: z.string().url().optional().nullable(),
@@ -458,13 +581,14 @@ export const adminUpsertBook = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     assertAdmin(context);
     const books = await booksTable();
-    const row = {
+    const row: Record<string, unknown> = {
       title: data.title,
       slug: data.slug || slugify(data.title),
       author: data.author ?? null,
       description: data.description ?? null,
       category: data.category,
       level: data.level,
+      language: data.language ?? null,
       pages: data.pages ?? null,
       price_usd: data.price_usd,
       cover_url: data.cover_url ?? null,
@@ -473,15 +597,30 @@ export const adminUpsertBook = createServerFn({ method: "POST" })
       sort: data.sort ?? 0,
       updated_at: new Date().toISOString(),
     };
+
+    // Save the row; if the `language` column isn't migrated yet, retry without it.
+    async function saveRow(r: Record<string, unknown>): Promise<string> {
+      if (data.id) {
+        const { error } = await books.update(r).eq("id", data.id);
+        if (error) throw error;
+        return data.id;
+      }
+      const { data: inserted, error } = await books.insert(r).select("id").single();
+      if (error) throw error;
+      return (inserted as { id: string }).id;
+    }
+
     let bookId: string;
-    if (data.id) {
-      const { error } = await books.update(row).eq("id", data.id);
-      if (error) throw new Error(error.message);
-      bookId = data.id;
-    } else {
-      const { data: inserted, error } = await books.insert(row).select("id").single();
-      if (error) throw new Error(error.message);
-      bookId = (inserted as { id: string }).id;
+    try {
+      bookId = await saveRow(row);
+    } catch (e) {
+      const msg = (e as { message?: string }).message;
+      if (isMissingColumn(msg) && "language" in row) {
+        const { language: _language, ...rowNoLang } = row;
+        bookId = await saveRow(rowNoLang);
+      } else {
+        throw new Error(msg ?? "Failed to save book.");
+      }
     }
 
     // First time this book goes live → newsletter to all subscribed users.
