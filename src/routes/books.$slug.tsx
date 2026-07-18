@@ -300,7 +300,13 @@ function ReviewsSection({ bookId, bookSlug, authed }: { bookId: string; bookSlug
               className="mt-3 w-full rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm outline-none ring-primary/30 focus:border-primary/40 focus:ring-2"
             />
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[11px] text-muted-foreground">Posting as a verified buyer. Reviews are text only.</p>
+              <p className="text-[11px] text-muted-foreground">
+                {rating === 0
+                  ? "Select a star rating to continue."
+                  : body.trim().length < 10
+                    ? `Write at least ${10 - body.trim().length} more character${10 - body.trim().length === 1 ? "" : "s"}.`
+                    : "Posting as a verified buyer. Reviews are text only."}
+              </p>
               <div className="flex items-center gap-2">
                 {mine?.mine && (
                   <button
