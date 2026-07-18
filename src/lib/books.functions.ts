@@ -649,7 +649,10 @@ const upsertSchema = z.object({
   level: z.string().min(1).max(40),
   language: z.string().max(60).optional().nullable(),
   pages: z.number().int().positive().max(5000).optional().nullable(),
-  price_usd: z.number().positive().max(999),
+  // Below ~$1 USD, local payment methods Stripe auto-enables (e.g. Malaysia's
+  // FPX bank transfer) reject the charge for falling under their own minimum
+  // (~RM2), which otherwise surfaces as a confusing error at checkout.
+  price_usd: z.number().min(1, "Price must be at least $1.00 USD — lower amounts can fail at checkout for some payment methods.").max(999),
   cover_url: z.string().url().optional().nullable(),
   file_path: z.string().max(300).optional().nullable(),
   published: z.boolean(),

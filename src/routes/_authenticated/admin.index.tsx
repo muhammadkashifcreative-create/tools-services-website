@@ -743,7 +743,7 @@ function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRat
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const priceOk = Number.isFinite(Number(price)) && Number(price) > 0;
+  const priceOk = Number.isFinite(Number(price)) && Number(price) / myrRate >= 1;
   const canSave = title.trim().length >= 2 && priceOk && !uploading;
 
   return (
@@ -770,11 +770,11 @@ function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRat
             <span className="mb-1.5 block font-medium">Price (RM) *</span>
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">RM</span>
-              <input type="number" min={1} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="49.00"
+              <input type="number" min={myrRate} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="49.00"
                 className="w-full rounded-md border bg-background py-2 pl-9 pr-3 text-sm tabular-nums outline-none focus:ring-2 ring-ring" />
             </div>
             <span className="mt-1 block text-[11px] text-muted-foreground">
-              ≈ ${Number.isFinite(Number(price)) && Number(price) > 0 ? (Number(price) / myrRate).toFixed(2) : "0.00"} USD — Stripe charges in USD
+              ≈ ${Number.isFinite(Number(price)) && Number(price) > 0 ? (Number(price) / myrRate).toFixed(2) : "0.00"} USD — Stripe charges in USD. Minimum $1.00 USD (≈ RM{myrRate.toFixed(2)}) — lower prices can fail at checkout for some payment methods.
             </span>
           </label>
           <label className="text-sm">
