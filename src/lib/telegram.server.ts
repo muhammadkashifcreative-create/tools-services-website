@@ -1,18 +1,34 @@
 const API_ROOT = "https://api.telegram.org";
 
+export function isTelegramConfigured(): boolean {
+  return Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
+}
+
+/**
+ * Sends a Telegram message. Throws with Telegram's own error description on
+ * failure (bad token, bad chat id, bot not a member of the chat, etc.) —
+ * callers already do `.catch(console.error)`, so this makes real failures
+ * show up in server logs instead of vanishing silently.
+ */
 export async function notifyTelegram(message: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) return;
+  if (!token || !chatId) {
+    console.error("Telegram notify skipped: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set");
+    return;
+  }
 
-  try {
-    await fetch(`${API_ROOT}/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" }),
-    });
-  } catch (e) {
-    console.error("Telegram notify failed");
+  const res = await fetch(`${API_ROOT}/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const detail = (body as { description?: string }).description ?? `HTTP ${res.status}`;
+    console.error(`Telegram notify failed: ${detail}`);
+    throw new Error(`Telegram notify failed: ${detail}`);
   }
 }
 

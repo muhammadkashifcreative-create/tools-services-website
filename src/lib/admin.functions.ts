@@ -156,6 +156,31 @@ export const adminUserOrders = createServerFn({ method: "GET" })
     }));
   });
 
+export const getTelegramStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { isTelegramConfigured } = await import("@/lib/telegram.server");
+    return { configured: isTelegramConfigured() };
+  });
+
+/** Sends a real Telegram message right now so the admin can confirm the bot/chat setup actually works. */
+export const sendTestTelegramNotification = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { notifyTelegram, isTelegramConfigured } = await import("@/lib/telegram.server");
+    if (!isTelegramConfigured()) {
+      throw new Error("Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in Vercel first.");
+    }
+    try {
+      await notifyTelegram(`✅ <b>Test notification</b>\nSent from Admin → Overview at ${new Date().toUTCString()}. If you see this, Telegram alerts are working.`);
+    } catch (e) {
+      throw new Error((e as Error).message);
+    }
+    return { ok: true };
+  });
+
 // Bootstrap: lets the first signed-in user claim admin if no admin exists yet.
 export const claimFirstAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

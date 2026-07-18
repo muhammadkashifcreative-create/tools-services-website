@@ -4,11 +4,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
   Loader2, ShieldCheck, Users, MessageSquare, ShoppingBag, DollarSign, BookOpen,
-  Database, Zap, BarChart3, Mail, Server, Plus, Pencil, Trash2, UploadCloud, X, Check, Star, Undo2,
+  Database, Zap, BarChart3, Mail, Server, Plus, Pencil, Trash2, UploadCloud, X, Check, Star, Undo2, Send,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile } from "@/lib/wallet.functions";
-import { adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUserOrders } from "@/lib/admin.functions";
+import {
+  adminListOrders, adminStats, claimFirstAdmin, adminListUsers, adminUserOrders,
+  getTelegramStatus, sendTestTelegramNotification,
+} from "@/lib/admin.functions";
 import { adminListAllCases } from "@/lib/cases.functions";
 import {
   adminListBooks, adminUpsertBook, adminDeleteBook, adminCreateUploadUrl, adminDeliverPurchase,
@@ -81,6 +84,8 @@ function AdminBody() {
   const fetchCases = useServerFn(adminListAllCases);
   const fetchUserOrders = useServerFn(adminUserOrders);
   const fetchStripe = useServerFn(getStripeStatus);
+  const fetchTelegram = useServerFn(getTelegramStatus);
+  const sendTestTelegram = useServerFn(sendTestTelegramNotification);
   const runMigration = useServerFn(runDatabaseMigration);
   const fetchMaintenance = useServerFn(getMaintenanceStatus);
   const saveMaintenance = useServerFn(setMaintenanceMode);
@@ -95,6 +100,12 @@ function AdminBody() {
   const { data: refundsData } = useQuery({ queryKey: ["adminRefunds"], queryFn: () => fetchRefunds(), staleTime: 0, refetchOnWindowFocus: true });
   const pendingRefunds = (refundsData?.refunds ?? []).filter((r) => r.refund_status === "requested").length;
   const { data: stripeStatus } = useQuery({ queryKey: ["stripeStatus"], queryFn: () => fetchStripe() });
+  const { data: telegramStatus } = useQuery({ queryKey: ["telegramStatus"], queryFn: () => fetchTelegram() });
+  const testTelegramMut = useMutation({
+    mutationFn: () => sendTestTelegram(),
+    onSuccess: () => toast.success("Test message sent — check your Telegram chat."),
+    onError: (e: Error) => toast.error(e.message),
+  });
   const { data: maintenance } = useQuery({ queryKey: ["maintenance"], queryFn: () => fetchMaintenance() });
   const fetchMyr = useServerFn(getMyrRate);
   const { data: myr } = useQuery({ queryKey: ["myrRate"], queryFn: () => fetchMyr(), staleTime: 30 * 60 * 1000 });
@@ -213,7 +224,7 @@ function AdminBody() {
           </div>
 
           {/* System status row */}
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SystemChip
               icon={Zap}
               label="Stripe Payments"
@@ -229,6 +240,24 @@ function AdminBody() {
               }
             />
             <SystemChip icon={Server} label="Database" ok={true} detail="Supabase" />
+            <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-soft">
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${telegramStatus?.configured ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"}`}>
+                <Send className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold">Telegram Alerts</p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {telegramStatus?.configured ? "Bot token + chat ID set" : "Set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID"}
+                </p>
+              </div>
+              <button
+                onClick={() => testTelegramMut.mutate()}
+                disabled={testTelegramMut.isPending || !telegramStatus?.configured}
+                className="shrink-0 rounded-md border px-2.5 py-1.5 text-[10px] font-semibold hover:bg-accent disabled:opacity-40"
+              >
+                {testTelegramMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Send test"}
+              </button>
+            </div>
           </div>
 
           {/* Maintenance mode */}
