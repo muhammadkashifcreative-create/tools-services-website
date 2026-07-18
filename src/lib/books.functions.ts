@@ -840,6 +840,53 @@ export const adminDeliverPurchase = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Emails a paid, delivered customer asking them to leave a review. Skips customers who already reviewed. */
+export const adminRequestReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { purchaseId: string }) => z.object({ purchaseId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const purchases = await bookPurchasesTable();
+    const { data: purchase, error } = await purchases
+      .select("id, user_id, book_id, status, delivery_status")
+      .eq("id", data.purchaseId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const p = purchase as { id: string; user_id: string; book_id: string; status: string; delivery_status: string } | null;
+    if (!p) throw new Error("Purchase not found.");
+    if (p.status !== "paid") throw new Error("Only paid purchases can be asked for a review.");
+    if (p.delivery_status !== "delivered") throw new Error("This book hasn't been delivered yet — deliver it first.");
+
+    const reviews = await bookReviewsTable();
+    const { data: existingReview } = await reviews
+      .select("id")
+      .eq("book_id", p.book_id)
+      .eq("user_id", p.user_id)
+      .maybeSingle();
+    if (existingReview) throw new Error("This customer already left a review for this book.");
+
+    const books = await booksTable();
+    const { data: book } = await books.select("title, slug").eq("id", p.book_id).maybeSingle();
+    const b = book as { title?: string; slug?: string } | null;
+    if (!b?.slug) throw new Error("Book not found.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(p.user_id);
+    const email = authUser?.user?.email;
+    if (!email) throw new Error("Couldn't find this customer's email address.");
+    const name = (authUser?.user?.user_metadata as { name?: string } | null)?.name ?? "";
+
+    const { sendReviewRequestEmail } = await import("@/lib/email.server");
+    await sendReviewRequestEmail(email, name, b.title ?? "your book", b.slug);
+
+    const { error: updErr } = await purchases
+      .update({ review_requested_at: new Date().toISOString() })
+      .eq("id", p.id);
+    if (updErr) throw new Error(updErr.message);
+
+    return { ok: true };
+  });
+
 // ---------- Admin helpers ----------
 
 export const getStripeStatus = createServerFn({ method: "GET" })

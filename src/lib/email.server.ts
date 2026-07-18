@@ -296,23 +296,15 @@ export async function sendBookDeliveredEmail(to: string, name: string, bookTitle
   await sendEmail(to, `📚 "${bookTitle}" has been delivered — download it now`, layout(`"${bookTitle}" is ready in your library`, "Book Delivered", body));
 }
 
-export async function sendPaymentConfirmationEmail(
-  to: string, name: string, usdAmount: number,
-  localAmount: string, localCurrency: string, newBalance: number,
-) {
+export async function sendReviewRequestEmail(to: string, name: string, bookTitle: string, bookSlug: string) {
   const body = `
-    ${heroIcon("✅", "#f0fdf4")}
-    ${h1("Payment confirmed")}
-    ${subtitle(`Hi <strong>${name || "there"}</strong>, your wallet has been topped up and is ready to use.`)}
-    ${infoCard([
-      ["Amount paid", `${localAmount} ${localCurrency}`],
-      ["USD credits added", `$${usdAmount.toFixed(2)} USD`],
-      ["New wallet balance", `$${newBalance.toFixed(2)} USD`],
-      ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
-    ])}
-    ${cta("Browse the Library →", `${BASE_URL}/books`)}
+    ${heroIcon("⭐", "#fffbeb")}
+    ${h1("How was your book?")}
+    ${subtitle(`Hi <strong>${name || "there"}</strong>, we hope <strong>${bookTitle}</strong> has been useful. Verified buyers can leave a quick text review — it takes less than a minute and helps other readers decide.`)}
+    ${cta("Write a review →", `${BASE_URL}/books/${bookSlug}#reviews`)}
+    <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;text-align:center;">Thanks for supporting Social Padu!</p>
   `;
-  await sendEmail(to, `✅ Payment confirmed — ${localAmount} ${localCurrency} added to wallet`, layout(`${localAmount} ${localCurrency} added to your Social Padu wallet`, "Payment Confirmed", body));
+  await sendEmail(to, `⭐ Got a minute to review "${bookTitle}"?`, layout(`Share your thoughts on "${bookTitle}"`, "Review Request", body));
 }
 
 export async function sendCaseOpenedEmail(to: string, name: string, caseId: string, subject: string) {

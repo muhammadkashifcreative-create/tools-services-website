@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireDirectAuth as requireSupabaseAuth, isAdminUser } from "@/lib/direct-auth-middleware.server";
-import { booksTable, bookPurchasesTable } from "@/lib/book-purchases.server";
+import { booksTable, bookPurchasesTable, bookReviewsTable } from "@/lib/book-purchases.server";
 
 async function assertAdmin(context: { email?: string; userId?: string }) {
   if (!(await isAdminUser(context))) throw new Error("Forbidden");
@@ -15,6 +15,7 @@ type PurchaseRow = {
   delivery_status: string;
   created_at: string;
   paid_at: string | null;
+  review_requested_at?: string | null;
 };
 
 async function bookInfoMap(bookIds: string[]) {
@@ -29,27 +30,53 @@ async function bookInfoMap(bookIds: string[]) {
   );
 }
 
+/** "bookId:userId" keys for every existing review among the given books — best-effort. */
+async function reviewedPairKeys(bookIds: string[]): Promise<Set<string>> {
+  const keys = new Set<string>();
+  if (bookIds.length === 0) return keys;
+  try {
+    const reviews = await bookReviewsTable();
+    const { data } = await reviews.select("book_id, user_id").in("book_id", bookIds);
+    for (const r of (data ?? []) as Array<{ book_id: string; user_id: string }>) {
+      keys.add(`${r.book_id}:${r.user_id}`);
+    }
+  } catch { /* reviews table unavailable — treat as no reviews yet */ }
+  return keys;
+}
+
 export const adminListOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context as never);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const purchases = await bookPurchasesTable();
-    const { data, error } = await purchases
-      .select("id, user_id, book_id, amount_usd, status, delivery_status, created_at, paid_at")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (error) {
-      if (error.message.includes("does not exist") || error.message.includes("schema cache")) return [];
-      throw new Error(error.message);
+    const BASE_COLS = "id, user_id, book_id, amount_usd, status, delivery_status, created_at, paid_at";
+    const runSelect = (cols: string) => purchases.select(cols).order("created_at", { ascending: false }).limit(200);
+
+    // review_requested_at is a newer column — degrade gracefully pre-migration.
+    let rows: PurchaseRow[] = [];
+    const withReview = await runSelect(`${BASE_COLS}, review_requested_at`);
+    if (withReview.error) {
+      if (!withReview.error.message.includes("does not exist") && !withReview.error.message.includes("schema cache")) {
+        throw new Error(withReview.error.message);
+      }
+      const base = await runSelect(BASE_COLS);
+      if (base.error) {
+        if (base.error.message.includes("does not exist") || base.error.message.includes("schema cache")) return [];
+        throw new Error(base.error.message);
+      }
+      rows = (base.data ?? []) as unknown as PurchaseRow[];
+    } else {
+      rows = (withReview.data ?? []) as unknown as PurchaseRow[];
     }
-    const rows = (data ?? []) as PurchaseRow[];
 
     const allUserIds = Array.from(new Set(rows.map((r) => r.user_id)));
-    const [{ data: profiles }, { data: authUsers }, bookInfo] = await Promise.all([
+    const bookIds = Array.from(new Set(rows.map((r) => r.book_id)));
+    const [{ data: profiles }, { data: authUsers }, bookInfo, reviewedKeys] = await Promise.all([
       supabaseAdmin.from("profiles").select("id, username, full_name").in("id", allUserIds),
       supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      bookInfoMap(Array.from(new Set(rows.map((r) => r.book_id)))),
+      bookInfoMap(bookIds),
+      reviewedPairKeys(bookIds),
     ]);
     const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
     const emailById = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? ""]));
@@ -57,12 +84,15 @@ export const adminListOrders = createServerFn({ method: "GET" })
     return rows.map((r) => ({
       id: r.id,
       user_id: r.user_id,
+      book_id: r.book_id,
       name: bookInfo.get(r.book_id)?.title ?? "Removed book",
       book_has_file: Boolean(bookInfo.get(r.book_id)?.file_path),
       charge: Number(r.amount_usd),
       status: r.status,
       delivery_status: r.delivery_status,
       created_at: r.created_at,
+      review_requested_at: r.review_requested_at ?? null,
+      has_review: reviewedKeys.has(`${r.book_id}:${r.user_id}`),
       profile: byId.get(r.user_id) ?? null,
       email: emailById.get(r.user_id) ?? "",
     }));

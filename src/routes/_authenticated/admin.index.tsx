@@ -14,7 +14,7 @@ import {
 } from "@/lib/admin.functions";
 import { adminListAllCases } from "@/lib/cases.functions";
 import {
-  adminListBooks, adminUpsertBook, adminDeleteBook, adminCreateUploadUrl, adminDeliverPurchase,
+  adminListBooks, adminUpsertBook, adminDeleteBook, adminCreateUploadUrl, adminDeliverPurchase, adminRequestReview,
   adminListAllReviews, deleteBookReview, getStripeStatus, getMyrRate, type Book, type AdminReview,
 } from "@/lib/books.functions";
 import { adminListRefunds, adminResolveRefund, type AdminRefund } from "@/lib/refunds.functions";
@@ -142,6 +142,16 @@ function AdminBody() {
     onSuccess: (r) => {
       toast.success(r.enabled ? "Maintenance mode is ON — visitors now see the maintenance page." : "Maintenance mode is OFF — the site is live again.");
       qc.invalidateQueries({ queryKey: ["maintenance"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const requestReview = useServerFn(adminRequestReview);
+  const requestReviewMut = useMutation({
+    mutationFn: (purchaseId: string) => requestReview({ data: { purchaseId } }),
+    onSuccess: () => {
+      toast.success("Review request sent.");
+      qc.invalidateQueries({ queryKey: ["adminOrders"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -325,7 +335,7 @@ function AdminBody() {
         <div className="mt-6 overflow-hidden rounded-xl border bg-card">
           <div className="border-b px-6 py-4">
             <h2 className="font-semibold">All sales</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Paid purchases marked <strong>Needs delivery</strong> are waiting for you — click Deliver to send the book.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Paid purchases marked <strong>Needs delivery</strong> are waiting for you — click Deliver to send the book. Once delivered, use <strong>Request review</strong> to email the customer and ask for a rating.</p>
           </div>
           <div className="max-h-[600px] overflow-auto">
             <table className="w-full text-sm">
@@ -336,6 +346,7 @@ function AdminBody() {
                   <th className="px-5 py-3 text-right">Amount</th>
                   <th className="px-5 py-3 text-left">Payment</th>
                   <th className="px-5 py-3 text-left">Delivery</th>
+                  <th className="px-5 py-3 text-left">Review</th>
                   <th className="px-5 py-3 text-left">When</th>
                 </tr>
               </thead>
@@ -366,11 +377,34 @@ function AdminBody() {
                         </button>
                       )}
                     </td>
+                    <td className="px-5 py-3">
+                      {o.status !== "paid" || o.delivery_status !== "delivered" ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : o.has_review ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                          <Star className="h-3 w-3 fill-emerald-700" /> Reviewed
+                        </span>
+                      ) : (
+                        <div className="flex flex-col items-start gap-1">
+                          <button
+                            onClick={() => requestReviewMut.mutate(o.id)}
+                            disabled={requestReviewMut.isPending}
+                            title={o.review_requested_at ? `First requested ${new Date(o.review_requested_at).toLocaleString()}` : undefined}
+                            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-3 py-2.5 text-xs font-semibold hover:bg-accent disabled:opacity-50"
+                          >
+                            <Star className="h-3 w-3" /> {o.review_requested_at ? "Resend request" : "Request review"}
+                          </button>
+                          {o.review_requested_at && (
+                            <span className="text-[10px] text-muted-foreground">Requested {new Date(o.review_requested_at).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-muted-foreground">{new Date(o.created_at).toLocaleString()}</td>
                   </tr>
                 ))}
                 {(orders ?? []).length === 0 && (
-                  <tr><td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">No sales yet.</td></tr>
+                  <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">No sales yet.</td></tr>
                 )}
               </tbody>
             </table>
