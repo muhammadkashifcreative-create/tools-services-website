@@ -91,8 +91,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "Social Padu" },
       { property: "og:description", content: "Software guide books — buy once, download instantly, keep forever." },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "https://www.socialpadu.my/logo.png" },
+      { property: "og:site_name", content: "Social Padu" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:image", content: "https://www.socialpadu.my/logo.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

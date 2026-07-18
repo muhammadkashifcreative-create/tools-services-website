@@ -1,16 +1,17 @@
 /**
- * Book purchase settlement: turns a Stripe Checkout result into book access.
+ * Book purchase settlement: turns a Stripe PaymentIntent result into book
+ * access.
  *
- * Called from two places with the same session shape:
- *   1. /api/stripe/webhook     — pushed by Stripe on checkout completion
- *   2. reconcileMyPurchases    — pulls the session when the user lands on the
+ * Called from two places with the same PaymentIntent shape:
+ *   1. /api/stripe/webhook     — pushed by Stripe on payment_intent.* events
+ *   2. reconcileMyPurchases    — pulls the intent when the user lands on the
  *      library page, so a missed webhook can never strand a paid purchase
  *
  * Idempotency: the purchase row is claimed with a single conditional UPDATE
- * (status = 'pending' → final status), same pattern as deposits.server.ts.
+ * (status = 'pending' → final status).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { StripeCheckoutSession } from "@/lib/stripe.server";
+import type { StripePaymentIntent } from "@/lib/stripe.server";
 
 export interface BookPurchaseRow {
   id: string;
@@ -42,8 +43,8 @@ export async function bookReviewsTable() {
 
 export type SettleOutcome = "granted" | "already_settled" | "still_pending" | "failed" | "not_found";
 
-export async function settleBookPurchase(session: StripeCheckoutSession): Promise<SettleOutcome> {
-  const purchaseId = session.metadata?.purchase_id;
+export async function settleBookPurchase(intent: StripePaymentIntent): Promise<SettleOutcome> {
+  const purchaseId = intent.metadata?.purchase_id;
   if (!purchaseId) return "not_found";
 
   const table = await bookPurchasesTable();
@@ -56,12 +57,12 @@ export async function settleBookPurchase(session: StripeCheckoutSession): Promis
   if (purchase.status !== "pending") return "already_settled";
 
   let finalStatus: string;
-  if (session.payment_status === "paid") {
+  if (intent.status === "succeeded") {
     finalStatus = "paid";
-  } else if (session.status === "expired") {
+  } else if (intent.status === "canceled") {
     finalStatus = "failed";
   } else {
-    return "still_pending"; // session still open, payment not completed yet
+    return "still_pending"; // still requires payment/action/confirmation
   }
 
   // Instant delivery only when the book already has its PDF uploaded;
@@ -79,7 +80,7 @@ export async function settleBookPurchase(session: StripeCheckoutSession): Promis
   const { data: claimed } = await table
     .update({
       status: finalStatus,
-      stripe_payment_intent: session.payment_intent,
+      stripe_payment_intent: intent.id,
       ...(finalStatus === "paid"
         ? {
             paid_at: new Date().toISOString(),
@@ -88,9 +89,7 @@ export async function settleBookPurchase(session: StripeCheckoutSession): Promis
           }
         : {}),
       // Promo codes can lower the charge — record what was actually paid
-      ...(finalStatus === "paid" && session.amount_total != null
-        ? { amount_usd: session.amount_total / 100 }
-        : {}),
+      ...(finalStatus === "paid" ? { amount_usd: intent.amount / 100 } : {}),
     })
     .eq("id", purchase.id)
     .eq("status", "pending")
@@ -99,7 +98,7 @@ export async function settleBookPurchase(session: StripeCheckoutSession): Promis
 
   if (finalStatus !== "paid") return "failed";
 
-  const paidUsd = session.amount_total != null ? session.amount_total / 100 : Number(purchase.amount_usd);
+  const paidUsd = intent.amount / 100;
 
   // Receipt email + admin Telegram notification — both best-effort.
   void (async () => {

@@ -1,11 +1,17 @@
 /**
- * Minimal Stripe REST client — mirrors heleket.server.ts: plain fetch + node
- * crypto, no SDK dependency. Only the endpoints the bookstore needs.
+ * Minimal Stripe REST client — plain fetch + node crypto, no server-side SDK
+ * dependency. Only the endpoints the bookstore needs.
+ *
+ * Checkout is fully custom (Stripe Elements Payment Element embedded on our
+ * own /checkout page) rather than a redirect to Stripe's hosted Checkout, so
+ * this client works in terms of PaymentIntents, not Checkout Sessions.
  *
  * Env vars (set in Vercel):
- *   STRIPE_SECRET_KEY     — sk_live_... / sk_test_...
- *   STRIPE_WEBHOOK_SECRET — whsec_... (from the webhook endpoint in Stripe
- *                           dashboard pointing at /api/stripe/webhook)
+ *   STRIPE_SECRET_KEY         — sk_live_... / sk_test_...
+ *   STRIPE_WEBHOOK_SECRET     — whsec_... (from the webhook endpoint in the
+ *                               Stripe dashboard pointing at /api/stripe/webhook)
+ *   VITE_STRIPE_PUBLISHABLE_KEY — pk_live_... / pk_test_..., read client-side
+ *                               by the /checkout page to mount Stripe Elements
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 
@@ -61,48 +67,30 @@ async function stripeRequest<T>(method: "GET" | "POST", path: string, params?: R
   return json;
 }
 
-export interface StripeCheckoutSession {
+export interface StripePaymentIntent {
   id: string;
-  url: string | null;
-  status: "open" | "complete" | "expired";
-  payment_status: "paid" | "unpaid" | "no_payment_required";
-  payment_intent: string | null;
-  amount_total: number | null;
-  currency: string | null;
+  client_secret: string | null;
+  status: "requires_payment_method" | "requires_confirmation" | "requires_action" | "processing" | "requires_capture" | "canceled" | "succeeded";
+  amount: number;
+  currency: string;
   metadata: Record<string, string>;
 }
 
-export async function createCheckoutSession(opts: {
-  bookTitle: string;
+/** Creates the PaymentIntent our custom /checkout page mounts Stripe Elements against. */
+export async function createPaymentIntent(opts: {
   amountUsdCents: number;
-  coverUrl?: string | null;
   customerEmail?: string | null;
   purchaseId: string;
   userId: string;
   bookId: string;
-  successUrl: string;
-  cancelUrl: string;
-}): Promise<StripeCheckoutSession> {
-  return stripeRequest<StripeCheckoutSession>("POST", "/checkout/sessions", {
-    mode: "payment",
-    // Lets you run discounts by creating promotion codes in the Stripe dashboard
-    allow_promotion_codes: true,
-    success_url: opts.successUrl,
-    cancel_url: opts.cancelUrl,
-    ...(opts.customerEmail ? { customer_email: opts.customerEmail } : {}),
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "usd",
-          unit_amount: opts.amountUsdCents,
-          product_data: {
-            name: opts.bookTitle,
-            ...(opts.coverUrl ? { images: [opts.coverUrl] } : {}),
-          },
-        },
-      },
-    ],
+  description: string;
+}): Promise<StripePaymentIntent> {
+  return stripeRequest<StripePaymentIntent>("POST", "/payment_intents", {
+    amount: opts.amountUsdCents,
+    currency: "usd",
+    description: opts.description,
+    "automatic_payment_methods[enabled]": true,
+    ...(opts.customerEmail ? { receipt_email: opts.customerEmail } : {}),
     metadata: {
       purchase_id: opts.purchaseId,
       user_id: opts.userId,
@@ -111,8 +99,37 @@ export async function createCheckoutSession(opts: {
   });
 }
 
-export async function retrieveCheckoutSession(sessionId: string): Promise<StripeCheckoutSession> {
-  return stripeRequest<StripeCheckoutSession>("GET", `/checkout/sessions/${sessionId}`);
+/** Updates the charge amount on an unconfirmed PaymentIntent (e.g. after a promo code is applied). */
+export async function updatePaymentIntentAmount(paymentIntentId: string, amountUsdCents: number): Promise<StripePaymentIntent> {
+  return stripeRequest<StripePaymentIntent>("POST", `/payment_intents/${paymentIntentId}`, {
+    amount: amountUsdCents,
+  });
+}
+
+export async function retrievePaymentIntent(paymentIntentId: string): Promise<StripePaymentIntent> {
+  return stripeRequest<StripePaymentIntent>("GET", `/payment_intents/${paymentIntentId}`);
+}
+
+export interface StripePromotionCode {
+  id: string;
+  code: string;
+  active: boolean;
+  coupon: {
+    valid: boolean;
+    percent_off: number | null;
+    amount_off: number | null;
+    currency: string | null;
+  };
+}
+
+/** Looks up an active promotion code by its customer-facing code (case-sensitive, as Stripe stores it). */
+export async function findPromotionCode(code: string): Promise<StripePromotionCode | null> {
+  const result = await stripeRequest<{ data: StripePromotionCode[] }>("GET", "/promotion_codes", {
+    code,
+    active: true,
+    limit: 1,
+  });
+  return result.data[0] ?? null;
 }
 
 export interface StripeRefund {

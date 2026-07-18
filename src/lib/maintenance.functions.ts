@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { readSession } from "@/lib/direct-google-auth.server";
-import { requireDirectAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth, isAdminUser } from "@/lib/direct-auth-middleware.server";
 
 const KEY = "maintenance_mode";
 
@@ -24,7 +24,7 @@ export const getMaintenanceStatus = createServerFn({ method: "GET" }).handler(as
   let bypass = false;
   try {
     const session = readSession(getRequest());
-    bypass = Boolean(session?.email && session.email === ADMIN_EMAIL);
+    if (session?.email) bypass = await isAdminUser({ email: session.email, userId: session.supabase_id });
   } catch { /* not signed in */ }
 
   return { enabled, bypass };
@@ -34,7 +34,7 @@ export const setMaintenanceMode = createServerFn({ method: "POST" })
   .middleware([requireDirectAuth])
   .inputValidator((d: { enabled: boolean }) => z.object({ enabled: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
-    if ((context as { email?: string }).email !== ADMIN_EMAIL) throw new Error("Forbidden");
+    if (!(await isAdminUser(context))) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("app_settings").upsert({
       key: KEY,

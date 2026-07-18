@@ -1,23 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, isAdminUser } from "@/lib/direct-auth-middleware.server";
 
 const ALL_TABLES = [
   "app_settings",
   "profiles",
   "user_roles",
-  "transactions",
   "cases",
   "case_messages",
-  "deposits",
   "books",
   "book_purchases",
   "book_reviews",
+  "newsletter_subscribers",
 ];
 
 export const runDatabaseMigration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    if ((context as { email?: string }).email !== ADMIN_EMAIL) throw new Error("Forbidden");
+    if (!(await isAdminUser(context))) throw new Error("Forbidden");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -66,10 +65,8 @@ export const runDatabaseMigration = createServerFn({ method: "POST" })
 create table if not exists app_settings (key text primary key, value jsonb not null);
 create table if not exists profiles (id uuid references auth.users on delete cascade primary key, username text unique, full_name text, balance numeric(10,4) default 0 not null, created_at timestamptz default now() not null);
 create table if not exists user_roles (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, role text not null, created_at timestamptz default now() not null, unique(user_id, role));
-create table if not exists transactions (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, amount numeric(10,4) not null, type text not null, description text, created_at timestamptz default now() not null);
 create table if not exists cases (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, subject text not null, category text not null, priority text default 'normal' not null, status text default 'open' not null, order_id uuid, last_activity_at timestamptz default now() not null, created_at timestamptz default now() not null);
 create table if not exists case_messages (id uuid default gen_random_uuid() primary key, case_id uuid references cases on delete cascade not null, author_id uuid references auth.users on delete cascade not null, body text not null, is_staff boolean default false not null, attachments jsonb default '[]'::jsonb not null, created_at timestamptz default now() not null);
-create table if not exists deposits (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, amount_usd numeric(12,4) not null check (amount_usd > 0), credited_usd numeric(12,4), status text default 'pending' not null, provider text default 'heleket' not null, provider_uuid text, payment_url text, payer_currency text, txid text, created_at timestamptz default now() not null, updated_at timestamptz default now() not null);
 create table if not exists books (id uuid default gen_random_uuid() primary key, slug text unique not null, title text not null, author text, description text, category text default 'General' not null, level text default 'All levels' not null, pages integer, price_usd numeric(10,2) not null check (price_usd > 0), cover_url text, file_path text, published boolean default false not null, sort integer default 0 not null, created_at timestamptz default now() not null, updated_at timestamptz default now() not null);
 create table if not exists book_purchases (id uuid default gen_random_uuid() primary key, user_id uuid references auth.users on delete cascade not null, book_id uuid references books on delete restrict not null, amount_usd numeric(10,2) not null, currency text default 'usd' not null, stripe_session_id text unique, stripe_payment_intent text, status text default 'pending' not null, created_at timestamptz default now() not null, paid_at timestamptz);
 alter table book_purchases add column if not exists delivery_status text default 'pending' not null;
@@ -82,6 +79,8 @@ alter table book_purchases add column if not exists refund_processed_at timestam
 alter table book_purchases add column if not exists stripe_refund_id text;
 create index if not exists book_purchases_user_idx on book_purchases (user_id, created_at desc);
 create table if not exists book_reviews (id uuid default gen_random_uuid() primary key, book_id uuid references books on delete cascade not null, user_id uuid references auth.users on delete cascade not null, rating integer not null check (rating between 1 and 5), body text not null, created_at timestamptz default now() not null, updated_at timestamptz default now() not null, unique (book_id, user_id));
+create table if not exists newsletter_subscribers (id uuid default gen_random_uuid() primary key, email text unique not null, subscribed_at timestamptz default now() not null, unsubscribed_at timestamptz);
+alter table newsletter_subscribers enable row level security;
 alter table books add column if not exists announced_at timestamptz;
 alter table books add column if not exists language text default 'English';
 alter table profiles add column if not exists marketing_opt_out boolean default false not null;

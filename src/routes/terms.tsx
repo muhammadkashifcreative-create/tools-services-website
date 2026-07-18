@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 
@@ -31,11 +31,11 @@ function TermsPage() {
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">3. Account Registration</h3>
-            <p className="mt-2">You must register using a valid Google account. You are responsible for maintaining the confidentiality of your account and all activity that occurs under it. You must be at least 18 years old to use our services.</p>
+            <p className="mt-2">You must register with a valid email address and password. You are responsible for maintaining the confidentiality of your account and all activity that occurs under it. You must be at least 18 years old to use our services.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">4. Payments</h3>
-            <p className="mt-2">All purchases are charged in USD (displayed in your local currency for reference) and processed securely by Stripe. We never see or store your card details. Any legacy wallet balance on your account remains subject to our Refund Policy.</p>
+            <p className="mt-2">All purchases are charged in USD (displayed in your local currency for reference) and processed securely by Stripe. Checkout takes place on our website — we never see or store your card details.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">5. Delivery & Cancellation</h3>
@@ -47,7 +47,7 @@ function TermsPage() {
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">7. Refunds</h3>
-            <p className="mt-2">Refund requests are reviewed on a case-by-case basis. Please refer to our <a href="/refund" className="text-primary hover:underline">Refund Policy</a> for full details. Approved refunds are returned to your original payment method via Stripe.</p>
+            <p className="mt-2">Refund requests are reviewed on a case-by-case basis. Please refer to our <Link to="/refund" className="text-primary hover:underline">Refund Policy</Link> for full details. Approved refunds are returned to your original payment method via Stripe.</p>
           </section>
           <section>
             <h3 className="text-base font-semibold text-foreground">8. Intellectual Property & Trademarks</h3>

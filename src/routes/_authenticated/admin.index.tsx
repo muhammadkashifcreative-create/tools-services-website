@@ -217,11 +217,15 @@ function AdminBody() {
             <SystemChip
               icon={Zap}
               label="Stripe Payments"
-              ok={stripeStatus?.configured}
+              ok={stripeStatus?.configured && stripeStatus?.webhookConfigured && stripeStatus?.publishableKeyConfigured}
               detail={
-                stripeStatus?.configured
-                  ? stripeStatus?.webhookConfigured ? "Key + webhook configured" : "Key set — webhook secret missing"
-                  : "Set STRIPE_SECRET_KEY in Vercel"
+                !stripeStatus?.configured
+                  ? "Set STRIPE_SECRET_KEY in Vercel"
+                  : !stripeStatus?.publishableKeyConfigured
+                    ? "Set VITE_STRIPE_PUBLISHABLE_KEY in Vercel — checkout page needs it"
+                    : !stripeStatus?.webhookConfigured
+                      ? "Key set — webhook secret missing"
+                      : "Secret key + webhook + publishable key configured"
               }
             />
             <SystemChip icon={Server} label="Database" ok={true} detail="Supabase" />
@@ -310,8 +314,8 @@ function AdminBody() {
                 {(orders ?? []).map((o) => (
                   <tr key={o.id} className="hover:bg-accent/40 transition-colors">
                     <td className="px-5 py-3">
-                      <div>{o.profile?.username ?? o.profile?.full_name ?? o.user_id.slice(0, 8)}</div>
-                      {o.email && <div className="flex items-center gap-1 text-xs text-muted-foreground"><Mail className="h-3 w-3" />{o.email}</div>}
+                      <div className="max-w-40 truncate">{o.profile?.username ?? o.profile?.full_name ?? o.user_id.slice(0, 8)}</div>
+                      {o.email && <div className="flex max-w-40 items-center gap-1 text-xs text-muted-foreground"><Mail className="h-3 w-3 shrink-0" /><span className="truncate">{o.email}</span></div>}
                     </td>
                     <td className="px-5 py-3">{o.name}</td>
                     <td className="px-5 py-3 text-right tabular-nums">
@@ -327,7 +331,7 @@ function AdminBody() {
                       ) : (
                         <button
                           onClick={() => setDelivering({ id: o.id, name: o.name, email: o.email, bookHasFile: o.book_has_file })}
-                          className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-2.5 py-1 text-xs font-bold text-white hover:bg-amber-600"
+                          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-amber-500 px-3 py-2.5 text-xs font-bold text-white hover:bg-amber-600"
                         >
                           <UploadCloud className="h-3 w-3" /> Needs delivery — Deliver
                         </button>
@@ -374,15 +378,15 @@ function AdminBody() {
                       <tr key={u.id} onClick={() => setSelectedUser(u.id)}
                         className={`cursor-pointer hover:bg-accent/40 transition-colors ${selectedUser === u.id ? "bg-primary/5" : ""}`}>
                         <td className="px-5 py-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex max-w-40 items-center gap-2">
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: "var(--gradient-accent)" }}>
                               {(u.full_name ?? u.username ?? "?").charAt(0).toUpperCase()}
                             </div>
-                            <span className="font-medium">{u.username ?? u.full_name ?? u.id.slice(0, 8)}</span>
+                            <span className="truncate font-medium">{u.username ?? u.full_name ?? u.id.slice(0, 8)}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3 text-muted-foreground text-xs">
-                          <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{(u as { email?: string }).email || "—"}</div>
+                        <td className="max-w-40 px-5 py-3 text-muted-foreground text-xs">
+                          <div className="flex items-center gap-1"><Mail className="h-3 w-3 shrink-0" /><span className="truncate">{(u as { email?: string }).email || "—"}</span></div>
                         </td>
                         <td className="px-5 py-3 text-right tabular-nums">{u.orders}</td>
                         <td className="px-5 py-3 text-right tabular-nums font-medium text-emerald-600">{rm(u.spent)}</td>
@@ -478,10 +482,10 @@ function DeliverModal({ purchase, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl border bg-card p-6 shadow-elegant">
+      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border bg-card p-6 shadow-elegant">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">Deliver book</h3>
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="rounded-md p-2.5 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{purchase.name}</span> for{" "}
@@ -627,21 +631,21 @@ function BooksTab() {
                       )}
                     </td>
                     <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2.5">
                         <button
                           onClick={() => setEditing(b)}
                           title="Edit book"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent"
                         >
-                          <Pencil className="h-3.5 w-3.5" />
+                          <Pencil className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => { if (confirm(`Delete "${b.title}"?`)) delMut.mutate(b.id); }}
                           disabled={delMut.isPending}
                           title="Delete book"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border text-destructive hover:bg-destructive/10 disabled:opacity-40"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-md border text-destructive hover:bg-destructive/10 disabled:opacity-40"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -748,7 +752,7 @@ function BookEditor({ book, myrRate, onClose }: { book: AdminBook | null; myrRat
       <div className="relative max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl border bg-card p-6 shadow-elegant">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">{book ? "Edit book" : "Add a new book"}</h3>
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="rounded-md p-2.5 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -918,18 +922,18 @@ function RefundsTab({ rm }: { rm: (usd: number) => string }) {
                 {r.refund_reason && <p className="mt-2 rounded-lg bg-muted/40 px-3 py-2 text-sm text-muted-foreground">“{r.refund_reason}”</p>}
               </div>
               {r.refund_status === "requested" && (
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
                   <button
                     onClick={() => { if (confirm(`Decline the refund request for "${r.book_title}"?`)) mut.mutate({ purchaseId: r.id, action: "reject" }); }}
                     disabled={mut.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-accent disabled:opacity-50"
                   >
                     <X className="h-3.5 w-3.5" /> Reject
                   </button>
                   <button
                     onClick={() => { if (confirm(`Approve and refund ${rm(r.amount_usd)} to ${r.customer_email || "the customer"}? This returns the money via Stripe.`)) mut.mutate({ purchaseId: r.id, action: "approve" }); }}
                     disabled={mut.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                   >
                     {mut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve &amp; refund
                   </button>
@@ -1008,9 +1012,9 @@ function ReviewsTab() {
                 onClick={() => { if (confirm(`Delete this review by ${r.author}?`)) delMut.mutate(r.id); }}
                 disabled={delMut.isPending}
                 title="Delete review"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-destructive hover:bg-destructive/10 disabled:opacity-40"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border text-destructive hover:bg-destructive/10 disabled:opacity-40"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           ))}

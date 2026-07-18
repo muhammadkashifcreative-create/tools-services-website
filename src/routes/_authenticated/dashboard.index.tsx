@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, BookOpen, Receipt, ShoppingBag, Wallet } from "lucide-react";
+import { ArrowRight, BookOpen, Receipt, ShoppingBag } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { getMyProfile } from "@/lib/wallet.functions";
 import { listMyBookPurchases } from "@/lib/books.functions";
@@ -105,7 +105,7 @@ function Dashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, sub }: { icon: typeof Wallet; label: string; value: string; sub?: string }) {
+function StatCard({ icon: Icon, label, value, sub }: { icon: typeof BookOpen; label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-xl border bg-card p-6">
       <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">

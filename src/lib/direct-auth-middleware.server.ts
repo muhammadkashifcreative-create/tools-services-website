@@ -24,6 +24,29 @@ export async function findUserIdByEmail(email: string): Promise<string | null> {
   return null;
 }
 
+/**
+ * True if this user is an admin — either the ADMIN_EMAIL account, or granted
+ * the "admin" role via `user_roles` (e.g. through claimFirstAdmin). Every
+ * privileged server function should gate through this rather than a bare
+ * `email === ADMIN_EMAIL` compare, so a second admin actually works.
+ */
+export async function isAdminUser(context: { email?: string; userId?: string }): Promise<boolean> {
+  if (context.email === ADMIN_EMAIL) return true;
+  if (!context.userId) return false;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .limit(1);
+    return (data ?? []).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export const requireDirectAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
     const request = getRequest();

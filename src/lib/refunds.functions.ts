@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, isAdminUser } from "@/lib/direct-auth-middleware.server";
 import { booksTable, bookPurchasesTable } from "@/lib/book-purchases.server";
 
 /**
@@ -9,8 +9,8 @@ import { booksTable, bookPurchasesTable } from "@/lib/book-purchases.server";
  * the Stripe refund is issued against the original payment intent.
  */
 
-function assertAdmin(ctx: { email?: string }) {
-  if ((ctx as { email?: string }).email !== ADMIN_EMAIL) throw new Error("Admins only");
+async function assertAdmin(ctx: { email?: string; userId?: string }) {
+  if (!(await isAdminUser(ctx))) throw new Error("Admins only");
 }
 
 function isMissingColumn(msg?: string | null): boolean {
@@ -97,7 +97,7 @@ export type AdminRefund = {
 export const adminListRefunds = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    assertAdmin(context);
+    await assertAdmin(context);
     const purchases = await bookPurchasesTable();
     const { data, error } = await purchases
       .select("id, user_id, book_id, amount_usd, refund_status, refund_reason, refund_requested_at, created_at")
@@ -164,7 +164,7 @@ export const adminResolveRefund = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    assertAdmin(context);
+    await assertAdmin(context);
     const purchases = await bookPurchasesTable();
     const { data: row, error } = await purchases
       .select("id, user_id, book_id, amount_usd, status, refund_status, stripe_payment_intent")

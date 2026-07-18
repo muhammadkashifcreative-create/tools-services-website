@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RefundRouteImport } from './routes/refund'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -22,6 +23,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ToolsIndexRouteImport } from './routes/tools.index'
 import { Route as BooksIndexRouteImport } from './routes/books.index'
 import { Route as ToolsStoreRouteImport } from './routes/tools.store'
+import { Route as CheckoutSlugRouteImport } from './routes/checkout.$slug'
 import { Route as BooksSlugRouteImport } from './routes/books.$slug'
 import { Route as ApiUnsubscribeRouteImport } from './routes/api/unsubscribe'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -29,7 +31,6 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
-import { Route as ApiHeleketWebhookRouteImport } from './routes/api/heleket/webhook'
 import { Route as ApiAuthVerifyEmailRouteImport } from './routes/api/auth/verify-email'
 import { Route as ApiAuthResetPasswordRouteImport } from './routes/api/auth/reset-password'
 import { Route as ApiAuthRegisterRouteImport } from './routes/api/auth/register'
@@ -38,7 +39,6 @@ import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api/auth/google'
 import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api/auth/forgot-password'
-import { Route as AuthenticatedDashboardWalletRouteImport } from './routes/_authenticated/dashboard.wallet'
 import { Route as AuthenticatedDashboardSupportRouteImport } from './routes/_authenticated/dashboard.support'
 import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
 import { Route as AuthenticatedDashboardLibraryRouteImport } from './routes/_authenticated/dashboard.library'
@@ -54,6 +54,11 @@ const ToolsRoute = ToolsRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RefundRoute = RefundRouteImport.update({
@@ -110,6 +115,11 @@ const ToolsStoreRoute = ToolsStoreRouteImport.update({
   path: '/store',
   getParentRoute: () => ToolsRoute,
 } as any)
+const CheckoutSlugRoute = CheckoutSlugRouteImport.update({
+  id: '/checkout/$slug',
+  path: '/checkout/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BooksSlugRoute = BooksSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
@@ -144,11 +154,6 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
 const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   id: '/api/stripe/webhook',
   path: '/api/stripe/webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiHeleketWebhookRoute = ApiHeleketWebhookRouteImport.update({
-  id: '/api/heleket/webhook',
-  path: '/api/heleket/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthVerifyEmailRoute = ApiAuthVerifyEmailRouteImport.update({
@@ -191,12 +196,6 @@ const ApiAuthForgotPasswordRoute = ApiAuthForgotPasswordRouteImport.update({
   path: '/api/auth/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedDashboardWalletRoute =
-  AuthenticatedDashboardWalletRouteImport.update({
-    id: '/wallet',
-    path: '/wallet',
-    getParentRoute: () => AuthenticatedDashboardRoute,
-  } as any)
 const AuthenticatedDashboardSupportRoute =
   AuthenticatedDashboardSupportRouteImport.update({
     id: '/support',
@@ -240,12 +239,14 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/api/unsubscribe': typeof ApiUnsubscribeRoute
   '/books/$slug': typeof BooksSlugRoute
+  '/checkout/$slug': typeof CheckoutSlugRoute
   '/tools/store': typeof ToolsStoreRoute
   '/books/': typeof BooksIndexRoute
   '/tools/': typeof ToolsIndexRoute
@@ -253,7 +254,6 @@ export interface FileRoutesByFullPath {
   '/dashboard/library': typeof AuthenticatedDashboardLibraryRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
-  '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
   '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
@@ -262,7 +262,6 @@ export interface FileRoutesByFullPath {
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
-  '/api/heleket/webhook': typeof ApiHeleketWebhookRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -276,9 +275,11 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/api/unsubscribe': typeof ApiUnsubscribeRoute
   '/books/$slug': typeof BooksSlugRoute
+  '/checkout/$slug': typeof CheckoutSlugRoute
   '/tools/store': typeof ToolsStoreRoute
   '/books': typeof BooksIndexRoute
   '/tools': typeof ToolsIndexRoute
@@ -286,7 +287,6 @@ export interface FileRoutesByTo {
   '/dashboard/library': typeof AuthenticatedDashboardLibraryRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
-  '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
   '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
@@ -295,7 +295,6 @@ export interface FileRoutesByTo {
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
-  '/api/heleket/webhook': typeof ApiHeleketWebhookRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
@@ -312,12 +311,14 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/api/unsubscribe': typeof ApiUnsubscribeRoute
   '/books/$slug': typeof BooksSlugRoute
+  '/checkout/$slug': typeof CheckoutSlugRoute
   '/tools/store': typeof ToolsStoreRoute
   '/books/': typeof BooksIndexRoute
   '/tools/': typeof ToolsIndexRoute
@@ -325,7 +326,6 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/library': typeof AuthenticatedDashboardLibraryRoute
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/_authenticated/dashboard/support': typeof AuthenticatedDashboardSupportRouteWithChildren
-  '/_authenticated/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
   '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
@@ -334,7 +334,6 @@ export interface FileRoutesById {
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/auth/reset-password': typeof ApiAuthResetPasswordRoute
   '/api/auth/verify-email': typeof ApiAuthVerifyEmailRoute
-  '/api/heleket/webhook': typeof ApiHeleketWebhookRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -351,12 +350,14 @@ export interface FileRouteTypes {
     | '/contact'
     | '/privacy'
     | '/refund'
+    | '/sitemap.xml'
     | '/terms'
     | '/tools'
     | '/admin'
     | '/dashboard'
     | '/api/unsubscribe'
     | '/books/$slug'
+    | '/checkout/$slug'
     | '/tools/store'
     | '/books/'
     | '/tools/'
@@ -364,7 +365,6 @@ export interface FileRouteTypes {
     | '/dashboard/library'
     | '/dashboard/orders'
     | '/dashboard/support'
-    | '/dashboard/wallet'
     | '/api/auth/forgot-password'
     | '/api/auth/google'
     | '/api/auth/login'
@@ -373,7 +373,6 @@ export interface FileRouteTypes {
     | '/api/auth/register'
     | '/api/auth/reset-password'
     | '/api/auth/verify-email'
-    | '/api/heleket/webhook'
     | '/api/stripe/webhook'
     | '/admin/'
     | '/dashboard/'
@@ -387,9 +386,11 @@ export interface FileRouteTypes {
     | '/contact'
     | '/privacy'
     | '/refund'
+    | '/sitemap.xml'
     | '/terms'
     | '/api/unsubscribe'
     | '/books/$slug'
+    | '/checkout/$slug'
     | '/tools/store'
     | '/books'
     | '/tools'
@@ -397,7 +398,6 @@ export interface FileRouteTypes {
     | '/dashboard/library'
     | '/dashboard/orders'
     | '/dashboard/support'
-    | '/dashboard/wallet'
     | '/api/auth/forgot-password'
     | '/api/auth/google'
     | '/api/auth/login'
@@ -406,7 +406,6 @@ export interface FileRouteTypes {
     | '/api/auth/register'
     | '/api/auth/reset-password'
     | '/api/auth/verify-email'
-    | '/api/heleket/webhook'
     | '/api/stripe/webhook'
     | '/admin'
     | '/dashboard'
@@ -422,12 +421,14 @@ export interface FileRouteTypes {
     | '/contact'
     | '/privacy'
     | '/refund'
+    | '/sitemap.xml'
     | '/terms'
     | '/tools'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/api/unsubscribe'
     | '/books/$slug'
+    | '/checkout/$slug'
     | '/tools/store'
     | '/books/'
     | '/tools/'
@@ -435,7 +436,6 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/library'
     | '/_authenticated/dashboard/orders'
     | '/_authenticated/dashboard/support'
-    | '/_authenticated/dashboard/wallet'
     | '/api/auth/forgot-password'
     | '/api/auth/google'
     | '/api/auth/login'
@@ -444,7 +444,6 @@ export interface FileRouteTypes {
     | '/api/auth/register'
     | '/api/auth/reset-password'
     | '/api/auth/verify-email'
-    | '/api/heleket/webhook'
     | '/api/stripe/webhook'
     | '/_authenticated/admin/'
     | '/_authenticated/dashboard/'
@@ -461,9 +460,11 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   PrivacyRoute: typeof PrivacyRoute
   RefundRoute: typeof RefundRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
   ApiUnsubscribeRoute: typeof ApiUnsubscribeRoute
+  CheckoutSlugRoute: typeof CheckoutSlugRoute
   ApiAuthForgotPasswordRoute: typeof ApiAuthForgotPasswordRoute
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
@@ -472,7 +473,6 @@ export interface RootRouteChildren {
   ApiAuthRegisterRoute: typeof ApiAuthRegisterRoute
   ApiAuthResetPasswordRoute: typeof ApiAuthResetPasswordRoute
   ApiAuthVerifyEmailRoute: typeof ApiAuthVerifyEmailRoute
-  ApiHeleketWebhookRoute: typeof ApiHeleketWebhookRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
 }
 
@@ -490,6 +490,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/refund': {
@@ -569,6 +576,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsStoreRouteImport
       parentRoute: typeof ToolsRoute
     }
+    '/checkout/$slug': {
+      id: '/checkout/$slug'
+      path: '/checkout/$slug'
+      fullPath: '/checkout/$slug'
+      preLoaderRoute: typeof CheckoutSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/books/$slug': {
       id: '/books/$slug'
       path: '/$slug'
@@ -616,13 +630,6 @@ declare module '@tanstack/react-router' {
       path: '/api/stripe/webhook'
       fullPath: '/api/stripe/webhook'
       preLoaderRoute: typeof ApiStripeWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/heleket/webhook': {
-      id: '/api/heleket/webhook'
-      path: '/api/heleket/webhook'
-      fullPath: '/api/heleket/webhook'
-      preLoaderRoute: typeof ApiHeleketWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/verify-email': {
@@ -680,13 +687,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/forgot-password'
       preLoaderRoute: typeof ApiAuthForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/dashboard/wallet': {
-      id: '/_authenticated/dashboard/wallet'
-      path: '/wallet'
-      fullPath: '/dashboard/wallet'
-      preLoaderRoute: typeof AuthenticatedDashboardWalletRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
     }
     '/_authenticated/dashboard/support': {
       id: '/_authenticated/dashboard/support'
@@ -765,7 +765,6 @@ interface AuthenticatedDashboardRouteChildren {
   AuthenticatedDashboardLibraryRoute: typeof AuthenticatedDashboardLibraryRoute
   AuthenticatedDashboardOrdersRoute: typeof AuthenticatedDashboardOrdersRoute
   AuthenticatedDashboardSupportRoute: typeof AuthenticatedDashboardSupportRouteWithChildren
-  AuthenticatedDashboardWalletRoute: typeof AuthenticatedDashboardWalletRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
 }
 
@@ -775,7 +774,6 @@ const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
     AuthenticatedDashboardOrdersRoute: AuthenticatedDashboardOrdersRoute,
     AuthenticatedDashboardSupportRoute:
       AuthenticatedDashboardSupportRouteWithChildren,
-    AuthenticatedDashboardWalletRoute: AuthenticatedDashboardWalletRoute,
     AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   }
 
@@ -842,9 +840,11 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   PrivacyRoute: PrivacyRoute,
   RefundRoute: RefundRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
   ApiUnsubscribeRoute: ApiUnsubscribeRoute,
+  CheckoutSlugRoute: CheckoutSlugRoute,
   ApiAuthForgotPasswordRoute: ApiAuthForgotPasswordRoute,
   ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
@@ -853,7 +853,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthRegisterRoute: ApiAuthRegisterRoute,
   ApiAuthResetPasswordRoute: ApiAuthResetPasswordRoute,
   ApiAuthVerifyEmailRoute: ApiAuthVerifyEmailRoute,
-  ApiHeleketWebhookRoute: ApiHeleketWebhookRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport

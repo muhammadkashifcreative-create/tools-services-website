@@ -2,9 +2,8 @@ import { Link, useRouter, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { LayoutDashboard, Wallet, Receipt, Shield, LogOut, Bell, BookOpen, LifeBuoy, ShoppingBag } from "lucide-react";
+import { LayoutDashboard, Receipt, Shield, LogOut, Bell, BookOpen, LifeBuoy, ShoppingBag } from "lucide-react";
 import { getMyProfile } from "@/lib/wallet.functions";
-import { getUserCurrency } from "@/lib/geo.functions";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { BrandMark } from "@/components/BrandMark";
@@ -17,15 +16,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
     queryKey: ["profile"],
     queryFn: () => fetchProfile(),
   });
-  const fetchCurrency = useServerFn(getUserCurrency);
-  const { data: ccy } = useQuery({
-    queryKey: ["user-currency"],
-    queryFn: () => fetchCurrency(),
-    staleTime: 30 * 60 * 1000,
-  });
-  const symbol = ccy?.symbol ?? "$";
-  const fx = ccy?.rate ?? 1;
-  const fmtBal = (usd: number) => `${symbol}${(usd * fx).toFixed(2)}`;
   const router = useRouter();
   const qc = useQueryClient();
   const location = useLocation();
@@ -40,7 +30,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const subNav: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
     { to: "/dashboard/library", label: "My Library", icon: BookOpen },
     { to: "/dashboard/orders", label: "Purchases", icon: Receipt },
-    { to: "/dashboard/wallet", label: "Wallet", icon: Wallet },
     { to: "/dashboard/support", label: "Cases", icon: LifeBuoy },
   ];
 
@@ -114,15 +103,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           )}
         </nav>
         <div className="border-t border-border/60 p-4">
-          <div className="mb-3 rounded-xl border border-border/60 p-3 shadow-soft" style={{ background: "var(--gradient-card)" }}>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Balance</p>
-            <p className="mt-1 text-xl font-bold tabular-nums text-gradient">
-              {fmtBal(Number(profile?.balance ?? 0))}
-            </p>
-            <Link to="/dashboard/wallet" className="mt-2 inline-block text-xs font-semibold text-primary hover:underline">
-              + Top up
-            </Link>
-          </div>
           <div className="mb-3 text-sm">
             <p className="font-medium truncate">{profile?.full_name || profile?.username || "Member"}</p>
           </div>
@@ -159,14 +139,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
             >
               <ShoppingBag className="h-3.5 w-3.5" /> Browse books
             </Link>
-            <Link
-              to="/dashboard/wallet"
-              className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card px-2.5 py-1.5 text-[11px] font-semibold tabular-nums text-foreground shadow-soft transition hover:border-primary/40 sm:gap-1.5 sm:px-3 sm:text-xs"
-              title="Wallet balance"
-            >
-              <Wallet className="h-3.5 w-3.5 text-primary" />
-              {fmtBal(Number(profile?.balance ?? 0))}
-            </Link>
             <button
               type="button"
               aria-label="Notifications"
@@ -200,15 +172,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold truncate">{profile?.full_name || profile?.username || "Member"}</p>
                         {profile?.email && <p className="text-xs text-muted-foreground truncate">{profile.email}</p>}
-                        <p className="text-xs text-primary font-semibold tabular-nums">{fmtBal(Number(profile?.balance ?? 0))}</p>
                       </div>
                     </div>
                     {/* Links */}
                     <div className="py-1">
-                      <Link to="/dashboard/wallet" onClick={() => setAvatarMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition">
-                        <Wallet className="h-4 w-4 text-primary" /> Wallet
-                      </Link>
                       <Link to="/dashboard/support" onClick={() => setAvatarMenuOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition">
                         <LifeBuoy className="h-4 w-4 text-primary" /> Support

@@ -1,14 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, isAdminUser } from "@/lib/direct-auth-middleware.server";
 import { z } from "zod";
 
 const CategoryEnum = z.enum(["order_issue", "refund", "payment", "account", "technical", "other"]);
 const PriorityEnum = z.enum(["low", "normal", "high", "urgent"]);
 const StatusEnum = z.enum(["open", "pending", "resolved", "closed"]);
-
-function isAdmin(ctx: { email?: string }) {
-  return (ctx as { email?: string }).email === ADMIN_EMAIL;
-}
 
 export const listMyCases = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -27,7 +23,7 @@ export const getCase = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { caseId: string }) => z.object({ caseId: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const admin = isAdmin(context as never);
+    const admin = await isAdminUser(context);
     const query = context.supabase
       .from("cases")
       .select("id, user_id, subject, category, priority, status, order_id, last_activity_at, created_at")
@@ -103,7 +99,17 @@ export const addCaseMessage = createServerFn({ method: "POST" })
     z.object({ caseId: z.string().uuid(), body: z.string().min(1).max(4000) }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const admin = isAdmin(context as never);
+    const admin = await isAdminUser(context);
+
+    // Only the case owner or an admin may post into a case.
+    const { data: caseCheck } = await context.supabase
+      .from("cases")
+      .select("user_id")
+      .eq("id", data.caseId)
+      .maybeSingle();
+    if (!caseCheck) throw new Error("Case not found");
+    if (!admin && caseCheck.user_id !== context.userId) throw new Error("Forbidden");
+
     const { error } = await context.supabase
       .from("case_messages")
       .insert({ case_id: data.caseId, author_id: context.userId, is_staff: admin, body: data.body });
@@ -146,6 +152,15 @@ export const updateCaseStatus = createServerFn({ method: "POST" })
     z.object({ caseId: z.string().uuid(), status: StatusEnum }).parse(d),
   )
   .handler(async ({ context, data }) => {
+    const admin = await isAdminUser(context);
+    const { data: caseCheck } = await context.supabase
+      .from("cases")
+      .select("user_id")
+      .eq("id", data.caseId)
+      .maybeSingle();
+    if (!caseCheck) throw new Error("Case not found");
+    if (!admin && caseCheck.user_id !== context.userId) throw new Error("Forbidden");
+
     const { error } = await context.supabase
       .from("cases")
       .update({ status: data.status })
@@ -157,7 +172,7 @@ export const updateCaseStatus = createServerFn({ method: "POST" })
 export const adminListAllCases = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    if (!isAdmin(context as never)) throw new Error("Forbidden");
+    if (!(await isAdminUser(context))) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("cases")

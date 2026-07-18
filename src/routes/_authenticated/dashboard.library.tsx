@@ -18,13 +18,14 @@ function LibraryPage() {
   const fetchLibrary = useServerFn(getMyLibrary);
   const reconcile = useServerFn(reconcileMyPurchases);
 
-  // Stripe redirects here after checkout (?session_id=...). Reconcile
-  // immediately so the book appears even if the webhook hasn't landed yet.
+  // Our /checkout page lands here after payment (?justPaid=1 on immediate
+  // success, or ?payment_intent=... when Stripe redirected for 3D Secure).
+  // Reconcile immediately so the book appears even if the webhook hasn't landed yet.
   const fromCheckout = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("session_id")) {
+    if (params.get("justPaid") || params.get("payment_intent")) {
       fromCheckout.current = true;
       window.history.replaceState(null, "", "/dashboard/library");
     }
@@ -83,7 +84,7 @@ function LibraryPage() {
                 <div key={item.purchase_id} className="flex gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
                   <div className="w-20 shrink-0 overflow-hidden rounded-lg border border-border/60 sm:w-24">
                     {item.book.cover_url ? (
-                      <img src={item.book.cover_url} alt="" className="aspect-[3/4] w-full object-cover" />
+                      <img src={item.book.cover_url} alt={`${item.book.title} cover`} className="aspect-[3/4] w-full object-cover" />
                     ) : (
                       <div className="flex aspect-[3/4] w-full items-center justify-center" style={{ background: "var(--gradient-card)" }}>
                         <BookOpen className="h-6 w-6 text-primary/60" />

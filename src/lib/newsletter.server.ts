@@ -16,21 +16,27 @@ function unsubSecret(): string {
   return process.env.SUPABASE_SERVICE_ROLE_KEY ?? "unconfigured-unsub-secret";
 }
 
-export function unsubscribeToken(userId: string): string {
-  return createHmac("sha256", unsubSecret()).update(`unsub:${userId}`).digest("hex").slice(0, 32);
+export function unsubscribeToken(id: string): string {
+  return createHmac("sha256", unsubSecret()).update(`unsub:${id}`).digest("hex").slice(0, 32);
 }
 
-export function verifyUnsubscribeToken(userId: string, token: string): boolean {
-  const expected = Buffer.from(unsubscribeToken(userId));
+export function verifyUnsubscribeToken(id: string, token: string): boolean {
+  const expected = Buffer.from(unsubscribeToken(id));
   const given = Buffer.from(token);
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
+/** Unsubscribe link for a registered account (flips profiles.marketing_opt_out). */
 export function unsubscribeUrl(userId: string): string {
   return `${BASE_URL}/api/unsubscribe?u=${encodeURIComponent(userId)}&t=${unsubscribeToken(userId)}`;
 }
 
-type Recipient = { id: string; email: string; name: string };
+/** Unsubscribe link for a footer newsletter signup (not a registered account). */
+export function subscriberUnsubscribeUrl(subscriberId: string): string {
+  return `${BASE_URL}/api/unsubscribe?s=${encodeURIComponent(subscriberId)}&t=${unsubscribeToken(subscriberId)}`;
+}
+
+type Recipient = { id: string; email: string; name: string; unsubUrl: string };
 
 async function collectRecipients(): Promise<Recipient[]> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -47,16 +53,32 @@ async function collectRecipients(): Promise<Recipient[]> {
   } catch { /* column may not exist yet — everyone stays subscribed */ }
 
   const recipients: Recipient[] = [];
+  const seenEmails = new Set<string>();
   for (let page = 1; page <= 10; page++) {
     const { data } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
     const users = data?.users ?? [];
     for (const u of users) {
       if (!u.email || optedOut.has(u.id)) continue;
       const name = ((u.user_metadata as { name?: string } | null)?.name ?? u.email.split("@")[0]) || "there";
-      recipients.push({ id: u.id, email: u.email, name });
+      recipients.push({ id: u.id, email: u.email, name, unsubUrl: unsubscribeUrl(u.id) });
+      seenEmails.add(u.email.toLowerCase());
     }
     if (users.length < 1000) break;
   }
+
+  // Footer newsletter signups — visitors without an account.
+  try {
+    const { data } = await (supabaseAdmin as unknown as SupabaseClient)
+      .from("newsletter_subscribers")
+      .select("id, email")
+      .is("unsubscribed_at", null);
+    for (const row of (data ?? []) as Array<{ id: string; email: string }>) {
+      if (seenEmails.has(row.email.toLowerCase())) continue; // already getting it as a registered user
+      recipients.push({ id: row.id, email: row.email, name: "there", unsubUrl: subscriberUnsubscribeUrl(row.id) });
+      seenEmails.add(row.email.toLowerCase());
+    }
+  } catch { /* table may not exist yet — registered users still get announced */ }
+
   return recipients;
 }
 
@@ -92,7 +114,7 @@ export async function announceBook(bookId: string): Promise<AnnounceResult> {
 
   const { sendNewBookAnnouncement } = await import("@/lib/email.server");
   const sent = await sendNewBookAnnouncement(
-    recipients.map((r) => ({ email: r.email, name: r.name, unsubUrl: unsubscribeUrl(r.id) })),
+    recipients.map((r) => ({ email: r.email, name: r.name, unsubUrl: r.unsubUrl })),
     book,
     priceLabel,
   );

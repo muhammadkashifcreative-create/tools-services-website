@@ -1,12 +1,20 @@
 import { Link } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { BrandMark } from "@/components/BrandMark";
 import { useI18n } from "@/lib/i18n";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, Check, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
+import { subscribeToNewsletter } from "@/lib/newsletter.functions";
 
 export function SiteFooter() {
   const { t } = useI18n();
   const [email, setEmail] = useState("");
+  const subscribe = useServerFn(subscribeToNewsletter);
+  const subscribeMut = useMutation({
+    mutationFn: () => subscribe({ data: { email } }),
+    onSuccess: () => setEmail(""),
+  });
 
   const productLinks = [
     { label: t("nav.books") ?? "Guide Books", to: "/books" },
@@ -57,21 +65,41 @@ export function SiteFooter() {
               <p className="mb-2.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Stay updated
               </p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="flex-1 rounded-lg border border-border/60 bg-card/50 px-3.5 py-2 text-sm text-foreground outline-none ring-primary/30 transition-all placeholder:text-muted-foreground/60 focus:ring-2"
-                />
-                <button
-                  className="flex items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:brightness-110 active:scale-95"
-                  onClick={() => setEmail("")}
+              {subscribeMut.isSuccess ? (
+                <p className="flex items-center gap-2 text-sm font-medium text-emerald-600">
+                  <Check className="h-4 w-4" /> You're subscribed — thanks!
+                </p>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (email.trim()) subscribeMut.mutate();
+                  }}
                 >
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your email"
+                      disabled={subscribeMut.isPending}
+                      className="min-w-0 flex-1 rounded-lg border border-border/60 bg-card/50 px-3.5 py-2 text-sm text-foreground outline-none ring-primary/30 transition-all placeholder:text-muted-foreground/60 focus:ring-2 disabled:opacity-60"
+                    />
+                    <button
+                      type="submit"
+                      disabled={subscribeMut.isPending || !email.trim()}
+                      aria-label="Subscribe"
+                      className="flex shrink-0 items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:brightness-110 active:scale-95 disabled:opacity-60"
+                    >
+                      {subscribeMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {subscribeMut.isError && (
+                    <p className="mt-2 text-xs text-destructive">{(subscribeMut.error as Error).message}</p>
+                  )}
+                </form>
+              )}
             </div>
           </div>
 

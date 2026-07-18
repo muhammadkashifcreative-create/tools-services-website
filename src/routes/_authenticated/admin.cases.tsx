@@ -274,15 +274,16 @@ function CaseModal({ caseId, onClose }: { caseId: string; onClose: () => void })
               <button
                 onClick={() => statusMut.mutate("resolved")}
                 disabled={statusMut.isPending}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                title="Mark resolved"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 sm:px-3 sm:py-1.5"
               >
                 {statusMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                Resolve
+                <span className="hidden sm:inline">Resolve</span>
               </button>
             )}
             <button
               onClick={onClose}
-              className="rounded-lg border border-border bg-card p-1.5 hover:bg-accent transition"
+              className="rounded-lg border border-border bg-card p-2.5 hover:bg-accent transition"
             >
               <X className="h-4 w-4" />
             </button>

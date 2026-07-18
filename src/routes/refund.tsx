@@ -52,11 +52,6 @@ function RefundPage() {
           </section>
 
           <section>
-            <h3 className="text-base font-semibold text-foreground">Legacy Wallet Balances</h3>
-            <p className="mt-2">If your account holds a wallet balance from our earlier store, it remains usable where offered and is not refundable to the original payment method. For questions about a wallet balance, contact <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a>.</p>
-          </section>
-
-          <section>
             <h3 className="text-base font-semibold text-foreground">Contact Us</h3>
             <p className="mt-2">Open a support case from your dashboard or email <a href="mailto:socialpadu@gmail.com" className="text-primary hover:underline">socialpadu@gmail.com</a>. Please include your purchase ID and a clear description of the issue to help us resolve it quickly.</p>
           </section>

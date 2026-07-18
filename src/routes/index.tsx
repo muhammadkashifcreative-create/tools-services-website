@@ -11,7 +11,6 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Social Padu — Software Guide Books" },
-      { name: "heleket", content: "04c9813d" },
       { name: "description", content: "Practical guide books for computer software — Excel, Photoshop, Python, AI tools and more. Step-by-step PDF guides, instant download after secure card checkout." },
       { property: "og:title", content: "Social Padu — Software Guide Books" },
       { property: "og:description", content: "Step-by-step software guide books. Buy once, download instantly, keep forever." },

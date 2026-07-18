@@ -219,7 +219,7 @@ function AuthPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === "signup" && (
                 <Field label="Full name" icon={User}>
-                  <input type="text" required placeholder="Muhammad Kashif" value={form.name} onChange={set("name")}
+                  <input type="text" required placeholder="Jane Doe" value={form.name} onChange={set("name")}
                     className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 ring-primary/30 transition" />
                 </Field>
               )}

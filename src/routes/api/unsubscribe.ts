@@ -10,6 +10,8 @@ export const Route = createFileRoute("/api/unsubscribe")({
       GET: async ({ request }) => {
         const url = new URL(request.url);
         const userId = url.searchParams.get("u") ?? "";
+        const subscriberId = url.searchParams.get("s") ?? "";
+        const id = userId || subscriberId;
         const token = url.searchParams.get("t") ?? "";
 
         const page = (title: string, message: string) =>
@@ -25,16 +27,23 @@ export const Route = createFileRoute("/api/unsubscribe")({
           );
 
         const { verifyUnsubscribeToken } = await import("@/lib/newsletter.server");
-        if (!userId || !token || !verifyUnsubscribeToken(userId, token)) {
+        if (!id || !token || !verifyUnsubscribeToken(id, token)) {
           return page("Link not valid", "This unsubscribe link is invalid or has expired. If you keep receiving emails you don't want, contact socialpadu@gmail.com.");
         }
 
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          await supabaseAdmin
-            .from("profiles")
-            .update({ marketing_opt_out: true } as never)
-            .eq("id", userId);
+          if (userId) {
+            await supabaseAdmin
+              .from("profiles")
+              .update({ marketing_opt_out: true } as never)
+              .eq("id", userId);
+          } else {
+            await supabaseAdmin
+              .from("newsletter_subscribers" as "profiles")
+              .update({ unsubscribed_at: new Date().toISOString() } as never)
+              .eq("id", subscriberId);
+          }
         } catch {
           return page("Something went wrong", "We couldn't update your preference just now. Please try the link again later or contact socialpadu@gmail.com.");
         }

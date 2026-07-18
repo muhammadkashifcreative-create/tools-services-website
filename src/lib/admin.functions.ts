@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, isAdminUser } from "@/lib/direct-auth-middleware.server";
 import { booksTable, bookPurchasesTable } from "@/lib/book-purchases.server";
 
-function assertAdmin(context: { email?: string }) {
-  if ((context as { email?: string }).email !== ADMIN_EMAIL) throw new Error("Forbidden");
+async function assertAdmin(context: { email?: string; userId?: string }) {
+  if (!(await isAdminUser(context))) throw new Error("Forbidden");
 }
 
 type PurchaseRow = {

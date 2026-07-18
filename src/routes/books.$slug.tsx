@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import {
-  getBookBySlugPublic, createBookCheckout,
+  getBookBySlugPublic,
   listBookReviews, getMyBookReview, upsertMyBookReview, deleteBookReview,
   type Book, type BookReview,
 } from "@/lib/books.functions";
@@ -36,7 +36,6 @@ export const Route = createFileRoute("/books/$slug")({
 function BookDetailPage() {
   const { book, soldCount } = Route.useLoaderData() as { book: Book | null; soldCount: number };
   const fetchCurrency = useServerFn(getUserCurrency);
-  const checkout = useServerFn(createBookCheckout);
   const fetchReviews = useServerFn(listBookReviews);
 
   // Rating summary for the header — shares the ["bookReviews", id] cache with
@@ -52,13 +51,6 @@ function BookDetailPage() {
     fetch("/api/auth/me").then((r) => setAuthed(r.ok)).catch(() => setAuthed(false));
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("canceled")) {
-      toast.info("Checkout canceled — your card was not charged.");
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, []);
-
   const { data: ccy } = useQuery({
     queryKey: ["user-currency"],
     queryFn: () => fetchCurrency(),
@@ -66,12 +58,6 @@ function BookDetailPage() {
   });
   const fxSymbol = ccy?.symbol ?? "$";
   const fxRate = ccy?.rate ?? 1;
-
-  const buyMut = useMutation({
-    mutationFn: () => checkout({ data: { bookId: book!.id } }),
-    onSuccess: (r) => { window.location.href = r.checkoutUrl; },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   if (!book) {
     return (
@@ -165,16 +151,15 @@ function BookDetailPage() {
                   <p className="mt-1 text-xs text-muted-foreground">${Number(book.price_usd).toFixed(2)} USD · one-time payment</p>
                 </div>
                 {authed ? (
-                  <button
-                    type="button"
-                    onClick={() => buyMut.mutate()}
-                    disabled={buyMut.isPending}
-                    className="inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90 disabled:opacity-60"
+                  <Link
+                    to="/checkout/$slug"
+                    params={{ slug: book.slug }}
+                    className="inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90"
                     style={{ background: "var(--gradient-accent)" }}
                   >
-                    {buyMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                    <CreditCard className="h-4 w-4" />
                     Buy now — secure checkout
-                  </button>
+                  </Link>
                 ) : (
                   <Link
                     to="/auth"

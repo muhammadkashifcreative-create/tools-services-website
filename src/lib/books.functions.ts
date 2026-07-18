@@ -1,9 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireDirectAuth as requireSupabaseAuth, ADMIN_EMAIL } from "@/lib/direct-auth-middleware.server";
+import { requireDirectAuth as requireSupabaseAuth, isAdminUser } from "@/lib/direct-auth-middleware.server";
 import { booksTable, bookPurchasesTable, bookReviewsTable, settleBookPurchase, type BookPurchaseRow } from "@/lib/book-purchases.server";
-
-const SITE_URL = process.env.SITE_URL ?? "https://www.socialpadu.my";
 
 export type Book = {
   id: string;
@@ -36,8 +34,8 @@ export type LibraryItem = {
   download_url: string | null;
 };
 
-function assertAdmin(ctx: { email?: string }) {
-  if ((ctx as { email?: string }).email !== ADMIN_EMAIL) throw new Error("Admins only");
+async function assertAdmin(ctx: { email?: string; userId?: string }) {
+  if (!(await isAdminUser(ctx))) throw new Error("Admins only");
 }
 
 const PUBLIC_BOOK_COLS = "id, slug, title, author, description, category, level, pages, price_usd, cover_url, published, sort, created_at";
@@ -124,31 +122,73 @@ export const getBookBySlugPublic = createServerFn({ method: "GET" })
     return { book, soldCount };
   });
 
-// ---------- Checkout (Stripe) ----------
+// ---------- Checkout (Stripe Elements, embedded on our own /checkout page) ----------
 
-export const createBookCheckout = createServerFn({ method: "POST" })
+export type CheckoutBook = { id: string; slug: string; title: string; author: string | null; price_usd: number; cover_url: string | null };
+
+/**
+ * Starts (or resumes) checkout for a book: creates the pending purchase row
+ * and a Stripe PaymentIntent, returning the client secret our /checkout page
+ * mounts Stripe Elements against. Refreshing the checkout page reuses the
+ * same pending PaymentIntent instead of creating a new one each time.
+ */
+export const createBookPaymentIntent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { bookId: string }) => z.object({ bookId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const books = await booksTable();
     const { data: book, error } = await books
-      .select("id, slug, title, price_usd, cover_url, published")
+      .select("id, slug, title, author, price_usd, cover_url, published")
       .eq("id", data.bookId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!book || !(book as { published: boolean }).published) throw new Error("This book is not available.");
 
-    const b = book as { id: string; slug: string; title: string; price_usd: number; cover_url: string | null };
+    const b = book as { id: string; slug: string; title: string; author: string | null; price_usd: number; cover_url: string | null };
 
-    // Already owned? Don't charge twice.
+    // Already owned (and not refunded since)? Don't charge twice.
     const purchases = await bookPurchasesTable();
     const { data: owned } = await purchases
-      .select("id")
+      .select("id, refund_status")
       .eq("user_id", context.userId)
       .eq("book_id", b.id)
       .eq("status", "paid")
-      .limit(1);
-    if (owned && owned.length > 0) throw new Error("You already own this book — find it in your Library.");
+      .limit(5);
+    const stillOwned = ((owned ?? []) as Array<{ id: string; refund_status?: string | null }>).some((o) => o.refund_status !== "refunded");
+    if (stillOwned) throw new Error("You already own this book — find it in your Library.");
+
+    const { isStripeConfigured, createPaymentIntent, retrievePaymentIntent } = await import("@/lib/stripe.server");
+    if (!isStripeConfigured()) throw new Error("Payments are not configured yet. Please contact support.");
+
+    const amountUsdCents = Math.round(Number(b.price_usd) * 100);
+    const email = (context as { email?: string }).email ?? null;
+
+    // Resume a still-open pending purchase instead of creating a duplicate PaymentIntent.
+    const since = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+    const { data: existing } = await purchases
+      .select("id, stripe_payment_intent")
+      .eq("user_id", context.userId)
+      .eq("book_id", b.id)
+      .eq("status", "pending")
+      .gte("created_at", since)
+      .not("stripe_payment_intent", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.stripe_payment_intent) {
+      try {
+        const intent = await retrievePaymentIntent(existing.stripe_payment_intent);
+        if (intent.client_secret && !["succeeded", "canceled"].includes(intent.status)) {
+          return {
+            clientSecret: intent.client_secret,
+            purchaseId: (existing as { id: string }).id,
+            amountUsdCents: intent.amount,
+            book: { id: b.id, slug: b.slug, title: b.title, author: b.author, price_usd: b.price_usd, cover_url: b.cover_url } as CheckoutBook,
+          };
+        }
+      } catch { /* intent gone or expired — fall through and create a fresh one */ }
+    }
 
     const { data: inserted, error: insErr } = await purchases
       .insert({
@@ -163,22 +203,60 @@ export const createBookCheckout = createServerFn({ method: "POST" })
     if (insErr) throw new Error(insErr.message);
     const purchaseId = (inserted as { id: string }).id;
 
-    const { createCheckoutSession } = await import("@/lib/stripe.server");
-    const session = await createCheckoutSession({
-      bookTitle: b.title,
-      amountUsdCents: Math.round(Number(b.price_usd) * 100),
-      coverUrl: b.cover_url,
-      customerEmail: (context as { email?: string }).email ?? null,
+    const intent = await createPaymentIntent({
+      amountUsdCents,
+      customerEmail: email,
       purchaseId,
       userId: context.userId,
       bookId: b.id,
-      successUrl: `${SITE_URL}/dashboard/library?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${SITE_URL}/books/${b.slug}?canceled=1`,
+      description: b.title,
     });
 
-    await purchases.update({ stripe_session_id: session.id }).eq("id", purchaseId);
-    if (!session.url) throw new Error("Stripe did not return a checkout URL.");
-    return { checkoutUrl: session.url };
+    await purchases.update({ stripe_payment_intent: intent.id }).eq("id", purchaseId);
+    if (!intent.client_secret) throw new Error("Stripe did not return a client secret.");
+
+    return {
+      clientSecret: intent.client_secret,
+      purchaseId,
+      amountUsdCents: intent.amount,
+      book: { id: b.id, slug: b.slug, title: b.title, author: b.author, price_usd: b.price_usd, cover_url: b.cover_url } as CheckoutBook,
+    };
+  });
+
+/** Validates a Stripe promotion code and applies the discount to the pending PaymentIntent. */
+export const applyCheckoutPromoCode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { purchaseId: string; code: string }) =>
+    z.object({ purchaseId: z.string().uuid(), code: z.string().trim().min(1).max(60) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const purchases = await bookPurchasesTable();
+    const { data: purchase } = await purchases
+      .select("id, user_id, book_id, status, stripe_payment_intent")
+      .eq("id", data.purchaseId)
+      .maybeSingle();
+    const p = purchase as { id: string; user_id: string; book_id: string; status: string; stripe_payment_intent: string | null } | null;
+    if (!p || p.user_id !== context.userId) throw new Error("Checkout session not found.");
+    if (p.status !== "pending" || !p.stripe_payment_intent) throw new Error("This checkout session has expired — go back and try again.");
+
+    const books = await booksTable();
+    const { data: book } = await books.select("price_usd").eq("id", p.book_id).maybeSingle();
+    const baseCents = Math.round(Number((book as { price_usd?: number } | null)?.price_usd ?? 0) * 100);
+    if (baseCents <= 0) throw new Error("This book is not available.");
+
+    const { findPromotionCode, updatePaymentIntentAmount } = await import("@/lib/stripe.server");
+    const promo = await findPromotionCode(data.code);
+    if (!promo || !promo.active || !promo.coupon.valid) throw new Error("That promo code isn't valid.");
+
+    let discounted = baseCents;
+    if (promo.coupon.percent_off != null) {
+      discounted = Math.round(baseCents * (1 - promo.coupon.percent_off / 100));
+    } else if (promo.coupon.amount_off != null) {
+      discounted = Math.max(50, baseCents - promo.coupon.amount_off); // Stripe's $0.50 minimum charge
+    }
+
+    const intent = await updatePaymentIntentAmount(p.stripe_payment_intent, discounted);
+    return { amountUsdCents: intent.amount };
   });
 
 /**
@@ -188,24 +266,24 @@ export const createBookCheckout = createServerFn({ method: "POST" })
 export const reconcileMyPurchases = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { isStripeConfigured, retrieveCheckoutSession } = await import("@/lib/stripe.server");
+    const { isStripeConfigured, retrievePaymentIntent } = await import("@/lib/stripe.server");
     if (!isStripeConfigured()) return { settled: 0 };
 
     const purchases = await bookPurchasesTable();
     const since = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
     const { data: pending } = await purchases
-      .select("id, stripe_session_id")
+      .select("id, stripe_payment_intent")
       .eq("user_id", context.userId)
       .eq("status", "pending")
       .gte("created_at", since)
-      .not("stripe_session_id", "is", null)
+      .not("stripe_payment_intent", "is", null)
       .limit(10);
 
     let settled = 0;
-    for (const row of (pending ?? []) as Array<{ id: string; stripe_session_id: string }>) {
+    for (const row of (pending ?? []) as Array<{ id: string; stripe_payment_intent: string }>) {
       try {
-        const session = await retrieveCheckoutSession(row.stripe_session_id);
-        const outcome = await settleBookPurchase(session);
+        const intent = await retrievePaymentIntent(row.stripe_payment_intent);
+        const outcome = await settleBookPurchase(intent);
         if (outcome === "granted") settled += 1;
       } catch { /* next reconcile retries */ }
     }
@@ -331,7 +409,7 @@ export const deleteBookReview = createServerFn({ method: "POST" })
   .inputValidator((d: { reviewId: string }) => z.object({ reviewId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const reviews = await bookReviewsTable();
-    const isAdmin = (context as { email?: string }).email === ADMIN_EMAIL;
+    const isAdmin = await isAdminUser(context);
     let query = reviews.delete().eq("id", data.reviewId);
     if (!isAdmin) query = query.eq("user_id", context.userId);
     const { error } = await query;
@@ -356,7 +434,7 @@ export type AdminReview = {
 export const adminListAllReviews = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    assertAdmin(context);
+    await assertAdmin(context);
     try {
       const reviews = await bookReviewsTable();
       const { data: rows, error } = await reviews
@@ -406,17 +484,29 @@ export const getMyLibrary = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const purchases = await bookPurchasesTable();
-    const { data: rows, error } = await purchases
-      .select("id, book_id, amount_usd, paid_at, delivery_status, delivered_file_path")
-      .eq("user_id", context.userId)
-      .eq("status", "paid")
-      .order("paid_at", { ascending: false });
-    if (error) {
-      if (error.message.includes("does not exist") || error.message.includes("schema cache")) return { items: [] as LibraryItem[] };
-      throw new Error(error.message);
+    const BASE_COLS = "id, book_id, amount_usd, paid_at, delivery_status, delivered_file_path";
+    const runSelect = (cols: string) =>
+      purchases.select(cols).eq("user_id", context.userId).eq("status", "paid").order("paid_at", { ascending: false });
+
+    type PurchaseRow = { id: string; book_id: string; amount_usd: number; paid_at: string | null; delivery_status: string; delivered_file_path: string | null; refund_status?: string | null };
+    let rows: PurchaseRow[] = [];
+    const withRefund = await runSelect(`${BASE_COLS}, refund_status`);
+    if (withRefund.error) {
+      if (!isMissingColumn(withRefund.error.message)) throw new Error(withRefund.error.message);
+      const base = await runSelect(BASE_COLS);
+      if (base.error) {
+        if (isMissingColumn(base.error.message)) return { items: [] as LibraryItem[] };
+        throw new Error(base.error.message);
+      }
+      rows = (base.data ?? []) as unknown as PurchaseRow[];
+    } else {
+      rows = (withRefund.data ?? []) as unknown as PurchaseRow[];
     }
 
-    const bookIds = Array.from(new Set((rows ?? []).map((r: { book_id: string }) => r.book_id)));
+    // A refunded purchase loses library/download access — the sale was reversed.
+    rows = rows.filter((r) => r.refund_status !== "refunded");
+
+    const bookIds = Array.from(new Set(rows.map((r) => r.book_id)));
     if (bookIds.length === 0) return { items: [] as LibraryItem[] };
 
     const books = await booksTable();
@@ -427,8 +517,7 @@ export const getMyLibrary = createServerFn({ method: "GET" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const items: LibraryItem[] = [];
-    type PurchaseRow = { id: string; book_id: string; amount_usd: number; paid_at: string | null; delivery_status: string; delivered_file_path: string | null };
-    for (const r of (rows ?? []) as PurchaseRow[]) {
+    for (const r of rows) {
       const book = byId.get(r.book_id) as (Pick<Book, "id" | "slug" | "title" | "author" | "category" | "cover_url" | "pages" | "level"> & { file_path: string | null }) | undefined;
       if (!book) continue;
       // A per-customer delivered file wins over the book's shared PDF
@@ -512,7 +601,7 @@ export const listMyBookPurchases = createServerFn({ method: "GET" })
 export const adminListBooks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    assertAdmin(context);
+    await assertAdmin(context);
     const books = await booksTable();
     const orderBooks = (cols: string) =>
       books.select(cols).order("sort", { ascending: true }).order("created_at", { ascending: false });
@@ -579,7 +668,7 @@ export const adminUpsertBook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: z.infer<typeof upsertSchema>) => upsertSchema.parse(d))
   .handler(async ({ data, context }) => {
-    assertAdmin(context);
+    await assertAdmin(context);
     const books = await booksTable();
     const row: Record<string, unknown> = {
       title: data.title,
@@ -643,7 +732,7 @@ export const adminDeleteBook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    assertAdmin(context);
+    await assertAdmin(context);
     const purchases = await bookPurchasesTable();
     const { data: sold } = await purchases.select("id").eq("book_id", data.id).eq("status", "paid").limit(1);
     if (sold && sold.length > 0) {
@@ -670,7 +759,7 @@ export const adminCreateUploadUrl = createServerFn({ method: "POST" })
     z.object({ kind: z.enum(["cover", "file"]), filename: z.string().min(1).max(200) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    assertAdmin(context);
+    await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const bucket = data.kind === "cover" ? "book-covers" : "book-files";
     const ext = (data.filename.split(".").pop() || (data.kind === "cover" ? "png" : "pdf")).toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -704,7 +793,7 @@ export const adminDeliverPurchase = createServerFn({ method: "POST" })
     z.object({ purchaseId: z.string().uuid(), filePath: z.string().max(300).optional().nullable() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    assertAdmin(context);
+    await assertAdmin(context);
     const purchases = await bookPurchasesTable();
     const { data: purchase, error } = await purchases
       .select("id, user_id, book_id, status, delivery_status")
@@ -753,9 +842,13 @@ export const adminDeliverPurchase = createServerFn({ method: "POST" })
 export const getStripeStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    assertAdmin(context);
+    await assertAdmin(context);
     const { isStripeConfigured } = await import("@/lib/stripe.server");
-    return { configured: isStripeConfigured(), webhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET) };
+    return {
+      configured: isStripeConfigured(),
+      webhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+      publishableKeyConfigured: Boolean(process.env.VITE_STRIPE_PUBLISHABLE_KEY),
+    };
   });
 
 /** Live USD→MYR rate so admin screens can show and accept prices in RM. */

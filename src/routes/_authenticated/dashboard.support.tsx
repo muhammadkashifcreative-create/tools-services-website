@@ -110,34 +110,36 @@ function SupportPage() {
               <p>No cases yet. Open one when you need help.</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3 text-left">Subject</th>
-                  <th className="px-5 py-3 text-left">Category</th>
-                  <th className="px-5 py-3 text-left">Priority</th>
-                  <th className="px-5 py-3 text-left">Status</th>
-                  <th className="px-5 py-3 text-left">Updated</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {(cases ?? []).map((c) => (
-                  <tr key={c.id} className="hover:bg-accent/40">
-                    <td className="px-5 py-3">
-                      <Link to="/dashboard/support/$caseId" params={{ caseId: c.id }} className="font-medium hover:underline">
-                        {c.subject}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3 capitalize text-muted-foreground">{c.category.replace("_", " ")}</td>
-                    <td className="px-5 py-3 capitalize">{c.priority}</td>
-                    <td className="px-5 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[c.status] ?? ""}`}>{c.status}</span>
-                    </td>
-                    <td className="px-5 py-3 text-muted-foreground">{new Date(c.last_activity_at).toLocaleString()}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-5 py-3 text-left">Subject</th>
+                    <th className="px-5 py-3 text-left">Category</th>
+                    <th className="px-5 py-3 text-left">Priority</th>
+                    <th className="px-5 py-3 text-left">Status</th>
+                    <th className="px-5 py-3 text-left">Updated</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y">
+                  {(cases ?? []).map((c) => (
+                    <tr key={c.id} className="hover:bg-accent/40">
+                      <td className="px-5 py-3">
+                        <Link to="/dashboard/support/$caseId" params={{ caseId: c.id }} className="font-medium hover:underline whitespace-nowrap">
+                          {c.subject}
+                        </Link>
+                      </td>
+                      <td className="px-5 py-3 capitalize text-muted-foreground whitespace-nowrap">{c.category.replace("_", " ")}</td>
+                      <td className="px-5 py-3 capitalize whitespace-nowrap">{c.priority}</td>
+                      <td className="px-5 py-3">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize whitespace-nowrap ${STATUS_STYLES[c.status] ?? ""}`}>{c.status}</span>
+                      </td>
+                      <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{new Date(c.last_activity_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

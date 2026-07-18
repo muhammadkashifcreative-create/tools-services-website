@@ -3,12 +3,15 @@ import { createFileRoute } from "@tanstack/react-router";
 /**
  * Stripe webhook endpoint. Configure in the Stripe dashboard:
  *   Developers → Webhooks → Add endpoint → https://www.socialpadu.my/api/stripe/webhook
- *   Events: checkout.session.completed, checkout.session.async_payment_succeeded,
- *           checkout.session.async_payment_failed, checkout.session.expired
+ *   Events: payment_intent.succeeded, payment_intent.payment_failed,
+ *           payment_intent.canceled
  * Then set the signing secret as STRIPE_WEBHOOK_SECRET in Vercel.
  *
+ * Checkout is fully custom (Stripe Elements on our own /checkout page), so
+ * this listens for PaymentIntent events rather than Checkout Session events.
+ *
  * Response codes matter: Stripe retries anything non-2xx, so transient errors
- * return 500 (retry) while a bad signature returns 401 (drop). Sessions we
+ * return 500 (retry) while a bad signature returns 401 (drop). Intents we
  * don't recognise get a 200 so stale or test events stop.
  */
 export const Route = createFileRoute("/api/stripe/webhook")({
@@ -31,18 +34,17 @@ export const Route = createFileRoute("/api/stripe/webhook")({
         }
 
         const relevant = [
-          "checkout.session.completed",
-          "checkout.session.async_payment_succeeded",
-          "checkout.session.async_payment_failed",
-          "checkout.session.expired",
+          "payment_intent.succeeded",
+          "payment_intent.payment_failed",
+          "payment_intent.canceled",
         ];
         if (!relevant.includes(event.type)) return new Response("ignored", { status: 200 });
 
         try {
           const { settleBookPurchase } = await import("@/lib/book-purchases.server");
-          const session = event.data.object as unknown as import("@/lib/stripe.server").StripeCheckoutSession;
-          const outcome = await settleBookPurchase(session);
-          console.info(`Stripe webhook: ${event.type} session ${session.id} → ${outcome}`);
+          const intent = event.data.object as unknown as import("@/lib/stripe.server").StripePaymentIntent;
+          const outcome = await settleBookPurchase(intent);
+          console.info(`Stripe webhook: ${event.type} intent ${intent.id} → ${outcome}`);
           return new Response("ok", { status: 200 });
         } catch (e) {
           console.error("Stripe webhook processing failed:", e);
