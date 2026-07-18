@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { LayoutDashboard, Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { BrandMark } from "@/components/BrandMark";
 import { useI18n } from "@/lib/i18n";
@@ -19,6 +19,11 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { t } = useI18n();
+
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch("/api/auth/me").then((r) => setAuthed(r.ok)).catch(() => setAuthed(false));
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-xl">
@@ -51,19 +56,32 @@ export function SiteHeader() {
 
         <div className="flex shrink-0 items-center gap-2">
           <LanguageSwitcher />
-          <Link
-            to="/auth"
-            className="hidden text-sm font-medium text-muted-foreground transition hover:text-foreground sm:inline"
-          >
-            {t("cta.signIn")}
-          </Link>
-          <Link
-            to="/auth"
-            className="rounded-lg px-3 py-2 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 sm:px-4 sm:text-sm"
-            style={{ background: "var(--gradient-accent)" }}
-          >
-            {t("cta.getStarted")}
-          </Link>
+          {authed ? (
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 sm:px-4 sm:text-sm"
+              style={{ background: "var(--gradient-accent)" }}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/auth"
+                className="hidden text-sm font-medium text-muted-foreground transition hover:text-foreground sm:inline"
+              >
+                {t("cta.signIn")}
+              </Link>
+              <Link
+                to="/auth"
+                className="rounded-lg px-3 py-2 text-xs font-semibold text-primary-foreground shadow-glow transition hover:opacity-90 sm:px-4 sm:text-sm"
+                style={{ background: "var(--gradient-accent)" }}
+              >
+                {t("cta.getStarted")}
+              </Link>
+            </>
+          )}
           <button
             type="button"
             aria-label="Toggle menu"
