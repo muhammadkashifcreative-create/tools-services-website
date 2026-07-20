@@ -2,14 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { ArrowLeft, BadgeCheck, BookOpen, Check, CreditCard, Download, Loader2, LogIn, MessageSquare, ShieldCheck, Star, Trash2 } from "lucide-react";
+import { ArrowLeft, BadgeCheck, BookOpen, Check, CreditCard, Download, Loader2, LogIn, MessageSquare, ShieldCheck, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import {
   getBookBySlugPublic,
-  listBookReviews, getMyBookReview, upsertMyBookReview, deleteBookReview,
+  listBookReviews, getMyBookReview, upsertMyBookReview,
   type Book, type BookReview,
 } from "@/lib/books.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
@@ -211,7 +211,6 @@ function ReviewsSection({ bookId, bookSlug, authed }: { bookId: string; bookSlug
   const fetchReviews = useServerFn(listBookReviews);
   const fetchMine = useServerFn(getMyBookReview);
   const saveReview = useServerFn(upsertMyBookReview);
-  const removeReview = useServerFn(deleteBookReview);
 
   const { data, isLoading } = useQuery({ queryKey: ["bookReviews", bookId], queryFn: () => fetchReviews({ data: { bookId } }) });
   const { data: mine } = useQuery({
@@ -222,14 +221,6 @@ function ReviewsSection({ bookId, bookSlug, authed }: { bookId: string; bookSlug
 
   const [rating, setRating] = useState(0);
   const [body, setBody] = useState("");
-  const [prefilled, setPrefilled] = useState(false);
-  useEffect(() => {
-    if (!prefilled && mine?.mine) {
-      setRating(mine.mine.rating);
-      setBody(mine.mine.body);
-      setPrefilled(true);
-    }
-  }, [mine, prefilled]);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["bookReviews", bookId] });
@@ -240,19 +231,7 @@ function ReviewsSection({ bookId, bookSlug, authed }: { bookId: string; bookSlug
   const saveMut = useMutation({
     mutationFn: () => saveReview({ data: { bookId, rating, body } }),
     onSuccess: () => {
-      toast.success(mine?.mine ? "Your review has been updated." : "Thanks for your review!");
-      refresh();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const delMut = useMutation({
-    mutationFn: () => removeReview({ data: { reviewId: mine!.mine!.id } }),
-    onSuccess: () => {
-      toast.success("Your review has been removed.");
-      setRating(0);
-      setBody("");
-      setPrefilled(false);
+      toast.success("Thanks for your review!");
       refresh();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -279,11 +258,18 @@ function ReviewsSection({ bookId, bookSlug, authed }: { bookId: string; bookSlug
         </span>
       </div>
 
-      {/* Write / edit review */}
+      {/* Write review — one-time, no editing once submitted */}
       <div className="mt-6">
-        {authed === true && mine?.canReview ? (
+        {authed === true && mine?.canReview && mine?.mine ? (
+          <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 px-5 py-4 text-sm text-muted-foreground">
+            <p className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+              <BadgeCheck className="h-4 w-4 text-emerald-500" /> You've already reviewed this book
+            </p>
+            <p className="mt-1">Thanks for sharing your thoughts — your review is posted below.</p>
+          </div>
+        ) : authed === true && mine?.canReview ? (
           <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-soft">
-            <p className="text-sm font-semibold">{mine?.mine ? "Edit your review" : "Write a review"}</p>
+            <p className="text-sm font-semibold">Write a review</p>
             <div className="mt-3 flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} type="button" onClick={() => setRating(n)} aria-label={`${n} star${n === 1 ? "" : "s"}`} className="p-0.5">
@@ -307,28 +293,16 @@ function ReviewsSection({ bookId, bookSlug, authed }: { bookId: string; bookSlug
                     ? `Reviews need a minimum of 10 characters — ${10 - body.trim().length} more to go.`
                     : "Posting as a verified buyer. Reviews are text only."}
               </p>
-              <div className="flex items-center gap-2">
-                {mine?.mine && (
-                  <button
-                    type="button"
-                    onClick={() => delMut.mutate()}
-                    disabled={delMut.isPending}
-                    className="inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/5 disabled:opacity-50"
-                  >
-                    <Trash2 className="h-3 w-3" /> Delete
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => saveMut.mutate()}
-                  disabled={saveMut.isPending || rating === 0 || body.trim().length < 10}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold text-white shadow-glow transition hover:opacity-90 disabled:opacity-50"
-                  style={{ background: "var(--gradient-accent)" }}
-                >
-                  {saveMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
-                  {mine?.mine ? "Update review" : "Post review"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => saveMut.mutate()}
+                disabled={saveMut.isPending || rating === 0 || body.trim().length < 10}
+                className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold text-white shadow-glow transition hover:opacity-90 disabled:opacity-50"
+                style={{ background: "var(--gradient-accent)" }}
+              >
+                {saveMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
+                Post review
+              </button>
             </div>
           </div>
         ) : authed === true ? (
