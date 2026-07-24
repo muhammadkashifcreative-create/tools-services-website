@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef } from "react";
-import { BookOpen, Download, Loader2, ShoppingBag } from "lucide-react";
+import { BookOpen, Download, Loader2, RotateCcw, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { AppLayout } from "@/components/AppLayout";
@@ -95,7 +95,11 @@ function LibraryPage() {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-primary">{item.book.category}</p>
                     <h3 className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug">{item.book.title}</h3>
                     {item.book.author && <p className="mt-0.5 truncate text-xs text-muted-foreground">by {item.book.author}</p>}
-                    <div className="mt-auto pt-3">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {item.quantity > 1 && <span className="font-semibold text-foreground">{item.quantity} copies · </span>}
+                      {item.paid_at ? `Bought ${new Date(item.paid_at).toLocaleDateString()}` : "Purchase in progress"}
+                    </p>
+                    <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
                       {item.download_url ? (
                         <a
                           href={item.download_url}
@@ -111,6 +115,13 @@ function LibraryPage() {
                       ) : (
                         <span className="text-xs text-muted-foreground">Download unavailable — contact support and we'll fix it.</span>
                       )}
+                      <Link
+                        to="/checkout/$slug"
+                        params={{ slug: item.book.slug }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Buy again
+                      </Link>
                     </div>
                   </div>
                 </div>

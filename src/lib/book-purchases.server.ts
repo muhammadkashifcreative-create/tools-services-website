@@ -41,6 +41,30 @@ export async function bookReviewsTable() {
   return (supabaseAdmin as unknown as SupabaseClient).from("book_reviews");
 }
 
+/** Largest number of copies a customer can put in one order. */
+export const MAX_QUANTITY = 99;
+
+// `quantity` ships with a migration the admin runs from the panel, so every
+// read/write has to work both before and after it lands. Probing once per
+// instance keeps that from costing a round trip on every query; a negative
+// result is re-checked so the app picks the column up right after migrating.
+let quantityColumn: { supported: boolean; checkedAt: number } | null = null;
+
+export async function hasQuantityColumn(): Promise<boolean> {
+  if (quantityColumn?.supported) return true;
+  if (quantityColumn && Date.now() - quantityColumn.checkedAt < 60_000) return false;
+  const table = await bookPurchasesTable();
+  const { error } = await table.select("quantity").limit(1);
+  const supported = !(error && (error.message.includes("does not exist") || error.message.includes("schema cache")));
+  quantityColumn = { supported, checkedAt: Date.now() };
+  return supported;
+}
+
+/** Adds `quantity` to a select column list only when the column exists. */
+export async function withQuantityCol(cols: string): Promise<string> {
+  return (await hasQuantityColumn()) ? `${cols}, quantity` : cols;
+}
+
 export type SettleOutcome = "granted" | "already_settled" | "still_pending" | "failed" | "not_found";
 
 export async function settleBookPurchase(intent: StripePaymentIntent): Promise<SettleOutcome> {
@@ -49,9 +73,9 @@ export async function settleBookPurchase(intent: StripePaymentIntent): Promise<S
 
   const table = await bookPurchasesTable();
   const { data: purchase } = (await table
-    .select("id, user_id, book_id, amount_usd, status")
+    .select(await withQuantityCol("id, user_id, book_id, amount_usd, status"))
     .eq("id", purchaseId)
-    .maybeSingle()) as { data: BookPurchaseRow | null };
+    .maybeSingle()) as { data: (BookPurchaseRow & { quantity?: number }) | null };
 
   if (!purchase) return "not_found";
   if (purchase.status !== "pending") return "already_settled";
@@ -99,6 +123,7 @@ export async function settleBookPurchase(intent: StripePaymentIntent): Promise<S
   if (finalStatus !== "paid") return "failed";
 
   const paidUsd = intent.amount / 100;
+  const quantity = Number(purchase.quantity ?? 1) || 1;
 
   // Receipt email + admin Telegram notification — both best-effort.
   void (async () => {
@@ -109,10 +134,10 @@ export async function settleBookPurchase(intent: StripePaymentIntent): Promise<S
       const name = (authUser?.user?.user_metadata as { name?: string } | null)?.name ?? "";
       if (email) {
         const { sendBookPurchaseEmail } = await import("@/lib/email.server");
-        await sendBookPurchaseEmail(email, name, bookTitle, paidUsd, instantDelivery).catch(console.error);
+        await sendBookPurchaseEmail(email, name, bookTitle, paidUsd, instantDelivery, quantity).catch(console.error);
         const { notifyTelegram } = await import("@/lib/telegram.server");
         await notifyTelegram(
-          `📚 Book sold: "${bookTitle}" — $${paidUsd.toFixed(2)} to ${email}` +
+          `📚 Book sold: "${bookTitle}"${quantity > 1 ? ` ×${quantity}` : ""} — $${paidUsd.toFixed(2)} to ${email}` +
             (instantDelivery ? "" : "\n⚠️ NEEDS DELIVERY — fulfil it in Admin → Sales"),
         ).catch(() => {});
       }

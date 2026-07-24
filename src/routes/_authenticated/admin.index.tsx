@@ -343,6 +343,7 @@ function AdminBody() {
                 <tr>
                   <th className="px-5 py-3 text-left">Customer</th>
                   <th className="px-5 py-3 text-left">Book</th>
+                  <th className="px-5 py-3 text-center">Qty</th>
                   <th className="px-5 py-3 text-right">Amount</th>
                   <th className="px-5 py-3 text-left">Payment</th>
                   <th className="px-5 py-3 text-left">Delivery</th>
@@ -358,6 +359,9 @@ function AdminBody() {
                       {o.email && <div className="flex max-w-40 items-center gap-1 text-xs text-muted-foreground"><Mail className="h-3 w-3 shrink-0" /><span className="truncate">{o.email}</span></div>}
                     </td>
                     <td className="px-5 py-3">{o.name}</td>
+                    <td className="px-5 py-3 text-center tabular-nums">
+                      {o.quantity > 1 ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">×{o.quantity}</span> : o.quantity}
+                    </td>
                     <td className="px-5 py-3 text-right tabular-nums">
                       <div>{rm(o.charge)}</div>
                       <div className="text-[10px] text-muted-foreground">${o.charge.toFixed(2)}</div>
@@ -404,7 +408,7 @@ function AdminBody() {
                   </tr>
                 ))}
                 {(orders ?? []).length === 0 && (
-                  <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">No sales yet.</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-12 text-center text-muted-foreground">No sales yet.</td></tr>
                 )}
               </tbody>
             </table>

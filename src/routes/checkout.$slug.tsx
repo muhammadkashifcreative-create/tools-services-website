@@ -1,18 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
-import { ArrowLeft, BadgeCheck, BookOpen, Check, ChevronDown, Loader2, LogIn, ShieldCheck, Tag } from "lucide-react";
+import { ArrowLeft, BadgeCheck, BookOpen, Check, ChevronDown, Loader2, LogIn, Minus, Plus, ShieldCheck, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
-import { getBookBySlugPublic, createBookPaymentIntent, applyCheckoutPromoCode, type Book } from "@/lib/books.functions";
+import { getBookBySlugPublic, createBookPaymentIntent, updateCheckoutQuantity, applyCheckoutPromoCode, type Book } from "@/lib/books.functions";
 import { getUserCurrency } from "@/lib/geo.functions";
 
+const MAX_QTY = 99;
+
 export const Route = createFileRoute("/checkout/$slug")({
+  // The book page can pre-set how many copies the customer wants.
+  validateSearch: (search: Record<string, unknown>): { qty?: number } => {
+    const qty = Number(search.qty);
+    return Number.isInteger(qty) && qty >= 1 && qty <= MAX_QTY ? { qty } : {};
+  },
   loader: async ({ params }) => getBookBySlugPublic({ data: { slug: params.slug } }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData?.book ? `Checkout — ${loaderData.book.title} | Social Padu` : "Checkout — Social Padu" }],
@@ -33,8 +40,18 @@ function getStripePromise() {
 
 function CheckoutPage() {
   const { book } = Route.useLoaderData() as { book: Book | null };
+  const { qty: qtyFromUrl } = Route.useSearch();
   const fetchCurrency = useServerFn(getUserCurrency);
   const createIntent = useServerFn(createBookPaymentIntent);
+  const setQty = useServerFn(updateCheckoutQuantity);
+  const qc = useQueryClient();
+
+  const [quantity, setQuantity] = useState(qtyFromUrl ?? 1);
+  // The ?qty hint only seeds the checkout. Once the stepper is used the server
+  // row is the truth, or a refetch would undo the change the customer just made.
+  const seedQty = useRef(qtyFromUrl);
+  // A promo lowers the total, so re-price after a quantity change with it still applied.
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
 
   const [authed, setAuthed] = useState<boolean | null>(null);
   useEffect(() => {
@@ -54,10 +71,31 @@ function CheckoutPage() {
     isLoading: creatingIntent,
     error: intentError,
   } = useQuery({
+    // Quantity isn't part of the key: changes go through updateCheckoutQuantity,
+    // which reprices the same PaymentIntent rather than starting a new checkout.
     queryKey: ["checkoutIntent", book?.id],
-    queryFn: () => createIntent({ data: { bookId: book!.id } }),
+    queryFn: () => createIntent({ data: { bookId: book!.id, quantity: seedQty.current } }),
     enabled: authed === true && !!book,
     retry: false,
+  });
+
+  // A resumed checkout may already be for several copies — follow what the server has.
+  useEffect(() => {
+    if (checkout?.quantity) setQuantity(checkout.quantity);
+  }, [checkout?.quantity]);
+
+  const qtyMut = useMutation({
+    mutationFn: (next: number) =>
+      setQty({ data: { purchaseId: checkout!.purchaseId, quantity: next, promoCode: appliedPromo ?? undefined } }),
+    onSuccess: (_res, next) => {
+      seedQty.current = undefined;
+      setQuantity(next);
+      qc.invalidateQueries({ queryKey: ["checkoutIntent"] });
+    },
+    onError: (e: Error) => {
+      setQuantity(checkout?.quantity ?? 1);
+      toast.error(e.message);
+    },
   });
 
   if (!book) {
@@ -115,9 +153,36 @@ function CheckoutPage() {
               </div>
             </div>
 
+            {checkout?.alreadyOwned && (
+              <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs">
+                <p className="font-semibold text-foreground">You already own this book.</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Ordering again is fine — it's added to your{" "}
+                  <Link to="/dashboard/library" className="font-medium text-primary hover:underline">Library</Link>{" "}
+                  as a new purchase. Re-downloads of what you own are always free.
+                </p>
+              </div>
+            )}
+
             <div className="mt-5 flex items-center justify-between border-t border-border/60 pt-4 text-sm">
-              <span className="text-muted-foreground">Price</span>
-              <span className="font-semibold tabular-nums">
+              <span className="text-muted-foreground">Price per copy</span>
+              <span className="font-semibold tabular-nums">{fxSymbol}{local.toFixed(2)}</span>
+            </div>
+
+            {checkout?.quantityEnabled && (
+              <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground">Quantity</span>
+                <QtyStepper
+                  value={quantity}
+                  busy={qtyMut.isPending}
+                  onChange={(next) => qtyMut.mutate(next)}
+                />
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-4 text-sm">
+              <span className="font-medium">Total</span>
+              <span className="text-base font-bold tabular-nums">
                 {checkout ? `${fxSymbol}${((checkout.amountUsdCents / 100) * fxRate).toFixed(2)}` : `${fxSymbol}${local.toFixed(2)}`}
               </span>
             </div>
@@ -168,6 +233,10 @@ function CheckoutPage() {
               </div>
             ) : (
               <Elements
+                // Elements reads the amount when it mounts, so a quantity change
+                // has to rebuild it — otherwise Apple/Google Pay would show the
+                // old total for the new charge.
+                key={quantity}
                 stripe={getStripePromise()}
                 options={{
                   clientSecret: checkout.clientSecret,
@@ -182,7 +251,7 @@ function CheckoutPage() {
                   },
                 }}
               >
-                <PayForm purchaseId={checkout.purchaseId} bookSlug={book.slug} />
+                <PayForm purchaseId={checkout.purchaseId} onPromoApplied={setAppliedPromo} />
               </Elements>
             )}
           </div>
@@ -193,7 +262,39 @@ function CheckoutPage() {
   );
 }
 
-function PayForm({ purchaseId, bookSlug }: { purchaseId: string; bookSlug: string }) {
+function QtyStepper({ value, busy, onChange }: { value: number; busy: boolean; onChange: (next: number) => void }) {
+  const step = (delta: number) => {
+    const next = Math.min(MAX_QTY, Math.max(1, value + delta));
+    if (next !== value) onChange(next);
+  };
+  return (
+    <div className="inline-flex items-center rounded-lg border border-border/60">
+      <button
+        type="button"
+        onClick={() => step(-1)}
+        disabled={busy || value <= 1}
+        aria-label="Decrease quantity"
+        className="flex h-10 w-10 items-center justify-center rounded-l-lg text-muted-foreground transition hover:bg-accent disabled:opacity-40"
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+      <span className="flex h-10 w-12 items-center justify-center border-x border-border/60 text-sm font-bold tabular-nums" aria-live="polite">
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : value}
+      </span>
+      <button
+        type="button"
+        onClick={() => step(1)}
+        disabled={busy || value >= MAX_QTY}
+        aria-label="Increase quantity"
+        className="flex h-10 w-10 items-center justify-center rounded-r-lg text-muted-foreground transition hover:bg-accent disabled:opacity-40"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function PayForm({ purchaseId, onPromoApplied }: { purchaseId: string; onPromoApplied: (code: string) => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const qc = useQueryClient();
@@ -209,6 +310,7 @@ function PayForm({ purchaseId, bookSlug }: { purchaseId: string; bookSlug: strin
     mutationFn: () => applyPromo({ data: { purchaseId, code: promoCode.trim() } }),
     onSuccess: () => {
       setPromoApplied(true);
+      onPromoApplied(promoCode.trim());
       toast.success("Promo code applied!");
       qc.invalidateQueries({ queryKey: ["checkoutIntent"] });
     },

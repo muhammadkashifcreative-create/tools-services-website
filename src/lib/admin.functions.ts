@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireDirectAuth as requireSupabaseAuth, isAdminUser } from "@/lib/direct-auth-middleware.server";
-import { booksTable, bookPurchasesTable, bookReviewsTable } from "@/lib/book-purchases.server";
+import { booksTable, bookPurchasesTable, bookReviewsTable, withQuantityCol } from "@/lib/book-purchases.server";
 
 async function assertAdmin(context: { email?: string; userId?: string }) {
   if (!(await isAdminUser(context))) throw new Error("Forbidden");
@@ -15,6 +15,7 @@ type PurchaseRow = {
   delivery_status: string;
   created_at: string;
   paid_at: string | null;
+  quantity?: number;
   review_requested_at?: string | null;
 };
 
@@ -50,7 +51,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
     await assertAdmin(context as never);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const purchases = await bookPurchasesTable();
-    const BASE_COLS = "id, user_id, book_id, amount_usd, status, delivery_status, created_at, paid_at";
+    const BASE_COLS = await withQuantityCol("id, user_id, book_id, amount_usd, status, delivery_status, created_at, paid_at");
     const runSelect = (cols: string) => purchases.select(cols).order("created_at", { ascending: false }).limit(200);
 
     // review_requested_at is a newer column — degrade gracefully pre-migration.
@@ -88,6 +89,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
       name: bookInfo.get(r.book_id)?.title ?? "Removed book",
       book_has_file: Boolean(bookInfo.get(r.book_id)?.file_path),
       charge: Number(r.amount_usd),
+      quantity: Number(r.quantity ?? 1) || 1,
       status: r.status,
       delivery_status: r.delivery_status,
       created_at: r.created_at,
@@ -108,16 +110,17 @@ export const adminStats = createServerFn({ method: "GET" })
 
     const [users, paidRows, bookCount] = await Promise.all([
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
-      purchases.select("amount_usd").eq("status", "paid"),
+      purchases.select(await withQuantityCol("amount_usd")).eq("status", "paid"),
       books.select("id", { count: "exact", head: true }),
     ]);
 
-    const paid = (paidRows.data ?? []) as Array<{ amount_usd: number }>;
+    const paid = (paidRows.data ?? []) as unknown as Array<{ amount_usd: number; quantity?: number }>;
     const revenue = paid.reduce((s, r) => s + Number(r.amount_usd ?? 0), 0);
 
     return {
       users: users.count ?? 0,
-      sales: paid.length,
+      // Copies sold, not orders — one order can be for several copies.
+      sales: paid.reduce((n, r) => n + (Number(r.quantity ?? 1) || 1), 0),
       books: bookCount.count ?? 0,
       revenue: +revenue.toFixed(2),
     };

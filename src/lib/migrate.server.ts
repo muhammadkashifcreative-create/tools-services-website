@@ -34,6 +34,7 @@ export const runDatabaseMigration = createServerFn({ method: "POST" })
       ["book_purchases", "delivery_status"],
       ["book_purchases", "refund_status"],
       ["book_purchases", "review_requested_at"],
+      ["book_purchases", "quantity"],
       ["books", "announced_at"],
       ["books", "language"],
       ["profiles", "marketing_opt_out"],
@@ -79,6 +80,7 @@ alter table book_purchases add column if not exists refund_requested_at timestam
 alter table book_purchases add column if not exists refund_processed_at timestamptz;
 alter table book_purchases add column if not exists stripe_refund_id text;
 alter table book_purchases add column if not exists review_requested_at timestamptz;
+alter table book_purchases add column if not exists quantity integer default 1 not null check (quantity > 0);
 create index if not exists book_purchases_user_idx on book_purchases (user_id, created_at desc);
 create table if not exists book_reviews (id uuid default gen_random_uuid() primary key, book_id uuid references books on delete cascade not null, user_id uuid references auth.users on delete cascade not null, rating integer not null check (rating between 1 and 5), body text not null, created_at timestamptz default now() not null, updated_at timestamptz default now() not null, unique (book_id, user_id));
 create table if not exists newsletter_subscribers (id uuid default gen_random_uuid() primary key, email text unique not null, subscribed_at timestamptz default now() not null, unsubscribed_at timestamptz);

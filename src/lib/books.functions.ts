@@ -1,7 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireDirectAuth as requireSupabaseAuth, isAdminUser } from "@/lib/direct-auth-middleware.server";
-import { booksTable, bookPurchasesTable, bookReviewsTable, settleBookPurchase, type BookPurchaseRow } from "@/lib/book-purchases.server";
+import {
+  booksTable,
+  bookPurchasesTable,
+  bookReviewsTable,
+  settleBookPurchase,
+  hasQuantityColumn,
+  withQuantityCol,
+  MAX_QUANTITY,
+  type BookPurchaseRow,
+} from "@/lib/book-purchases.server";
 
 export type Book = {
   id: string;
@@ -29,6 +38,7 @@ export type LibraryItem = {
   purchase_id: string;
   book: Pick<Book, "id" | "slug" | "title" | "author" | "category" | "cover_url" | "pages" | "level">;
   amount_usd: number;
+  quantity: number;
   paid_at: string | null;
   delivery_status: string;
   download_url: string | null;
@@ -106,16 +116,17 @@ export const getBookBySlugPublic = createServerFn({ method: "GET" })
       book = (withLang.data ?? null) as Book | null;
     }
 
-    // How many copies have sold — real paid purchases, best-effort.
+    // How many copies have sold — real paid purchases, best-effort. Orders can
+    // be for several copies, so this sums quantities rather than counting rows.
     let soldCount = 0;
     if (book) {
       try {
         const purchases = await bookPurchasesTable();
-        const { count } = await purchases
-          .select("id", { count: "exact", head: true })
+        const { data: sales } = await purchases
+          .select(await withQuantityCol("id"))
           .eq("book_id", book.id)
           .eq("status", "paid");
-        soldCount = count ?? 0;
+        soldCount = ((sales ?? []) as Array<{ quantity?: number }>).reduce((n, s) => n + (Number(s.quantity ?? 1) || 1), 0);
       } catch { /* purchases unavailable — treat as 0 sold */ }
     }
 
@@ -126,15 +137,28 @@ export const getBookBySlugPublic = createServerFn({ method: "GET" })
 
 export type CheckoutBook = { id: string; slug: string; title: string; author: string | null; price_usd: number; cover_url: string | null };
 
+/** What `quantity` copies of a book cost, in USD cents. */
+function lineTotalCents(priceUsd: number, quantity: number): number {
+  return Math.round(Number(priceUsd) * 100) * quantity;
+}
+
 /**
  * Starts (or resumes) checkout for a book: creates the pending purchase row
  * and a Stripe PaymentIntent, returning the client secret our /checkout page
  * mounts Stripe Elements against. Refreshing the checkout page reuses the
  * same pending PaymentIntent instead of creating a new one each time.
+ *
+ * Buying a book you already own is allowed — customers reorder, and each
+ * order is its own purchase row.
  */
 export const createBookPaymentIntent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { bookId: string }) => z.object({ bookId: z.string().uuid() }).parse(d))
+  .inputValidator((d: { bookId: string; quantity?: number }) =>
+    z.object({
+      bookId: z.string().uuid(),
+      quantity: z.number().int().min(1).max(MAX_QUANTITY).optional(),
+    }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     const books = await booksTable();
     const { data: book, error } = await books
@@ -146,7 +170,12 @@ export const createBookPaymentIntent = createServerFn({ method: "POST" })
 
     const b = book as { id: string; slug: string; title: string; author: string | null; price_usd: number; cover_url: string | null };
 
-    // Already owned (and not refunded since)? Don't charge twice.
+    // Quantity rides on a column the admin migrates in — until it exists,
+    // checkout stays single-copy rather than charging for copies we can't record.
+    const quantityEnabled = await hasQuantityColumn();
+    const quantity = quantityEnabled ? (data.quantity ?? 1) : 1;
+
+    // Owning it already doesn't block the sale, but the checkout page says so.
     const purchases = await bookPurchasesTable();
     const { data: owned } = await purchases
       .select("id, refund_status")
@@ -154,19 +183,19 @@ export const createBookPaymentIntent = createServerFn({ method: "POST" })
       .eq("book_id", b.id)
       .eq("status", "paid")
       .limit(5);
-    const stillOwned = ((owned ?? []) as Array<{ id: string; refund_status?: string | null }>).some((o) => o.refund_status !== "refunded");
-    if (stillOwned) throw new Error("You already own this book — find it in your Library.");
+    const alreadyOwned = ((owned ?? []) as Array<{ id: string; refund_status?: string | null }>).some((o) => o.refund_status !== "refunded");
 
-    const { isStripeConfigured, createPaymentIntent, retrievePaymentIntent } = await import("@/lib/stripe.server");
+    const { isStripeConfigured, createPaymentIntent, retrievePaymentIntent, updatePaymentIntentAmount } = await import("@/lib/stripe.server");
     if (!isStripeConfigured()) throw new Error("Payments are not configured yet. Please contact support.");
 
-    const amountUsdCents = Math.round(Number(b.price_usd) * 100);
+    const amountUsdCents = lineTotalCents(b.price_usd, quantity);
     const email = (context as { email?: string }).email ?? null;
+    const checkoutBook = { id: b.id, slug: b.slug, title: b.title, author: b.author, price_usd: b.price_usd, cover_url: b.cover_url } as CheckoutBook;
 
     // Resume a still-open pending purchase instead of creating a duplicate PaymentIntent.
     const since = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
     const { data: existing } = await purchases
-      .select("id, stripe_payment_intent")
+      .select(await withQuantityCol("id, stripe_payment_intent"))
       .eq("user_id", context.userId)
       .eq("book_id", b.id)
       .eq("status", "pending")
@@ -175,16 +204,31 @@ export const createBookPaymentIntent = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    const resumable = existing as { id: string; stripe_payment_intent: string; quantity?: number } | null;
 
-    if (existing?.stripe_payment_intent) {
+    if (resumable?.stripe_payment_intent) {
       try {
-        const intent = await retrievePaymentIntent(existing.stripe_payment_intent);
-        if (intent.client_secret && !["succeeded", "canceled"].includes(intent.status)) {
+        const intent = await retrievePaymentIntent(resumable.stripe_payment_intent);
+        const clientSecret = intent.client_secret; // unchanged by an amount update
+        if (clientSecret && !["succeeded", "canceled"].includes(intent.status)) {
+          const resumedQty = Number(resumable.quantity ?? 1) || 1;
+          let charge = intent.amount;
+          // Only touch the amount when the requested count actually differs —
+          // reloading the page must not wipe out an applied promo code.
+          if (data.quantity != null && data.quantity !== resumedQty) {
+            charge = (await updatePaymentIntentAmount(resumable.stripe_payment_intent, amountUsdCents)).amount;
+            await purchases
+              .update({ amount_usd: charge / 100, ...(quantityEnabled ? { quantity } : {}) })
+              .eq("id", resumable.id);
+          }
           return {
-            clientSecret: intent.client_secret,
-            purchaseId: (existing as { id: string }).id,
-            amountUsdCents: intent.amount,
-            book: { id: b.id, slug: b.slug, title: b.title, author: b.author, price_usd: b.price_usd, cover_url: b.cover_url } as CheckoutBook,
+            clientSecret,
+            purchaseId: resumable.id,
+            amountUsdCents: charge,
+            quantity: data.quantity != null ? quantity : resumedQty,
+            quantityEnabled,
+            alreadyOwned,
+            book: checkoutBook,
           };
         }
       } catch { /* intent gone or expired — fall through and create a fresh one */ }
@@ -194,9 +238,10 @@ export const createBookPaymentIntent = createServerFn({ method: "POST" })
       .insert({
         user_id: context.userId,
         book_id: b.id,
-        amount_usd: Number(b.price_usd),
+        amount_usd: amountUsdCents / 100,
         currency: "usd",
         status: "pending",
+        ...(quantityEnabled ? { quantity } : {}),
       })
       .select("id")
       .single();
@@ -209,7 +254,7 @@ export const createBookPaymentIntent = createServerFn({ method: "POST" })
       purchaseId,
       userId: context.userId,
       bookId: b.id,
-      description: b.title,
+      description: quantity > 1 ? `${b.title} ×${quantity}` : b.title,
     });
 
     await purchases.update({ stripe_payment_intent: intent.id }).eq("id", purchaseId);
@@ -219,9 +264,82 @@ export const createBookPaymentIntent = createServerFn({ method: "POST" })
       clientSecret: intent.client_secret,
       purchaseId,
       amountUsdCents: intent.amount,
-      book: { id: b.id, slug: b.slug, title: b.title, author: b.author, price_usd: b.price_usd, cover_url: b.cover_url } as CheckoutBook,
+      quantity,
+      quantityEnabled,
+      alreadyOwned,
+      book: checkoutBook,
     };
   });
+
+/**
+ * Changes how many copies the open checkout is for, repricing the pending
+ * PaymentIntent. An already-applied promo code is passed back in so the
+ * discount survives the change.
+ */
+export const updateCheckoutQuantity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { purchaseId: string; quantity: number; promoCode?: string }) =>
+    z.object({
+      purchaseId: z.string().uuid(),
+      quantity: z.number().int().min(1).max(MAX_QUANTITY),
+      promoCode: z.string().trim().max(60).optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { purchase, unitPriceCents } = await loadOpenCheckout(data.purchaseId, context.userId);
+
+    let cents = unitPriceCents * data.quantity;
+    if (data.promoCode) cents = await applyPromoDiscount(cents, data.promoCode);
+
+    const { updatePaymentIntentAmount } = await import("@/lib/stripe.server");
+    const intent = await updatePaymentIntentAmount(purchase.stripe_payment_intent!, cents);
+
+    const purchases = await bookPurchasesTable();
+    await purchases
+      .update({ amount_usd: cents / 100, ...((await hasQuantityColumn()) ? { quantity: data.quantity } : {}) })
+      .eq("id", purchase.id);
+
+    return { amountUsdCents: intent.amount, quantity: data.quantity };
+  });
+
+type OpenCheckout = {
+  purchase: { id: string; user_id: string; book_id: string; status: string; stripe_payment_intent: string | null; quantity?: number };
+  unitPriceCents: number;
+};
+
+/** Loads a pending checkout the caller owns, with its book's list price. */
+async function loadOpenCheckout(purchaseId: string, userId: string): Promise<OpenCheckout> {
+  const purchases = await bookPurchasesTable();
+  const { data: purchase } = await purchases
+    .select(await withQuantityCol("id, user_id, book_id, status, stripe_payment_intent"))
+    .eq("id", purchaseId)
+    .maybeSingle();
+  const p = purchase as OpenCheckout["purchase"] | null;
+  if (!p || p.user_id !== userId) throw new Error("Checkout session not found.");
+  if (p.status !== "pending" || !p.stripe_payment_intent) throw new Error("This checkout session has expired — go back and try again.");
+
+  const books = await booksTable();
+  const { data: book } = await books.select("price_usd").eq("id", p.book_id).maybeSingle();
+  const unitPriceCents = Math.round(Number((book as { price_usd?: number } | null)?.price_usd ?? 0) * 100);
+  if (unitPriceCents <= 0) throw new Error("This book is not available.");
+
+  return { purchase: p, unitPriceCents };
+}
+
+/** Validates a Stripe promotion code and returns the discounted total. */
+async function applyPromoDiscount(baseCents: number, code: string): Promise<number> {
+  const { findPromotionCode } = await import("@/lib/stripe.server");
+  const promo = await findPromotionCode(code);
+  if (!promo || !promo.active || !promo.coupon.valid) throw new Error("That promo code isn't valid.");
+
+  if (promo.coupon.percent_off != null) {
+    return Math.round(baseCents * (1 - promo.coupon.percent_off / 100));
+  }
+  if (promo.coupon.amount_off != null) {
+    return Math.max(50, baseCents - promo.coupon.amount_off); // Stripe's $0.50 minimum charge
+  }
+  return baseCents;
+}
 
 /** Validates a Stripe promotion code and applies the discount to the pending PaymentIntent. */
 export const applyCheckoutPromoCode = createServerFn({ method: "POST" })
@@ -230,32 +348,16 @@ export const applyCheckoutPromoCode = createServerFn({ method: "POST" })
     z.object({ purchaseId: z.string().uuid(), code: z.string().trim().min(1).max(60) }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { purchase, unitPriceCents } = await loadOpenCheckout(data.purchaseId, context.userId);
+    const quantity = Number(purchase.quantity ?? 1) || 1;
+    const discounted = await applyPromoDiscount(unitPriceCents * quantity, data.code);
+
+    const { updatePaymentIntentAmount } = await import("@/lib/stripe.server");
+    const intent = await updatePaymentIntentAmount(purchase.stripe_payment_intent!, discounted);
+
     const purchases = await bookPurchasesTable();
-    const { data: purchase } = await purchases
-      .select("id, user_id, book_id, status, stripe_payment_intent")
-      .eq("id", data.purchaseId)
-      .maybeSingle();
-    const p = purchase as { id: string; user_id: string; book_id: string; status: string; stripe_payment_intent: string | null } | null;
-    if (!p || p.user_id !== context.userId) throw new Error("Checkout session not found.");
-    if (p.status !== "pending" || !p.stripe_payment_intent) throw new Error("This checkout session has expired — go back and try again.");
+    await purchases.update({ amount_usd: discounted / 100 }).eq("id", purchase.id);
 
-    const books = await booksTable();
-    const { data: book } = await books.select("price_usd").eq("id", p.book_id).maybeSingle();
-    const baseCents = Math.round(Number((book as { price_usd?: number } | null)?.price_usd ?? 0) * 100);
-    if (baseCents <= 0) throw new Error("This book is not available.");
-
-    const { findPromotionCode, updatePaymentIntentAmount } = await import("@/lib/stripe.server");
-    const promo = await findPromotionCode(data.code);
-    if (!promo || !promo.active || !promo.coupon.valid) throw new Error("That promo code isn't valid.");
-
-    let discounted = baseCents;
-    if (promo.coupon.percent_off != null) {
-      discounted = Math.round(baseCents * (1 - promo.coupon.percent_off / 100));
-    } else if (promo.coupon.amount_off != null) {
-      discounted = Math.max(50, baseCents - promo.coupon.amount_off); // Stripe's $0.50 minimum charge
-    }
-
-    const intent = await updatePaymentIntentAmount(p.stripe_payment_intent, discounted);
     return { amountUsdCents: intent.amount };
   });
 
@@ -484,11 +586,11 @@ export const getMyLibrary = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const purchases = await bookPurchasesTable();
-    const BASE_COLS = "id, book_id, amount_usd, paid_at, delivery_status, delivered_file_path";
+    const BASE_COLS = await withQuantityCol("id, book_id, amount_usd, paid_at, delivery_status, delivered_file_path");
     const runSelect = (cols: string) =>
       purchases.select(cols).eq("user_id", context.userId).eq("status", "paid").order("paid_at", { ascending: false });
 
-    type PurchaseRow = { id: string; book_id: string; amount_usd: number; paid_at: string | null; delivery_status: string; delivered_file_path: string | null; refund_status?: string | null };
+    type PurchaseRow = { id: string; book_id: string; amount_usd: number; paid_at: string | null; delivery_status: string; delivered_file_path: string | null; quantity?: number; refund_status?: string | null };
     let rows: PurchaseRow[] = [];
     const withRefund = await runSelect(`${BASE_COLS}, refund_status`);
     if (withRefund.error) {
@@ -534,6 +636,7 @@ export const getMyLibrary = createServerFn({ method: "GET" })
         purchase_id: r.id,
         book: pub,
         amount_usd: Number(r.amount_usd),
+        quantity: Number(r.quantity ?? 1) || 1,
         paid_at: r.paid_at,
         delivery_status: r.delivery_status,
         download_url: downloadUrl,
@@ -545,6 +648,7 @@ export const getMyLibrary = createServerFn({ method: "GET" })
 type MyPurchaseRow = BookPurchaseRow & {
   paid_at: string | null;
   delivery_status: string;
+  quantity?: number;
   refund_status?: string | null;
   refund_reason?: string | null;
 };
@@ -553,7 +657,7 @@ export const listMyBookPurchases = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const purchases = await bookPurchasesTable();
-    const BASE_COLS = "id, book_id, amount_usd, status, created_at, paid_at, delivery_status";
+    const BASE_COLS = await withQuantityCol("id, book_id, amount_usd, status, created_at, paid_at, delivery_status");
     const runSelect = (cols: string) =>
       purchases.select(cols).eq("user_id", context.userId).order("created_at", { ascending: false }).limit(200);
 
@@ -586,6 +690,7 @@ export const listMyBookPurchases = createServerFn({ method: "GET" })
         book_slug: b?.slug ?? null,
         cover_url: b?.cover_url ?? null,
         amount_usd: Number(r.amount_usd),
+        quantity: Number(r.quantity ?? 1) || 1,
         status: r.status,
         delivery_status: r.delivery_status,
         refund_status: (r.refund_status ?? "none") as string,
@@ -625,10 +730,10 @@ export const adminListBooks = createServerFn({ method: "GET" })
     }
 
     const purchases = await bookPurchasesTable();
-    const { data: sales } = await purchases.select("book_id").eq("status", "paid");
+    const { data: sales } = await purchases.select(await withQuantityCol("book_id")).eq("status", "paid");
     const counts = new Map<string, number>();
-    for (const s of (sales ?? []) as Array<{ book_id: string }>) {
-      counts.set(s.book_id, (counts.get(s.book_id) ?? 0) + 1);
+    for (const s of (sales ?? []) as unknown as Array<{ book_id: string; quantity?: number }>) {
+      counts.set(s.book_id, (counts.get(s.book_id) ?? 0) + (Number(s.quantity ?? 1) || 1));
     }
     return {
       ready: true,

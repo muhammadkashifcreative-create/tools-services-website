@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { BookOpen, Loader2, ShoppingBag, Undo2, X } from "lucide-react";
+import { BookOpen, Loader2, RotateCcw, ShoppingBag, Undo2, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { listMyBookPurchases } from "@/lib/books.functions";
 import { requestBookRefund } from "@/lib/refunds.functions";
@@ -56,6 +56,7 @@ function PurchasesPage() {
                 <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3 text-left font-medium">Book</th>
+                    <th className="px-5 py-3 text-center font-medium">Qty</th>
                     <th className="px-5 py-3 text-right font-medium">Price</th>
                     <th className="px-5 py-3 text-left font-medium">Payment</th>
                     <th className="px-5 py-3 text-left font-medium">Delivery</th>
@@ -81,6 +82,7 @@ function PurchasesPage() {
                           </div>
                         </div>
                       </td>
+                      <td className="px-5 py-3 text-center tabular-nums">{p.quantity ?? 1}</td>
                       <td className="px-5 py-3 text-right tabular-nums">
                         <div>{fmt(Number(p.amount_usd))}</div>
                         <div className="text-[10px] text-muted-foreground">${Number(p.amount_usd).toFixed(2)} USD</div>
@@ -106,6 +108,15 @@ function PurchasesPage() {
                           {p.status !== "paid" && p.book_slug && (
                             <Link to="/checkout/$slug" params={{ slug: p.book_slug }} className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent">
                               <ShoppingBag className="h-3 w-3" /> Retry
+                            </Link>
+                          )}
+                          {p.status === "paid" && p.book_slug && (
+                            <Link
+                              to="/checkout/$slug"
+                              params={{ slug: p.book_slug }}
+                              className="inline-flex items-center gap-1 rounded-md border border-primary/40 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                            >
+                              <RotateCcw className="h-3 w-3" /> Buy again
                             </Link>
                           )}
                           {p.status === "paid" && (

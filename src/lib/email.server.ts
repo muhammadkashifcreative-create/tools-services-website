@@ -193,7 +193,9 @@ export async function sendWelcomeEmail(to: string, name: string) {
   await sendEmail(to, "Welcome to Social Padu 🎉", layout("Your account is ready to use", "Welcome", body));
 }
 
-export async function sendBookPurchaseEmail(to: string, name: string, bookTitle: string, amountUsd: number, delivered: boolean) {
+export async function sendBookPurchaseEmail(to: string, name: string, bookTitle: string, amountUsd: number, delivered: boolean, quantity = 1) {
+  // Single copies are the norm — only spell the count out when it isn't one.
+  const qtyRow: Array<[string, string]> = quantity > 1 ? [["Quantity", `${quantity} copies`]] : [];
   if (!delivered) {
     const body = `
       ${heroIcon("📦", "#fff7ed")}
@@ -201,6 +203,7 @@ export async function sendBookPurchaseEmail(to: string, name: string, bookTitle:
       ${subtitle(`Hi <strong>${name || "there"}</strong>, thanks for your purchase! Your book is being prepared and will appear in your library shortly. We'll email you the moment it's ready to download.`)}
       ${infoCard([
         ["Book", bookTitle],
+        ...qtyRow,
         ["Amount paid", `$${amountUsd.toFixed(2)} USD`],
         ["Delivery", `<span style="color:#b45309;font-weight:700;">Being prepared</span>`],
         ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],
@@ -217,6 +220,7 @@ export async function sendBookPurchaseEmail(to: string, name: string, bookTitle:
     ${subtitle(`Hi <strong>${name || "there"}</strong>, thanks for your purchase. Your guide book is waiting in your library — download it any time, as often as you like.`)}
     ${infoCard([
       ["Book", bookTitle],
+      ...qtyRow,
       ["Amount paid", `$${amountUsd.toFixed(2)} USD`],
       ["Delivery", "PDF download"],
       ["Date & time", new Date().toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" })],

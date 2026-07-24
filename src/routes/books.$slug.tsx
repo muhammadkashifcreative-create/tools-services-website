@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { ArrowLeft, BadgeCheck, BookOpen, Check, CreditCard, Download, Loader2, LogIn, MessageSquare, ShieldCheck, Star } from "lucide-react";
+import { ArrowLeft, BadgeCheck, BookOpen, Check, CreditCard, Download, Loader2, LogIn, MessageSquare, Minus, Plus, ShieldCheck, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -50,6 +50,9 @@ function BookDetailPage() {
   useEffect(() => {
     fetch("/api/auth/me").then((r) => setAuthed(r.ok)).catch(() => setAuthed(false));
   }, []);
+
+  // Copies to buy — carried into checkout, where it can still be changed.
+  const [qty, setQty] = useState(1);
 
   const { data: ccy } = useQuery({
     queryKey: ["user-currency"],
@@ -147,19 +150,48 @@ function BookDetailPage() {
             <div className="mt-8 rounded-2xl border border-border/60 bg-card p-6 shadow-soft">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <p className="text-3xl font-bold tabular-nums text-gradient">{fxSymbol}{local.toFixed(2)}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">${Number(book.price_usd).toFixed(2)} USD · one-time payment</p>
+                  <p className="text-3xl font-bold tabular-nums text-gradient">
+                    {fxSymbol}{(local * qty).toFixed(2)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {qty > 1 ? `${fxSymbol}${local.toFixed(2)} × ${qty} copies · ` : ""}
+                    ${(Number(book.price_usd) * qty).toFixed(2)} USD · one-time payment
+                  </p>
                 </div>
                 {authed ? (
-                  <Link
-                    to="/checkout/$slug"
-                    params={{ slug: book.slug }}
-                    className="inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90"
-                    style={{ background: "var(--gradient-accent)" }}
-                  >
-                    <CreditCard className="h-4 w-4" />
-                    Buy now — secure checkout
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="inline-flex items-center rounded-xl border border-border/60">
+                      <button
+                        type="button"
+                        onClick={() => setQty((q) => Math.max(1, q - 1))}
+                        disabled={qty <= 1}
+                        aria-label="Decrease quantity"
+                        className="flex h-12 w-11 items-center justify-center rounded-l-xl text-muted-foreground transition hover:bg-accent disabled:opacity-40"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <span className="flex h-12 w-11 items-center justify-center border-x border-border/60 text-sm font-bold tabular-nums">{qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => setQty((q) => Math.min(99, q + 1))}
+                        disabled={qty >= 99}
+                        aria-label="Increase quantity"
+                        className="flex h-12 w-11 items-center justify-center rounded-r-xl text-muted-foreground transition hover:bg-accent disabled:opacity-40"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <Link
+                      to="/checkout/$slug"
+                      params={{ slug: book.slug }}
+                      search={qty > 1 ? { qty } : {}}
+                      className="inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold text-white shadow-glow transition hover:opacity-90"
+                      style={{ background: "var(--gradient-accent)" }}
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      Buy now — secure checkout
+                    </Link>
+                  </div>
                 ) : (
                   <Link
                     to="/auth"
